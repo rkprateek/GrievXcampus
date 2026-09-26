@@ -1,11 +1,42 @@
 # GrievX Campus Mobile
 
-Week 1 shell for the student mobile application.
+React Native + Expo student application.
 
-## Planned stack
-- React Native
-- Expo
-- TypeScript
+## Week 4 implementation
 
-## Week 1 scope
-Only the application shell and planned navigation/feature boundaries are defined here. Authentication, complaint submission, notifications, and duplicate detection are implemented in later weeks according to the roadmap.
+The Week 4 mobile flow includes:
+- Student login and registration using the FastAPI authentication API.
+- Secure local JWT storage using Expo SecureStore.
+- Student home screen.
+- New Complaint form.
+- Title, description and location fields.
+- Image selection and preview.
+- Complaint submission.
+- My Complaints list.
+- Complaint details.
+- Loading and error states.
+
+## Local development
+
+This project uses Expo SDK 57 with React Native 0.86.3. Expo SDK 57 was released on June 30, 2026.
+
+Install:
+
+    cd apps/mobile
+    npm install
+
+When using a physical Android device, set the API URL to the computer's LAN address instead of localhost:
+
+    $env:EXPO_PUBLIC_API_BASE_URL="http://YOUR_COMPUTER_IP:8000"
+
+Start:
+
+    npm start
+
+Type check:
+
+    npm run typecheck
+
+## Scope boundary
+
+The mobile app does not implement admin dashboard features, staff assignment, department routing, complaint status changes, notifications, ML features, duplicate detection, analytics or campus map features. Those belong to later roadmap weeks.
