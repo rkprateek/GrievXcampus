@@ -22,3 +22,4 @@ class User(TimestampMixin, Base):
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
     role: Mapped["Role"] = relationship(back_populates="users")
+    complaints: Mapped[list["Complaint"]] = relationship(back_populates="student")
