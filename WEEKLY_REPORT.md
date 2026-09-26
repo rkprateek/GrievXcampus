@@ -49,14 +49,18 @@ Implementation added on the `week-3-auth-rbac` branch. Local runtime verificatio
 - Added users and roles SQLAlchemy models.
 - Added Student, Staff, Department Head, and Admin roles.
 - Added password hashing with Argon2 through pwdlib.
-- Added JWT access-token creation and validation.
+- Added JWT access-token creation and validation with subject, issued-at, and expiration claims.
 - Added registration and login endpoints.
 - Added authenticated current-user endpoint.
 - Added backend role-based authorization dependency.
 - Added an Admin-only RBAC verification endpoint.
 - Added Alembic migration `0002_auth_rbac` with role seed data.
 - Added authentication and RBAC API tests with an isolated SQLite test database.
-- Kept complaint, ML, notification, analytics, map, and deployment work outside Week 3 scope.
+- Verified missing, malformed, expired, and inactive token handling behavior.
+- Kept complaint, ML, notification, analytics, map, deployment, and all Week 4 functionality outside Week 3 scope.
+
+### Explicit scope note
+Week 4 complaint submission and complaint-related functionality were not started in this branch.
 
 ### Security boundary
 Public registration always creates a Student account. Privileged roles are not user-selectable during registration.

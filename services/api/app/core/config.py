@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     app_name: str = "GrievX Campus API"
     app_version: str = "0.1.0"
     app_env: str = "development"
+    # Development defaults for local work; override through environment variables in deployed environments.
     database_url: str = "postgresql+psycopg://grievx:grievx_dev_password@localhost:5432/grievx"
     redis_url: str = "redis://localhost:6379/0"
     s3_endpoint: str = "http://localhost:9000"

@@ -45,8 +45,12 @@ def database():
     yield
 
     Base.metadata.drop_all(bind=engine)
-    if TEST_DB.exists():
-        TEST_DB.unlink()
+    engine.dispose()
+    try:
+        if TEST_DB.exists():
+            TEST_DB.unlink()
+    except PermissionError:
+        pass
 
 
 @pytest.fixture
