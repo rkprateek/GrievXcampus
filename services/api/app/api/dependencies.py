@@ -1,6 +1,7 @@
 from collections.abc import Callable
 from uuid import UUID
 
+import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
@@ -26,7 +27,7 @@ def get_current_user(
 
     try:
         user_id: UUID = decode_access_token(credentials.credentials)
-    except (ValueError, TypeError, Exception):
+    except (jwt.InvalidTokenError, ValueError, TypeError):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired access token.",
