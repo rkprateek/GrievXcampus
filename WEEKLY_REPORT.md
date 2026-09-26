@@ -6,26 +6,25 @@
 In progress.
 
 ### Completed
-- Created the GrievX Campus repository.
-- Defined the initial project scope.
+- Created the GrievX Campus repository foundation.
 - Defined the 14-week development roadmap.
-- Defined the initial architecture.
+- Defined the architecture and technology boundaries.
 - Added local PostgreSQL, Redis, and MinIO infrastructure configuration.
 - Added project development and security rules.
-- Added the new duplicate complaint detection feature to the product scope and roadmap.
-- Defined the duplicate detection submission flow and the hostel leakage acceptance scenario.
-
-### Duplicate detection requirement
-
-The system must identify the two following complaints as a possible duplicate because they describe a similar water-leakage issue at the same hostel location:
-
-1. **Water leaking from ceiling pipe** — Boys Hostel 1, 3rd Floor — Continuous water leaking and pooling on the floor.
-2. **Ceiling pipe leakage in hostel** — Boys Hostel 1, 3rd Floor — Water dripping from pipe on the 3rd floor.
-
-The system should show the existing complaint to the student before allowing the new complaint to be submitted.
+- Added detailed requirements.
+- Added roles and permissions matrix.
+- Added planned API design.
+- Added planned database design.
+- Added student mobile and admin dashboard UI flows.
+- Added application, backend and ML project shells.
+- Added environment variable template.
+- Documented Duplicate Detection as an application feature, separate from the three ML capabilities.
 
 ### Verification
-The requirement is documented. Implementation and automated testing are scheduled for Week 10.
+Week 1 documentation and repository structure are present on the week-1-foundation branch.
+
+### Not started intentionally
+Authentication, complaint APIs, complaint lifecycle, notifications, ML training/inference, analytics, map features and duplicate-detection implementation remain scheduled for their roadmap weeks.
 
 ### Next
-Complete the remaining Week 1 requirements, role definitions, wireframes, API/database planning, and initial application structure.
+Finish any remaining Week 1 shell/tooling verification, then move to Week 2 backend and database implementation.
