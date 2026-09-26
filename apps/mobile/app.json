@@ -1,0 +1,20 @@
+{
+  "expo": {
+    "name": "GrievX Campus",
+    "slug": "grievx-campus",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "scheme": "grievx",
+    "plugins": [
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "GrievX Campus needs access to your photos so you can attach evidence to a complaint.",
+          "cameraPermission": "GrievX Campus needs camera access so you can photograph a campus issue.",
+          "microphonePermission": false
+        }
+      ]
+    ]
+  }
+}
