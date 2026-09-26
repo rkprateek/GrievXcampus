@@ -70,3 +70,32 @@ The connected GitHub environment was used to inspect and modify the repository, 
 
 ### Next
 Verify Week 3 locally, then proceed to Week 4 complaint submission only after authentication and RBAC are passing.
+
+
+## Week 4
+
+### Status
+Student complaint submission implementation added on the week-4-complaint-submission branch.
+
+### Completed
+- Added Complaint and ComplaintImage database models.
+- Added Alembic migration 0003_complaints.
+- Added student-only complaint creation.
+- Added authenticated student complaint listing.
+- Added authenticated student complaint detail access with ownership enforcement.
+- New complaints start in SUBMITTED status.
+- Added MinIO/S3-compatible image upload.
+- Added image MIME-type and 5 MB size validation.
+- Added complaint image metadata persistence.
+- Added React Native + Expo student login/register flow using the existing Week 3 authentication API.
+- Added secure JWT storage using Expo SecureStore.
+- Added New Complaint, My Complaints and Complaint Details screens.
+- Added image selection and preview.
+- Added Week 4 backend tests for authentication, authorization, ownership, validation and image handling.
+- Updated API and database documentation.
+
+### Scope control
+Week 4 intentionally did not implement admin complaint management, staff assignment, department routing, status transitions, notifications, text classification, priority prediction, duplicate detection, analytics, campus map or deployment.
+
+### Verification
+The repository changes were implemented on the week-4-complaint-submission branch. Local pytest, PostgreSQL migration and mobile npm/typecheck commands must be run in the user's VS Code environment before this week is marked fully verified.
