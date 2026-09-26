@@ -1,42 +1,51 @@
-# Database Design — Week 1 Plan
+# Database Design
 
-## Core entities
+## Implemented through Week 4
 
-- users
-- roles
+### users
+Authentication identity and role assignment.
+
+### roles
+Student, Staff, Department Head and Admin roles.
+
+### complaints
+
+| Field | Type | Purpose |
+|---|---|---|
+| id | UUID | Complaint identifier |
+| student_id | UUID | Authenticated student who submitted it |
+| title | VARCHAR(150) | Short complaint title |
+| description | TEXT | Complaint details |
+| location | VARCHAR(255) | Campus location |
+| status | VARCHAR(30) | Initial value is submitted |
+| created_at | timestamp | Creation time |
+| updated_at | timestamp | Last update time |
+
+student_id references users.id.
+
+### complaint_images
+
+| Field | Type | Purpose |
+|---|---|---|
+| id | UUID | Image record identifier |
+| complaint_id | UUID | Parent complaint |
+| object_key | VARCHAR(500) | MinIO/S3 object key |
+| original_filename | VARCHAR(255) | Original upload name |
+| content_type | VARCHAR(100) | Validated image MIME type |
+| created_at | timestamp | Creation time |
+| updated_at | timestamp | Last update time |
+
+Binary image data is not stored in PostgreSQL.
+
+## Planned entities
+
 - departments
-- complaints
-- complaint_images
 - complaint_status_history
 - staff_assignments
 - notifications
 - model_versions
 - ai_predictions
 
-## Duplicate detection data
+These are implemented in later roadmap weeks.
 
-Duplicate checking should not create a new complaint. The implementation may persist a compact audit/check record if needed for traceability.
-
-Potential fields:
-- new complaint/request reference
-- candidate complaint ID
-- similarity score
-- detection threshold/version
-- result
-- created timestamp
-
-The exact schema will be finalized in Week 2 after the API/domain boundaries are reviewed.
-
-## Complaint fields planned
-
-- complaint ID
-- student/user ID
-- title
-- description
-- location
-- status
-- priority
-- department
-- timestamps
-
-No Week 2 database implementation is included in this document.
+Priority and department are intentionally not implemented in Week 4.
