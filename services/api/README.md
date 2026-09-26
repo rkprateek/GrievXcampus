@@ -1,14 +1,43 @@
 # GrievX Campus API
 
-Week 1 shell for the FastAPI backend.
+FastAPI backend for GrievX Campus.
 
-## Planned responsibilities
-- REST API
-- validation
-- authentication/RBAC
+## Week 2 foundation
+
+Implemented:
+- FastAPI application entry point
+- environment-backed settings
+- SQLAlchemy engine/session dependency
+- database declarative base and timestamp mixin
+- Alembic migration configuration and baseline revision
+- GET /health database connectivity check
+- common application error response shape
+- pytest foundation
+
+Not implemented in Week 2:
+- authentication/JWT/RBAC
+- complaint APIs
 - complaint lifecycle
 - notifications
-- ML inference integration
+- ML inference
 - duplicate detection
 
-Business logic is intentionally not implemented in Week 1.
+## Run locally
+
+From services/api:
+
+```bash
+python -m venv .venv
+# Windows:
+.venv\Scripts\activate
+pip install -e ".[test]"
+uvicorn app.main:app --reload
+```
+
+The API expects PostgreSQL from the root Docker Compose file.
+
+Database migrations:
+
+```bash
+alembic upgrade head
+```
