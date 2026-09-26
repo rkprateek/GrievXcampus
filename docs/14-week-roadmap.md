@@ -27,8 +27,21 @@ Priority labels/rules for dataset creation, baseline model, evaluation, explaina
 ## Week 9 — Department routing
 Department mapping, routing model/logic based on text classification and project data, confidence handling, inference integration, and tests.
 
-## Week 10 — ML integration and operational workflow
+## Week 10 — ML integration, duplicate detection, and operational workflow
 Connect classification, priority, and routing to the complaint workflow; persist predictions; expose results to authorized staff; handle low-confidence cases safely.
+
+Add **duplicate complaint detection** to the submission workflow:
+- compare a new complaint with recent relevant complaints;
+- compare title and description similarity;
+- require matching/near-matching campus location as an important signal;
+- use a configurable threshold rather than a hard-coded decision;
+- return possible duplicate complaint IDs and similarity information;
+- let the student review the existing complaint before creating another record;
+- allow an explicit “submit anyway” path when the student confirms it is a different issue;
+- prevent duplicate detection from blocking legitimate unrelated complaints;
+- add backend and mobile tests for the example hostel leakage scenario.
+
+Duplicate detection is an application feature, not an additional ML capability. It must not be presented as a fourth ML model.
 
 ## Week 11 — Analytics and reporting
 Operational dashboard metrics, complaint trends, category/priority/department summaries, filters, export/report support, and tests.
