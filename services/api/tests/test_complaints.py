@@ -183,3 +183,61 @@ def test_invalid_image_type_is_rejected(client: TestClient, monkeypatch) -> None
         files={"file": ("notes.txt", b"not-an-image", "text/plain")},
     )
     assert response.status_code == 415
+
+
+def test_student_cannot_upload_to_another_students_complaint(client: TestClient, monkeypatch) -> None:
+    first_token = register_student(client, "owner@example.com")
+    create = client.post(
+        "/complaints",
+        headers={"Authorization": f"Bearer {first_token}"},
+        json={
+            "title": "Owner complaint",
+            "description": "Only the owner may attach evidence.",
+            "location": "Block C",
+        },
+    )
+    complaint_id = create.json()["id"]
+
+    second_token = register_student(client, "other@example.com")
+
+    import app.api.routes.complaints as complaints_route
+
+    def fail_if_called():
+        raise AssertionError("Storage must not be called for another student's complaint.")
+
+    monkeypatch.setattr(complaints_route, "get_object_storage", fail_if_called)
+
+    response = client.post(
+        f"/complaints/{complaint_id}/images",
+        headers={"Authorization": f"Bearer {second_token}"},
+        files={"file": ("photo.png", b"fake-image", "image/png")},
+    )
+    assert response.status_code == 404
+
+
+def test_oversized_image_is_rejected(client: TestClient, monkeypatch) -> None:
+    token = register_student(client, "large-image@example.com")
+    create = client.post(
+        "/complaints",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "title": "Large image",
+            "description": "Image should be limited in size.",
+            "location": "Block D",
+        },
+    )
+    complaint_id = create.json()["id"]
+
+    import app.api.routes.complaints as complaints_route
+
+    def fail_if_called():
+        raise AssertionError("Storage must not be called for an oversized image.")
+
+    monkeypatch.setattr(complaints_route, "get_object_storage", fail_if_called)
+
+    response = client.post(
+        f"/complaints/{complaint_id}/images",
+        headers={"Authorization": f"Bearer {token}"},
+        files={"file": ("large.png", b"x" * (5 * 1024 * 1024 + 1), "image/png")},
+    )
+    assert response.status_code == 413
