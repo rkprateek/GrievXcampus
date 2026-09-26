@@ -1,92 +1,63 @@
 # GrievX Campus API
 
-FastAPI backend for GrievX Campus.
+FastAPI backend for the GrievX Campus project.
 
-## Week 3 authentication and RBAC
-
-Implemented:
-- PostgreSQL-backed users and roles
-- Four roles: student, staff, department_head, admin
-- Argon2 password hashing through pwdlib
-- JWT access-token creation and validation with exp/iat claims
-- POST /auth/register
-- POST /auth/login
-- GET /auth/me
-- Backend role dependency enforcement via `get_current_user()` and `require_roles(...)`
-- GET /auth/admin-check as an RBAC verification endpoint
-- Alembic migration that creates roles/users and seeds the four roles
-- Isolated SQLite API test fixtures for authentication tests
-
-Registration always creates a Student account. Staff, Department Head, and Admin role assignment is intentionally not exposed through public registration.
-
-No complaint submission, lifecycle, notification, ML, or other Week 4 features have been implemented in this branch.
-
-### JWT and security notes
-- JWT secret and expiration settings are loaded from application configuration/environment values.
-- Development defaults are intentionally local-only and should be overridden in a real deployment.
-- Passwords are never stored in plaintext. They are hashed with Argon2 before persistence.
-- Protected endpoints require a valid Bearer token and the correct role.
-
-### Testing and migration commands
-
-```bash
-cd services/api
-pytest
-alembic upgrade head
-```
-
-### Week 3 API endpoints
-
-- POST /auth/register
-- POST /auth/login
-- GET /auth/me
-- GET /auth/admin-check (protected admin verification endpoint)
-
-### Security boundary
-Privileged roles are backend-controlled and are not accepted from public registration requests.
-
-## Week 2 foundation
+## Week 4 — Student complaint submission
 
 Implemented:
-- FastAPI application entry point
-- environment-backed settings
-- SQLAlchemy engine/session dependency
-- database declarative base and timestamp mixin
-- Alembic migration configuration and baseline revision
-- GET /health database connectivity check
-- common application error response shape
-- pytest foundation
+- Complaint and complaint-image SQLAlchemy models.
+- Student-only complaint creation.
+- Authenticated student complaint listing.
+- Authenticated student complaint detail access with ownership enforcement.
+- Initial complaint status: submitted.
+- Image upload to MinIO/S3-compatible object storage.
+- JPEG, PNG and WebP validation.
+- 5 MB image size limit.
+- Complaint ownership checks before image upload.
+- Alembic migration 0003_complaints.
 
-## Run locally
+## Week 4 endpoints
 
-From services/api:
+POST /complaints
+- Requires an authenticated Student.
+- Accepts title, description and location.
+- The student ID is taken from the authenticated JWT.
+- New complaints always start with submitted status.
 
-```bash
-python -m venv .venv
-# Windows:
-.venv\\Scripts\\activate
-pip install -e ".[test]"
-uvicorn app.main:app --reload
-```
+GET /complaints
+- Returns only complaints belonging to the authenticated Student.
 
-The API expects PostgreSQL from the root Docker Compose file.
+GET /complaints/{complaint_id}
+- Returns a complaint only when it belongs to the authenticated Student.
 
-Database migrations:
+POST /complaints/{complaint_id}/images
+- Multipart upload using field name file.
+- Accepted types: image/jpeg, image/png, image/webp.
+- Maximum size: 5 MB.
+- Binary data is stored in MinIO/S3-compatible storage.
+- PostgreSQL stores image metadata and the object key.
 
-```bash
-alembic upgrade head
-```
+## Local setup
 
-Tests:
+From the repository root:
 
-```bash
-pytest
-```
+    docker compose up -d postgres redis minio
 
-Authentication flow:
+Then:
 
-1. Register with POST /auth/register.
-2. Login with POST /auth/login.
-3. Send the returned token as `Authorization: Bearer <token>`.
-4. Call GET /auth/me or protected endpoints.
-5. RBAC dependencies reject users whose role is not allowed.
+    cd services/api
+    pip install -e ".[test]"
+    alembic upgrade head
+    pytest
+
+Default local object storage:
+- Endpoint: http://localhost:9000
+- Bucket: grievx
+- Access key: grievx
+- Secret key: grievx_dev_password
+
+Override these values with environment variables before production use.
+
+## Scope boundary
+
+Week 4 does not implement admin complaint management, staff assignment, department routing, status transitions, notifications, text classification, priority prediction, duplicate detection, analytics, campus map or deployment.
