@@ -1,622 +1,76 @@
 import { useEffect, useState } from "react";
-import {
-  ActivityIndicator,
-  Alert,
-  FlatList,
-  Image,
-  Pressable,
-  SafeAreaView,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
+import { ActivityIndicator, Alert, FlatList, Image, KeyboardAvoidingView, Platform, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import * as ImagePicker from "expo-image-picker";
+import { clearToken, createComplaint, getComplaint, getComplaints, getMe, getToken, login, register, uploadComplaintImage } from "./src/api";
 
-import {
-  clearToken,
-  createComplaint,
-  getComplaint,
-  getComplaints,
-  getMe,
-  getToken,
-  login,
-  register,
-  uploadComplaintImage,
-} from "./src/api";
+type Screen="home"|"report"|"complaints"|"detail"|"notifications"|"profile";
+type Complaint={id:string;title:string;description:string;location:string;status:string;created_at:string;images:{id:string;original_filename:string;content_type:string}[]};
+const C={bg:"#FAF8FF",white:"#FFFFFF",navy:"#1E3A8A",blue:"#2563EB",text:"#131B2E",muted:"#64748B",border:"#E2E8F0",soft:"#F2F3FF",error:"#BA1A1A",green:"#10B981"};
 
-type Screen = "home" | "new" | "list" | "detail";
-
-type Complaint = {
-  id: string;
-  title: string;
-  description: string;
-  location: string;
-  status: string;
-  created_at: string;
-  images: Array<{
-    id: string;
-    original_filename: string;
-    content_type: string;
-  }>;
-};
-
-export default function App() {
-  const [token, setTokenState] = useState<string | null>(null);
-  const [screen, setScreen] = useState<Screen>("home");
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [authMode, setAuthMode] = useState<"login" | "register">("login");
-  const [loading, setLoading] = useState(true);
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [name, setName] = useState("");
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    getToken()
-      .then(setTokenState)
-      .finally(() => setLoading(false));
-  }, []);
-
-  if (loading) {
-    return (
-      <Centered>
-        <ActivityIndicator size="large" />
-      </Centered>
-    );
-  }
-
-  if (!token) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.authCard}>
-          <Text style={styles.brand}>GrievX Campus</Text>
-          <Text style={styles.heading}>
-            {authMode === "login" ? "Student Login" : "Create Student Account"}
-          </Text>
-
-          {authMode === "register" && (
-            <TextInput
-              style={styles.input}
-              placeholder="Full name"
-              value={name}
-              onChangeText={setName}
-            />
-          )}
-
-          <TextInput
-            style={styles.input}
-            placeholder="Email"
-            autoCapitalize="none"
-            keyboardType="email-address"
-            value={email}
-            onChangeText={setEmail}
-          />
-
-          <TextInput
-            style={styles.input}
-            placeholder="Password"
-            secureTextEntry
-            value={password}
-            onChangeText={setPassword}
-          />
-
-          {!!error && <Text style={styles.error}>{error}</Text>}
-
-          <Button
-            label={authMode === "login" ? "Login" : "Register"}
-            onPress={async () => {
-              try {
-                setError("");
-                if (authMode === "register") {
-                  await register(name, email, password);
-                }
-                await login(email, password);
-                setTokenState(await getToken());
-              } catch (err) {
-                setError(
-                  err instanceof Error ? err.message : "Something went wrong.",
-                );
-              }
-            }}
-          />
-
-          <Pressable
-            onPress={() =>
-              setAuthMode(authMode === "login" ? "register" : "login")
-            }
-          >
-            <Text style={styles.link}>
-              {authMode === "login"
-                ? "Create a student account"
-                : "Already have an account? Login"}
-            </Text>
-          </Pressable>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  return (
-    <SafeAreaView style={styles.container}>
-      {screen === "home" && (
-        <Home
-          onNavigate={setScreen}
-          onLogout={async () => {
-            await clearToken();
-            setTokenState(null);
-          }}
-        />
-      )}
-
-      {screen === "new" && (
-        <NewComplaint
-          onDone={() => setScreen("list")}
-          onBack={() => setScreen("home")}
-        />
-      )}
-
-      {screen === "list" && (
-        <ComplaintList
-          onBack={() => setScreen("home")}
-          onOpen={(id) => {
-            setSelectedId(id);
-            setScreen("detail");
-          }}
-        />
-      )}
-
-      {screen === "detail" && selectedId && (
-        <ComplaintDetail
-          id={selectedId}
-          onBack={() => setScreen("list")}
-        />
-      )}
-    </SafeAreaView>
-  );
+export default function App(){
+ const [token,setToken]=useState<string|null>(null),[screen,setScreen]=useState<Screen>("home"),[id,setId]=useState<string|null>(null),[auth,setAuth]=useState<"login"|"register">("login"),[loading,setLoading]=useState(true);
+ useEffect(()=>{getToken().then(setToken).finally(()=>setLoading(false))},[]);
+ if(loading)return <Centered><ActivityIndicator color={C.blue}/></Centered>;
+ if(!token)return <Auth mode={auth} setMode={setAuth} done={async()=>setToken(await getToken())}/>;
+ const open=(x:string)=>{setId(x);setScreen("detail")};
+ return <SafeAreaView style={s.app}>
+  {screen==="home"&&<Home go={setScreen}/>}
+  {screen==="report"&&<Report back={()=>setScreen("home")} done={()=>setScreen("complaints")}/>}
+  {screen==="complaints"&&<Complaints back={()=>setScreen("home")} open={open}/>}
+  {screen==="detail"&&id&&<Detail id={id} back={()=>setScreen("complaints")}/>}
+  {screen==="notifications"&&<Simple title="Notifications" back={()=>setScreen("home")} text="Notification APIs are outside the current Week 4 backend scope."/>}
+  {screen==="profile"&&<Profile back={()=>setScreen("home")} logout={async()=>{await clearToken();setToken(null)}}/>}
+  {!["report","detail"].includes(screen)&&<Nav active={screen} go={setScreen}/>}
+ </SafeAreaView>
 }
 
-function Home({
-  onNavigate,
-  onLogout,
-}: {
-  onNavigate: (screen: Screen) => void;
-  onLogout: () => void;
-}) {
-  const [me, setMe] = useState<{ name: string } | null>(null);
-
-  useEffect(() => {
-    getMe().then(setMe).catch(() => undefined);
-  }, []);
-
-  return (
-    <ScrollView contentContainerStyle={styles.content}>
-      <Text style={styles.brand}>GrievX Campus</Text>
-      <Text style={styles.heading}>
-        Hello{me?.name ? ", " + me.name : ""}
-      </Text>
-      <Text style={styles.muted}>
-        Report a campus issue and keep track of its status.
-      </Text>
-
-      <Button
-        label="New Complaint"
-        onPress={() => onNavigate("new")}
-      />
-      <Button
-        label="My Complaints"
-        onPress={() => onNavigate("list")}
-        secondary
-      />
-
-      <Pressable onPress={onLogout}>
-        <Text style={styles.link}>Logout</Text>
-      </Pressable>
-    </ScrollView>
-  );
+function Auth({mode,setMode,done}:{mode:"login"|"register";setMode:(x:"login"|"register")=>void;done:()=>void}){
+ const [name,setName]=useState(""),[email,setEmail]=useState(""),[password,setPassword]=useState(""),[busy,setBusy]=useState(false),[error,setError]=useState("");
+ const submit=async()=>{try{setError("");setBusy(true);if(mode==="register")await register(name.trim(),email.trim(),password);await login(email.trim(),password);done()}catch(e){setError(e instanceof Error?e.message:"Something went wrong.")}finally{setBusy(false)}};
+ return <SafeAreaView style={s.app}><KeyboardAvoidingView style={{flex:1}} behavior={Platform.OS==="ios"?"padding":undefined}><ScrollView contentContainerStyle={s.auth}>
+  <Brand/><Text style={s.eyebrow}>CAMPUS CLARITY</Text><Text style={s.display}>{mode==="login"?"Welcome back.":"Join GrievX Campus."}</Text><Text style={s.body}>Report campus issues and keep track of your complaints.</Text>
+  <Card>{mode==="register"&&<Field label="Full name" placeholder="Your full name" value={name} onChangeText={setName}/>}<Field label="Email" placeholder="you@pesu.pes.edu" keyboardType="email-address" autoCapitalize="none" value={email} onChangeText={setEmail}/><Field label="Password" placeholder="Enter your password" secureTextEntry value={password} onChangeText={setPassword}/>{!!error&&<Text style={s.error}>{error}</Text>}<Primary label={busy?"Please wait...":mode==="login"?"Sign in":"Create account"} onPress={submit} disabled={busy}/><Pressable onPress={()=>setMode(mode==="login"?"register":"login")}><Text style={s.link}>{mode==="login"?"New here? Create an account":"Already have an account? Sign in"}</Text></Pressable></Card>
+  <Text style={s.helper}>PESU credential verification can be integrated behind the GrievX API.</Text>
+ </ScrollView></KeyboardAvoidingView></SafeAreaView>
 }
 
-function NewComplaint({
-  onDone,
-  onBack,
-}: {
-  onDone: () => void;
-  onBack: () => void;
-}) {
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [location, setLocation] = useState("");
-  const [image, setImage] =
-    useState<ImagePicker.ImagePickerAsset | null>(null);
-  const [busy, setBusy] = useState(false);
+function Home({go}:{go:(x:Screen)=>void}){const [me,setMe]=useState<{name:string}|null>(null);useEffect(()=>{getMe().then(setMe).catch(()=>{})},[]);const first=me?.name?.split(" ")[0]||"Student";return <ScrollView contentContainerStyle={s.page}>
+ <View style={s.top}><View><Text style={s.eyebrow}>GRIEVX CAMPUS</Text><Text style={s.greeting}>Hi, {first} 👋</Text></View><Pressable style={s.avatar} onPress={()=>go("profile")}><Text style={s.avatarText}>{first[0]?.toUpperCase()}</Text></Pressable></View>
+ <View style={s.hero}><View style={{flex:1}}><Text style={s.heroTitle}>Make your campus better.</Text><Text style={s.heroBody}>Report an issue in a few simple steps and follow its progress.</Text><Primary label="Report an issue" onPress={()=>go("report")}/></View><View style={s.heroIcon}><Text style={s.heroCheck}>✓</Text></View></View>
+ <Text style={s.section}>Your activity</Text><View style={s.stats}><Stat label="Submitted"/><Stat label="In progress"/><Stat label="Resolved"/></View>
+ <Text style={s.section}>Quick actions</Text><View style={s.actions}><Action title="My complaints" sub="View your reports" icon="▣" onPress={()=>go("complaints")}/><Action title="Notifications" sub="Updates and alerts" icon="●" onPress={()=>go("notifications")}/></View>
+ </ScrollView>}
 
-  const pickImage = async () => {
-    const permission =
-      await ImagePicker.requestMediaLibraryPermissionsAsync();
+function Report({back,done}:{back:()=>void;done:()=>void}){const [title,setTitle]=useState(""),[description,setDescription]=useState(""),[location,setLocation]=useState(""),[image,setImage]=useState<ImagePicker.ImagePickerAsset|null>(null),[busy,setBusy]=useState(false);
+ const pick=async()=>{const p=await ImagePicker.requestMediaLibraryPermissionsAsync();if(!p.granted){Alert.alert("Photo access needed","Allow photo access to attach evidence.");return}const r=await ImagePicker.launchImageLibraryAsync({mediaTypes:["images"],allowsEditing:true,quality:.8});if(!r.canceled)setImage(r.assets[0])};
+ const submit=async()=>{if(!title.trim()||!description.trim()||!location.trim()){Alert.alert("Missing information","Please complete title, description and campus location.");return}try{setBusy(true);const c=await createComplaint({title:title.trim(),description:description.trim(),location:location.trim()});if(image)await uploadComplaintImage(c.id,image.uri,image.fileName??"evidence.jpg",image.mimeType??"image/jpeg");Alert.alert("Complaint submitted","Your complaint was submitted successfully.",[{text:"View complaints",onPress:done}])}catch(e){Alert.alert("Submission failed",e instanceof Error?e.message:"Please try again.")}finally{setBusy(false)}};
+ return <KeyboardAvoidingView style={s.app} behavior={Platform.OS==="ios"?"padding":undefined}><ScrollView contentContainerStyle={s.page}><Header title="Report an issue" back={back}/>
+ <View style={s.progress}><Text style={s.step}>1 OF 2 · FAST ROUTE DESK</Text><Text style={s.cardTitle}>Tell us what happened.</Text><Text style={s.muted}>Clear details help the complaint reach the right campus team.</Text></View>
+ <Card><Field label="Complaint summary" placeholder="e.g. Wi-Fi disconnected in Lab 304" maxLength={150} value={title} onChangeText={setTitle}/><Field label="Detailed description" placeholder="Describe the problem clearly..." multiline value={description} onChangeText={setDescription} inputStyle={s.area}/><Text style={s.label}>Campus location</Text><Text style={s.helper}>Enter the building, room or campus area manually. No GPS is used.</Text><Field label="" placeholder="e.g. EC Block, Lab 304" value={location} onChangeText={setLocation}/></Card>
+ <Card><Text style={s.label}>Upload evidence</Text><Text style={s.helper}>Add one photo showing the issue. JPG, PNG or WEBP · max 5 MB</Text>{image?<View style={s.imageBox}><Image source={{uri:image.uri}} style={s.image}/><Pressable onPress={pick}><Text style={s.link}>Change photo</Text></Pressable></View>:<Pressable onPress={pick} style={s.upload}><Text style={s.plus}>+</Text><Text style={s.label}>Add photo evidence</Text></Pressable>}</Card>
+ <Primary label={busy?"Submitting...":"Submit complaint"} onPress={submit} disabled={busy}/><Pressable onPress={back}><Text style={[s.muted,{textAlign:"center"}]}>Cancel</Text></Pressable>
+ </ScrollView></KeyboardAvoidingView>}
 
-    if (!permission.granted) {
-      Alert.alert(
-        "Permission required",
-        "Please allow photo access to attach evidence.",
-      );
-      return;
-    }
+function Complaints({back,open}:{back:()=>void;open:(id:string)=>void}){const [items,setItems]=useState<Complaint[]>([]),[loading,setLoading]=useState(true),[error,setError]=useState("");useEffect(()=>{getComplaints().then(setItems).catch(e=>setError(e instanceof Error?e.message:"Unable to load complaints.")).finally(()=>setLoading(false))},[]);
+ return <View style={s.app}><FlatList contentContainerStyle={s.page} data={items} keyExtractor={x=>x.id} ListHeaderComponent={<><Header title="My complaints" back={back}/><Text style={s.muted}>Follow the status of every complaint you have submitted.</Text><View style={{height:8}}/></>} ListEmptyComponent={loading?<ActivityIndicator color={C.blue}/>:<Text style={s.error}>{error||"No complaints yet."}</Text>} renderItem={({item})=><Pressable style={s.complaint} onPress={()=>open(item.id)}><View style={s.row}><Status status={item.status}/><Text style={s.date}>{date(item.created_at)}</Text></View><Text style={s.complaintTitle}>{item.title}</Text><Text style={s.muted} numberOfLines={2}>{item.description}</Text><Text style={s.helper}>• {item.location}</Text></Pressable>}/></View>}
 
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ["images"],
-      allowsEditing: true,
-      quality: 0.8,
-    });
+function Detail({id,back}:{id:string;back:()=>void}){const [item,setItem]=useState<Complaint|null>(null),[error,setError]=useState("");useEffect(()=>{getComplaint(id).then(setItem).catch(e=>setError(e instanceof Error?e.message:"Unable to load complaint."))},[id]);if(error)return <View style={s.page}><Header title="Complaint details" back={back}/><Text style={s.error}>{error}</Text></View>;if(!item)return <Centered><ActivityIndicator color={C.blue}/></Centered>;return <ScrollView contentContainerStyle={s.page}><Header title="Complaint details" back={back}/><View style={s.progress}><Status status={item.status}/><Text style={s.detailTitle}>{item.title}</Text><Text style={s.date}>{date(item.created_at)}</Text></View><Card><Text style={s.label}>Description</Text><Text style={s.body}>{item.description}</Text><Text style={[s.label,{marginTop:14}]}>Campus location</Text><Text style={s.body}>{item.location}</Text></Card><Card><Text style={s.label}>Evidence</Text>{item.images.length?item.images.map(x=><View key={x.id} style={s.file}><Text>▧</Text><View><Text style={s.label}>{x.original_filename}</Text><Text style={s.helper}>{x.content_type}</Text></View></View>):<Text style={s.muted}>No evidence attached.</Text>}</Card><Card><Text style={s.label}>Complaint status</Text>{["Submitted","Assigned","In progress","Resolved"].map((x,i)=><View style={s.timeline} key={x}><View style={[s.dot,i===0&&s.activeDot]}/><Text style={i===0?s.label:s.muted}>{x}</Text></View>)}</Card></ScrollView>}
 
-    if (!result.canceled) {
-      setImage(result.assets[0]);
-    }
-  };
+function Profile({back,logout}:{back:()=>void;logout:()=>void}){const [me,setMe]=useState<{name:string;email?:string}|null>(null);useEffect(()=>{getMe().then(setMe).catch(()=>{})},[]);return <ScrollView contentContainerStyle={s.page}><Header title="Profile" back={back}/><View style={s.profile}><View style={s.profileAvatar}><Text style={s.profileLetter}>{(me?.name||"S")[0]}</Text></View><Text style={s.detailTitle}>{me?.name||"Student"}</Text><Text style={s.muted}>{me?.email||"Student account"}</Text></View><Card><Text style={s.label}>Account</Text><Text style={s.body}>Student account</Text><Text style={s.helper}>Authentication is handled by the GrievX API in the current Week 4 implementation.</Text></Card><Pressable style={s.logout} onPress={logout}><Text style={{color:"#B91C1C",fontWeight:"700"}}>Sign out</Text></Pressable></ScrollView>}
 
-  const submit = async () => {
-    if (!title.trim() || !description.trim() || !location.trim()) {
-      Alert.alert(
-        "Missing information",
-        "Please fill title, description and location.",
-      );
-      return;
-    }
+function Simple({title,back,text}:{title:string;back:()=>void;text:string}){return <ScrollView contentContainerStyle={s.page}><Header title={title} back={back}/><View style={s.empty}><Text style={s.cardTitle}>You're all caught up</Text><Text style={s.muted}>{text}</Text></View></ScrollView>}
+function Nav({active,go}:{active:Screen;go:(x:Screen)=>void}){return <View style={s.nav}>{[["home","⌂","Home"],["complaints","□","Complaints"],["notifications","●","Alerts"],["profile","○","Profile"]].map(([k,i,l])=><Pressable key={k} style={s.navItem} onPress={()=>go(k as Screen)}><Text style={[s.navIcon,active===k&&s.navActive]}>{i}</Text><Text style={[s.navLabel,active===k&&s.navActive]}>{l}</Text></Pressable>)}</View>}
+function Header({title,back}:{title:string;back:()=>void}){return <View style={s.header}><Pressable onPress={back} style={s.back}><Text style={s.backText}>‹</Text></Pressable><Text style={s.headerTitle}>{title}</Text><View style={{width:44}}/></View>}
+function Brand(){return <View style={s.brand}><View style={s.logo}><Text style={s.logoText}>G</Text></View><Text style={s.brandText}>GrievX Campus</Text></View>}
+function Field({label,inputStyle,...p}:{label:string;inputStyle?:object}&React.ComponentProps<typeof TextInput>){return <View style={s.field}>{label? <Text style={s.label}>{label}</Text>:null}<TextInput {...p} style={[s.input,inputStyle]} placeholderTextColor="#8A8E9A"/></View>}
+function Card({children}:{children:React.ReactNode}){return <View style={s.card}>{children}</View>}
+function Primary({label,onPress,disabled}:{label:string;onPress:()=>void;disabled?:boolean}){return <Pressable disabled={disabled} onPress={onPress} style={[s.primary,disabled&&s.disabled]}><Text style={s.primaryText}>{label}</Text></Pressable>}
+function Status({status}:{status:string}){const x=status.toLowerCase();const tone=x==="submitted"?["#FEF3C7","#B45309",C.amber]:x==="assigned"?["#EFF6FF","#1D4ED8","#3B82F6"]:x==="in_progress"?["#EEF2FF","#4338CA","#6366F1"]:x==="resolved"||x==="closed"?["#ECFDF5","#047857",C.green]:["#FEF2F2","#B91C1C","#EF4444"];return <View style={[s.status,{backgroundColor:tone[0] as string}]}><View style={[s.dot,{backgroundColor:tone[2] as string}]}/><Text style={[s.statusText,{color:tone[1] as string}]}>{status.replace("_"," ")}</Text></View>}
+function Stat({label}:{label:string}){return <View style={s.stat}><Text style={s.statValue}>—</Text><Text style={s.helper}>{label}</Text></View>}
+function Action({title,sub,icon,onPress}:{title:string;sub:string;icon:string;onPress:()=>void}){return <Pressable style={s.action} onPress={onPress}><Text style={s.actionIcon}>{icon}</Text><Text style={s.label}>{title}</Text><Text style={s.helper}>{sub}</Text></Pressable>}
+function Centered({children}:{children:React.ReactNode}){return <SafeAreaView style={s.centered}>{children}</SafeAreaView>}
+function date(v:string){return new Date(v).toLocaleDateString(undefined,{day:"numeric",month:"short",year:"numeric"})}
 
-    try {
-      setBusy(true);
-
-      const complaint = await createComplaint({
-        title,
-        description,
-        location,
-      });
-
-      if (image) {
-        await uploadComplaintImage(
-          complaint.id,
-          image.uri,
-          image.fileName ?? "evidence.jpg",
-          image.mimeType ?? "image/jpeg",
-        );
-      }
-
-      Alert.alert(
-        "Submitted",
-        "Your complaint was submitted successfully.",
-      );
-      onDone();
-    } catch (err) {
-      Alert.alert(
-        "Submission failed",
-        err instanceof Error ? err.message : "Please try again.",
-      );
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <ScrollView contentContainerStyle={styles.content}>
-      <Pressable onPress={onBack}>
-        <Text style={styles.link}>← Back</Text>
-      </Pressable>
-
-      <Text style={styles.heading}>New Complaint</Text>
-
-      <TextInput
-        style={styles.input}
-        placeholder="Title"
-        value={title}
-        onChangeText={setTitle}
-      />
-
-      <TextInput
-        style={[styles.input, styles.multiline]}
-        placeholder="Describe the issue"
-        multiline
-        value={description}
-        onChangeText={setDescription}
-      />
-
-      <TextInput
-        style={styles.input}
-        placeholder="Location"
-        value={location}
-        onChangeText={setLocation}
-      />
-
-      {image && (
-        <Image source={{ uri: image.uri }} style={styles.preview} />
-      )}
-
-      <Button
-        label={image ? "Change Image" : "Attach Image"}
-        onPress={pickImage}
-        secondary
-      />
-
-      <Button
-        label={busy ? "Submitting..." : "Submit Complaint"}
-        onPress={submit}
-        disabled={busy}
-      />
-    </ScrollView>
-  );
-}
-
-function ComplaintList({
-  onBack,
-  onOpen,
-}: {
-  onBack: () => void;
-  onOpen: (id: string) => void;
-}) {
-  const [items, setItems] = useState<Complaint[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-
-  const load = () => {
-    setLoading(true);
-    getComplaints()
-      .then(setItems)
-      .catch((err) =>
-        setError(err instanceof Error ? err.message : "Unable to load complaints."),
-      )
-      .finally(() => setLoading(false));
-  };
-
-  useEffect(load, []);
-
-  return (
-    <View style={styles.content}>
-      <Pressable onPress={onBack}>
-        <Text style={styles.link}>← Back</Text>
-      </Pressable>
-
-      <Text style={styles.heading}>My Complaints</Text>
-
-      {loading ? (
-        <ActivityIndicator />
-      ) : error ? (
-        <Text style={styles.error}>{error}</Text>
-      ) : (
-        <FlatList
-          data={items}
-          keyExtractor={(item) => item.id}
-          ListEmptyComponent={
-            <Text style={styles.muted}>No complaints yet.</Text>
-          }
-          renderItem={({ item }) => (
-            <Pressable
-              style={styles.complaintCard}
-              onPress={() => onOpen(item.id)}
-            >
-              <Text style={styles.cardTitle}>{item.title}</Text>
-              <Text style={styles.status}>{item.status}</Text>
-              <Text style={styles.muted}>{item.location}</Text>
-              <Text style={styles.muted}>
-                {new Date(item.created_at).toLocaleString()}
-              </Text>
-            </Pressable>
-          )}
-        />
-      )}
-    </View>
-  );
-}
-
-function ComplaintDetail({
-  id,
-  onBack,
-}: {
-  id: string;
-  onBack: () => void;
-}) {
-  const [item, setItem] = useState<Complaint | null>(null);
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    getComplaint(id)
-      .then(setItem)
-      .catch((err) =>
-        setError(err instanceof Error ? err.message : "Unable to load complaint."),
-      );
-  }, [id]);
-
-  if (error) {
-    return (
-      <View style={styles.content}>
-        <Pressable onPress={onBack}>
-          <Text style={styles.link}>← Back</Text>
-        </Pressable>
-        <Text style={styles.error}>{error}</Text>
-      </View>
-    );
-  }
-
-  if (!item) {
-    return (
-      <Centered>
-        <ActivityIndicator />
-      </Centered>
-    );
-  }
-
-  return (
-    <ScrollView contentContainerStyle={styles.content}>
-      <Pressable onPress={onBack}>
-        <Text style={styles.link}>← Back</Text>
-      </Pressable>
-
-      <Text style={styles.heading}>{item.title}</Text>
-      <Text style={styles.status}>{item.status}</Text>
-
-      <Text style={styles.label}>Description</Text>
-      <Text style={styles.body}>{item.description}</Text>
-
-      <Text style={styles.label}>Location</Text>
-      <Text style={styles.body}>{item.location}</Text>
-
-      <Text style={styles.label}>Evidence</Text>
-      {item.images.length ? (
-        item.images.map((image) => (
-          <Text key={image.id} style={styles.muted}>
-            {image.original_filename}
-          </Text>
-        ))
-      ) : (
-        <Text style={styles.muted}>No images attached.</Text>
-      )}
-    </ScrollView>
-  );
-}
-
-function Button({
-  label,
-  onPress,
-  secondary,
-  disabled,
-}: {
-  label: string;
-  onPress: () => void;
-  secondary?: boolean;
-  disabled?: boolean;
-}) {
-  return (
-    <Pressable
-      disabled={disabled}
-      onPress={onPress}
-      style={[
-        styles.button,
-        secondary && styles.buttonSecondary,
-        disabled && styles.disabled,
-      ]}
-    >
-      <Text
-        style={[
-          styles.buttonText,
-          secondary && styles.buttonTextSecondary,
-        ]}
-      >
-        {label}
-      </Text>
-    </Pressable>
-  );
-}
-
-function Centered({ children }: { children: React.ReactNode }) {
-  return (
-    <SafeAreaView style={styles.centered}>
-      {children}
-    </SafeAreaView>
-  );
-}
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#F7F8FA",
-  },
-  centered: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  content: {
-    padding: 24,
-    gap: 14,
-  },
-  authCard: {
-    margin: 24,
-    padding: 24,
-    borderRadius: 18,
-    backgroundColor: "#FFFFFF",
-    gap: 14,
-  },
-  brand: {
-    fontSize: 28,
-    fontWeight: "800",
-  },
-  heading: {
-    fontSize: 24,
-    fontWeight: "700",
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: "700",
-    marginTop: 10,
-  },
-  body: {
-    fontSize: 16,
-    lineHeight: 24,
-  },
-  muted: {
-    color: "#68707D",
-    lineHeight: 20,
-  },
-  input: {
-    backgroundColor: "#FFFFFF",
-    borderWidth: 1,
-    borderColor: "#D9DEE7",
-    borderRadius: 12,
-    padding: 14,
-    fontSize: 16,
-  },
-  multiline: {
-    minHeight: 120,
-    textAlignVertical: "top",
-  },
-  button: {
-    backgroundColor: "#111827",
-    padding: 15,
-    borderRadius: 12,
-    alignItems: "center",
-    marginTop: 4,
-  },
-  buttonSecondary: {
-    backgroundColor: "#FFFFFF",
-    borderWidth: 1,
-    borderColor: "#111827",
-  },
-  buttonText: {
-    color: "#FFFFFF",
-    fontWeight: "700",
-    fontSize: 16,
-  },
-  buttonTextSecondary: {
-    color: "#111827",
-  },
-  disabled: {
-    opacity: 0.5,
-  },
-  link: {
-    color: "#2563EB",
-    fontWeight: "600",
-    paddingVertical: 8,
-  },
-  error: {
-    color: "#B42318",
-  },
-  status: {
-    color: "#2563EB",
-    fontWeight: "700",
-    textTransform: "uppercase",
-  },
-  complaintCard: {
-    backgroundColor: "#FFFFFF",
-    padding: 16,
-    borderRadius: 14,
-    marginBottom: 10,
-    gap: 5,
-  },
-  cardTitle: {
-    fontSize: 17,
-    fontWeight: "700",
-  },
-  preview: {
-    width: "100%",
-    height: 220,
-    borderRadius: 14,
-  },
-});
+const s=StyleSheet.create({
+ app:{flex:1,backgroundColor:C.bg},centered:{flex:1,alignItems:"center",justifyContent:"center",backgroundColor:C.bg},auth:{flexGrow:1,padding:20,justifyContent:"center",gap:18},brand:{flexDirection:"row",alignItems:"center",gap:10},logo:{width:40,height:40,borderRadius:12,backgroundColor:C.navy,alignItems:"center",justifyContent:"center"},logoText:{color:C.white,fontSize:22,fontWeight:"800"},brandText:{fontSize:17,fontWeight:"700",color:C.text},eyebrow:{fontSize:11,fontWeight:"700",letterSpacing:1.1,color:C.blue},display:{fontSize:30,lineHeight:36,fontWeight:"700",color:C.text},body:{fontSize:16,lineHeight:24,color:C.text},helper:{fontSize:12,lineHeight:17,color:C.muted},muted:{fontSize:14,lineHeight:20,color:C.muted},page:{padding:16,paddingBottom:110,gap:16},top:{flexDirection:"row",justifyContent:"space-between",alignItems:"center"},greeting:{fontSize:24,lineHeight:31,fontWeight:"700",color:C.text,marginTop:4},avatar:{width:44,height:44,borderRadius:22,backgroundColor:"#DAE2FD",alignItems:"center",justifyContent:"center"},avatarText:{fontSize:18,fontWeight:"800",color:C.navy},hero:{backgroundColor:C.navy,borderRadius:22,padding:20,flexDirection:"row",minHeight:185},heroTitle:{fontSize:23,lineHeight:29,fontWeight:"700",color:C.white},heroBody:{fontSize:14,lineHeight:20,color:"#DCE1FF",marginVertical:8,maxWidth:230},heroIcon:{width:54,height:54,borderRadius:27,backgroundColor:"#316BF3",alignItems:"center",justifyContent:"center"},heroCheck:{color:C.white,fontSize:28,fontWeight:"700"},primary:{minHeight:48,borderRadius:12,backgroundColor:C.blue,alignItems:"center",justifyContent:"center",paddingHorizontal:18,marginTop:8},primaryText:{color:C.white,fontSize:14,fontWeight:"700"},disabled:{opacity:.55},section:{fontSize:18,fontWeight:"600",color:C.text},stats:{flexDirection:"row",gap:10},stat:{flex:1,padding:14,backgroundColor:C.white,borderWidth:1,borderColor:C.border,borderRadius:16},statValue:{fontSize:22,fontWeight:"700",color:C.text,marginBottom:4},actions:{flexDirection:"row",gap:10},action:{flex:1,minHeight:120,padding:16,backgroundColor:C.white,borderWidth:1,borderColor:C.border,borderRadius:16},actionIcon:{fontSize:24,color:C.blue,marginBottom:10},card:{backgroundColor:C.white,borderWidth:1,borderColor:C.border,borderRadius:16,padding:16,gap:10},progress:{backgroundColor:C.soft,borderRadius:16,padding:16,gap:5},step:{fontSize:11,fontWeight:"700",letterSpacing:.8,color:C.blue},cardTitle:{fontSize:20,lineHeight:26,fontWeight:"600",color:C.text},field:{gap:6},label:{fontSize:14,fontWeight:"600",color:C.text},input:{backgroundColor:"#F2F3FF",borderRadius:12,paddingHorizontal:14,paddingVertical:12,color:C.text,fontSize:14},area:{minHeight:120,textAlignVertical:"top"},error:{fontSize:13,color:C.error},link:{color:C.blue,fontSize:13,fontWeight:"600",textAlign:"center",paddingVertical:8},header:{flexDirection:"row",alignItems:"center",justifyContent:"space-between"},back:{width:44,height:44,borderRadius:22,backgroundColor:C.white,borderWidth:1,borderColor:C.border,alignItems:"center",justifyContent:"center"},backText:{fontSize:31,lineHeight:34,color:C.text,marginTop:-4},headerTitle:{fontSize:20,fontWeight:"700",color:C.text},upload:{minHeight:130,borderWidth:1.5,borderStyle:"dashed",borderColor:"#BFC8DE",borderRadius:14,alignItems:"center",justifyContent:"center",backgroundColor:C.soft},plus:{fontSize:30,color:C.blue},imageBox:{borderRadius:14,overflow:"hidden",backgroundColor:C.soft,alignItems:"center"},image:{width:"100%",height:210},complaint:{backgroundColor:C.white,borderWidth:1,borderColor:C.border,borderRadius:16,padding:16,marginBottom:10,gap:8},row:{flexDirection:"row",justifyContent:"space-between",alignItems:"center"},status:{flexDirection:"row",alignItems:"center",alignSelf:"flex-start",borderRadius:999,paddingVertical:5,paddingHorizontal:10,gap:6},statusText:{fontSize:11,fontWeight:"700",textTransform:"uppercase"},dot:{width:6,height:6,borderRadius:3},date:{fontSize:11,color:C.muted},complaintTitle:{fontSize:17,fontWeight:"700",color:C.text},detailTitle:{fontSize:24,lineHeight:30,fontWeight:"700",color:C.text},file:{flexDirection:"row",alignItems:"center",gap:12,paddingVertical:7},timeline:{flexDirection:"row",alignItems:"center",gap:12,paddingVertical:9},activeDot:{backgroundColor:C.blue},profile:{alignItems:"center",backgroundColor:C.white,borderWidth:1,borderColor:C.border,borderRadius:18,padding:24,gap:5},profileAvatar:{width:82,height:82,borderRadius:41,backgroundColor:"#DAE2FD",alignItems:"center",justifyContent:"center"},profileLetter:{fontSize:34,fontWeight:"800",color:C.navy},empty:{backgroundColor:C.white,borderWidth:1,borderColor:C.border,borderRadius:18,padding:28,alignItems:"center",gap:8},logout:{height:48,borderRadius:12,borderWidth:1,borderColor:"#F1B4B4",backgroundColor:"#FEF2F2",alignItems:"center",justifyContent:"center"},nav:{position:"absolute",left:12,right:12,bottom:12,height:68,borderRadius:20,borderWidth:1,borderColor:C.border,backgroundColor:C.white,flexDirection:"row",alignItems:"center"},navItem:{flex:1,alignItems:"center",gap:3},navIcon:{fontSize:19,color:C.muted},navLabel:{fontSize:10,fontWeight:"600",color:C.muted},navActive:{color:C.blue}}
+);
