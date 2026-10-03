@@ -80,6 +80,8 @@ begin
 end;
 $$;
 
+revoke execute on function public.handle_new_grievx_user() from public, anon, authenticated;
+
 drop trigger if exists on_auth_user_created_grievx on auth.users;
 create trigger on_auth_user_created_grievx after insert on auth.users
 for each row execute procedure public.handle_new_grievx_user();
