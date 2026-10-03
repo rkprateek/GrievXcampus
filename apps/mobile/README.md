@@ -5,13 +5,13 @@ React Native + Expo student application.
 ## Week 4 implementation
 
 The Week 4 mobile flow includes:
-- Student login and registration using the FastAPI authentication API.
-- Secure local JWT storage using Expo SecureStore.
+- Student registration and login using Supabase Auth.
+- Persistent Supabase session storage using AsyncStorage.
 - Student home screen.
 - New Complaint form.
 - Title, description and location fields.
-- Image selection and preview.
-- Complaint submission.
+- Image selection, preview and Supabase Storage upload.
+- Complaint submission to Supabase PostgreSQL.
 - My Complaints list.
 - Complaint details.
 - Loading and error states.
