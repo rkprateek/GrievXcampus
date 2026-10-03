@@ -1,17 +1,27 @@
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Alert, FlatList, Image, KeyboardAvoidingView, Platform, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Alert, FlatList, Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import * as ImagePicker from "expo-image-picker";
-import { clearToken, createComplaint, getComplaint, getComplaints, getMe, getToken, login, register, uploadComplaintImage } from "./src/api";
+import { createComplaint, getComplaint, getComplaints, getMe, login, register, signOut, uploadComplaintImage } from "./src/api";
+import { supabase } from "./src/supabase";
 
 type Screen="home"|"report"|"complaints"|"detail"|"notifications"|"profile";
 type Complaint={id:string;title:string;description:string;location:string;status:string;created_at:string;images:{id:string;original_filename:string;content_type:string}[]};
 const C={bg:"#FAF8FF",white:"#FFFFFF",navy:"#1E3A8A",blue:"#2563EB",text:"#131B2E",muted:"#64748B",border:"#E2E8F0",soft:"#F2F3FF",error:"#BA1A1A",green:"#10B981"};
 
 export default function App(){
- const [token,setToken]=useState<string|null>(null),[screen,setScreen]=useState<Screen>("home"),[id,setId]=useState<string|null>(null),[auth,setAuth]=useState<"login"|"register">("login"),[loading,setLoading]=useState(true);
- useEffect(()=>{getToken().then(setToken).finally(()=>setLoading(false))},[]);
- if(loading)return <Centered><ActivityIndicator color={C.blue}/></Centered>;
- if(!token)return <Auth mode={auth} setMode={setAuth} done={async()=>setToken(await getToken())}/>;
+ return <SafeAreaProvider><AppContent /></SafeAreaProvider>;
+}
+
+function AppContent(){
+ const [session,setSession]=useState<boolean|null>(null),[screen,setScreen]=useState<Screen>("home"),[id,setId]=useState<string|null>(null),[auth,setAuth]=useState<"login"|"register">("login");
+ useEffect(()=>{
+  supabase.auth.getSession().then(({data})=>setSession(!!data.session));
+  const {data:{subscription}}=supabase.auth.onAuthStateChange((_event,next)=>setSession(!!next));
+  return ()=>subscription.unsubscribe();
+ },[]);
+ if(session===null)return <Centered><ActivityIndicator color={C.blue}/></Centered>;
+ if(!session)return <Auth mode={auth} setMode={setAuth}/>;
  const open=(x:string)=>{setId(x);setScreen("detail")};
  return <SafeAreaView style={s.app}>
   {screen==="home"&&<Home go={setScreen}/>}
@@ -19,14 +29,14 @@ export default function App(){
   {screen==="complaints"&&<Complaints back={()=>setScreen("home")} open={open}/>}
   {screen==="detail"&&id&&<Detail id={id} back={()=>setScreen("complaints")}/>}
   {screen==="notifications"&&<Simple title="Notifications" back={()=>setScreen("home")} text="Notification APIs are outside the current Week 4 backend scope."/>}
-  {screen==="profile"&&<Profile back={()=>setScreen("home")} logout={async()=>{await clearToken();setToken(null)}}/>}
+  {screen==="profile"&&<Profile back={()=>setScreen("home")} logout={signOut}/>}
   {!["report","detail"].includes(screen)&&<Nav active={screen} go={setScreen}/>}
  </SafeAreaView>
 }
 
-function Auth({mode,setMode,done}:{mode:"login"|"register";setMode:(x:"login"|"register")=>void;done:()=>void}){
+function Auth({mode,setMode}:{mode:"login"|"register";setMode:(x:"login"|"register")=>void}){
  const [name,setName]=useState(""),[email,setEmail]=useState(""),[password,setPassword]=useState(""),[busy,setBusy]=useState(false),[error,setError]=useState("");
- const submit=async()=>{try{setError("");setBusy(true);if(mode==="register")await register(name.trim(),email.trim(),password);await login(email.trim(),password);done()}catch(e){setError(e instanceof Error?e.message:"Something went wrong.")}finally{setBusy(false)}};
+ const submit=async()=>{try{setError("");setBusy(true);if(mode==="register"){const result=await register(name.trim(),email.trim(),password);if(!result.session){setError("Account created. Please confirm your email, then sign in.");setMode("login");return}}else{await login(email.trim(),password)}}catch(e){setError(e instanceof Error?e.message:"Something went wrong.")}finally{setBusy(false)}};
  return <SafeAreaView style={s.app}><KeyboardAvoidingView style={{flex:1}} behavior={Platform.OS==="ios"?"padding":undefined}><ScrollView contentContainerStyle={s.auth}>
   <Brand/><Text style={s.eyebrow}>CAMPUS CLARITY</Text><Text style={s.display}>{mode==="login"?"Welcome back.":"Join GrievX Campus."}</Text><Text style={s.body}>Report campus issues and keep track of your complaints.</Text>
   <Card>{mode==="register"&&<Field label="Full name" placeholder="Your full name" value={name} onChangeText={setName}/>}<Field label="Email" placeholder="you@pesu.pes.edu" keyboardType="email-address" autoCapitalize="none" value={email} onChangeText={setEmail}/><Field label="Password" placeholder="Enter your password" secureTextEntry value={password} onChangeText={setPassword}/>{!!error&&<Text style={s.error}>{error}</Text>}<Primary label={busy?"Please wait...":mode==="login"?"Sign in":"Create account"} onPress={submit} disabled={busy}/><Pressable onPress={()=>setMode(mode==="login"?"register":"login")}><Text style={s.link}>{mode==="login"?"New here? Create an account":"Already have an account? Sign in"}</Text></Pressable></Card>
@@ -56,7 +66,7 @@ function Complaints({back,open}:{back:()=>void;open:(id:string)=>void}){const [i
 
 function Detail({id,back}:{id:string;back:()=>void}){const [item,setItem]=useState<Complaint|null>(null),[error,setError]=useState("");useEffect(()=>{getComplaint(id).then(setItem).catch(e=>setError(e instanceof Error?e.message:"Unable to load complaint."))},[id]);if(error)return <View style={s.page}><Header title="Complaint details" back={back}/><Text style={s.error}>{error}</Text></View>;if(!item)return <Centered><ActivityIndicator color={C.blue}/></Centered>;return <ScrollView contentContainerStyle={s.page}><Header title="Complaint details" back={back}/><View style={s.progress}><Status status={item.status}/><Text style={s.detailTitle}>{item.title}</Text><Text style={s.date}>{date(item.created_at)}</Text></View><Card><Text style={s.label}>Description</Text><Text style={s.body}>{item.description}</Text><Text style={[s.label,{marginTop:14}]}>Campus location</Text><Text style={s.body}>{item.location}</Text></Card><Card><Text style={s.label}>Evidence</Text>{item.images.length?item.images.map(x=><View key={x.id} style={s.file}><Text>▧</Text><View><Text style={s.label}>{x.original_filename}</Text><Text style={s.helper}>{x.content_type}</Text></View></View>):<Text style={s.muted}>No evidence attached.</Text>}</Card><Card><Text style={s.label}>Complaint status</Text>{["Submitted","Assigned","In progress","Resolved"].map((x,i)=><View style={s.timeline} key={x}><View style={[s.dot,i===0&&s.activeDot]}/><Text style={i===0?s.label:s.muted}>{x}</Text></View>)}</Card></ScrollView>}
 
-function Profile({back,logout}:{back:()=>void;logout:()=>void}){const [me,setMe]=useState<{name:string;email?:string}|null>(null);useEffect(()=>{getMe().then(setMe).catch(()=>{})},[]);return <ScrollView contentContainerStyle={s.page}><Header title="Profile" back={back}/><View style={s.profile}><View style={s.profileAvatar}><Text style={s.profileLetter}>{(me?.name||"S")[0]}</Text></View><Text style={s.detailTitle}>{me?.name||"Student"}</Text><Text style={s.muted}>{me?.email||"Student account"}</Text></View><Card><Text style={s.label}>Account</Text><Text style={s.body}>Student account</Text><Text style={s.helper}>Authentication is handled by the GrievX API in the current Week 4 implementation.</Text></Card><Pressable style={s.logout} onPress={logout}><Text style={{color:"#B91C1C",fontWeight:"700"}}>Sign out</Text></Pressable></ScrollView>}
+function Profile({back,logout}:{back:()=>void;logout:()=>void}){const [me,setMe]=useState<{name:string;email?:string}|null>(null);useEffect(()=>{getMe().then(setMe).catch(()=>{})},[]);return <ScrollView contentContainerStyle={s.page}><Header title="Profile" back={back}/><View style={s.profile}><View style={s.profileAvatar}><Text style={s.profileLetter}>{(me?.name||"S")[0]}</Text></View><Text style={s.detailTitle}>{me?.name||"Student"}</Text><Text style={s.muted}>{me?.email||"Student account"}</Text></View><Card><Text style={s.label}>Account</Text><Text style={s.body}>Student account</Text><Text style={s.helper}>Authentication and student data are handled by Supabase in the current demo implementation.</Text></Card><Pressable style={s.logout} onPress={logout}><Text style={{color:"#B91C1C",fontWeight:"700"}}>Sign out</Text></Pressable></ScrollView>}
 
 function Simple({title,back,text}:{title:string;back:()=>void;text:string}){return <ScrollView contentContainerStyle={s.page}><Header title={title} back={back}/><View style={s.empty}><Text style={s.cardTitle}>You're all caught up</Text><Text style={s.muted}>{text}</Text></View></ScrollView>}
 function Nav({active,go}:{active:Screen;go:(x:Screen)=>void}){return <View style={s.nav}>{[["home","⌂","Home"],["complaints","□","Complaints"],["notifications","●","Alerts"],["profile","○","Profile"]].map(([k,i,l])=><Pressable key={k} style={s.navItem} onPress={()=>go(k as Screen)}><Text style={[s.navIcon,active===k&&s.navActive]}>{i}</Text><Text style={[s.navLabel,active===k&&s.navActive]}>{l}</Text></Pressable>)}</View>}
@@ -65,7 +75,7 @@ function Brand(){return <View style={s.brand}><View style={s.logo}><Text style={
 function Field({label,inputStyle,...p}:{label:string;inputStyle?:object}&React.ComponentProps<typeof TextInput>){return <View style={s.field}>{label? <Text style={s.label}>{label}</Text>:null}<TextInput {...p} style={[s.input,inputStyle]} placeholderTextColor="#8A8E9A"/></View>}
 function Card({children}:{children:React.ReactNode}){return <View style={s.card}>{children}</View>}
 function Primary({label,onPress,disabled}:{label:string;onPress:()=>void;disabled?:boolean}){return <Pressable disabled={disabled} onPress={onPress} style={[s.primary,disabled&&s.disabled]}><Text style={s.primaryText}>{label}</Text></Pressable>}
-function Status({status}:{status:string}){const x=status.toLowerCase();const tone=x==="submitted"?["#FEF3C7","#B45309",C.amber]:x==="assigned"?["#EFF6FF","#1D4ED8","#3B82F6"]:x==="in_progress"?["#EEF2FF","#4338CA","#6366F1"]:x==="resolved"||x==="closed"?["#ECFDF5","#047857",C.green]:["#FEF2F2","#B91C1C","#EF4444"];return <View style={[s.status,{backgroundColor:tone[0] as string}]}><View style={[s.dot,{backgroundColor:tone[2] as string}]}/><Text style={[s.statusText,{color:tone[1] as string}]}>{status.replace("_"," ")}</Text></View>}
+function Status({status}:{status:string}){const x=status.toLowerCase();const tone=x==="submitted"?["#FEF3C7","#B45309","#F59E0B"]:x==="assigned"?["#EFF6FF","#1D4ED8","#3B82F6"]:x==="in_progress"?["#EEF2FF","#4338CA","#6366F1"]:x==="resolved"||x==="closed"?["#ECFDF5","#047857",C.green]:["#FEF2F2","#B91C1C","#EF4444"];return <View style={[s.status,{backgroundColor:tone[0] as string}]}><View style={[s.dot,{backgroundColor:tone[2] as string}]}/><Text style={[s.statusText,{color:tone[1] as string}]}>{status.replace("_"," ")}</Text></View>}
 function Stat({label}:{label:string}){return <View style={s.stat}><Text style={s.statValue}>—</Text><Text style={s.helper}>{label}</Text></View>}
 function Action({title,sub,icon,onPress}:{title:string;sub:string;icon:string;onPress:()=>void}){return <Pressable style={s.action} onPress={onPress}><Text style={s.actionIcon}>{icon}</Text><Text style={s.label}>{title}</Text><Text style={s.helper}>{sub}</Text></Pressable>}
 function Centered({children}:{children:React.ReactNode}){return <SafeAreaView style={s.centered}>{children}</SafeAreaView>}
