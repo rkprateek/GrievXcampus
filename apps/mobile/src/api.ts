@@ -87,7 +87,8 @@ export async function uploadComplaintImage(
   const fileResponse = await fetch(uri);
   const blob = await fileResponse.blob();
   const extension = filename.split(".").pop()?.toLowerCase() ?? "jpg";
-  const storagePath = `${userData.user.id}/${complaintId}/${crypto.randomUUID()}.${extension}`;
+  const safeFilename = filename.replace(/[^a-zA-Z0-9._-]/g, "_");
+  const storagePath = `${userData.user.id}/${complaintId}/${Date.now()}-${safeFilename}`;
 
   const { error: uploadError } = await supabase.storage.from("complaint-evidence")
     .upload(storagePath, blob, { contentType: mimeType, upsert: false });
