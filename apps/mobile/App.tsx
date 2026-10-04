@@ -16,8 +16,17 @@ export default function App(){
 function AppContent(){
  const [session,setSession]=useState<boolean|null>(null),[screen,setScreen]=useState<Screen>("home"),[id,setId]=useState<string|null>(null),[auth,setAuth]=useState<"login"|"register">("login");
  useEffect(()=>{
-  supabase.auth.getSession().then(({data})=>setSession(!!data.session));
-  const {data:{subscription}}=supabase.auth.onAuthStateChange((_event,next)=>setSession(!!next));
+  supabase.auth.getSession().then(({data})=>{
+   const loggedIn=!!data.session;
+   setSession(loggedIn);
+   if(loggedIn){setScreen("home");setId(null);}
+  });
+  const {data:{subscription}}=supabase.auth.onAuthStateChange((_event,next)=>{
+   const loggedIn=!!next;
+   setSession(loggedIn);
+   if(loggedIn){setScreen("home");setId(null);}
+   else{setScreen("home");setId(null);}
+  });
   return ()=>subscription.unsubscribe();
  },[]);
  if(session===null)return <Centered><ActivityIndicator color={C.blue}/></Centered>;
@@ -36,7 +45,7 @@ function AppContent(){
 
 function Auth({mode,setMode}:{mode:"login"|"register";setMode:(x:"login"|"register")=>void}){
  const [name,setName]=useState(""),[email,setEmail]=useState(""),[password,setPassword]=useState(""),[busy,setBusy]=useState(false),[error,setError]=useState("");
- const submit=async()=>{try{setError("");setBusy(true);if(mode==="register"){const result=await register(name.trim(),email.trim(),password);if(!result.session){setError("Account created. Please confirm your email, then sign in.");setMode("login");return}}else{await login(email.trim(),password)}}catch(e){setError(e instanceof Error?e.message:"Something went wrong.")}finally{setBusy(false)}};
+ const submit=async()=>{try{setError("");setBusy(true);if(mode==="register"){await register(name.trim(),email.trim(),password);setName("");setPassword("");setError("Account created successfully. Please sign in.");setMode("login");return}else{await login(email.trim(),password)}}catch(e){setError(e instanceof Error?e.message:"Something went wrong.")}finally{setBusy(false)}};
  return <SafeAreaView style={s.app}><KeyboardAvoidingView style={{flex:1}} behavior={Platform.OS==="ios"?"padding":undefined}><ScrollView contentContainerStyle={s.auth}>
   <Brand/><Text style={s.eyebrow}>CAMPUS CLARITY</Text><Text style={s.display}>{mode==="login"?"Welcome back.":"Join GrievX Campus."}</Text><Text style={s.body}>Report campus issues and keep track of your complaints.</Text>
   <Card>{mode==="register"&&<Field label="Full name" placeholder="Your full name" value={name} onChangeText={setName}/>}<Field label="Email" placeholder="you@pesu.pes.edu" keyboardType="email-address" autoCapitalize="none" value={email} onChangeText={setEmail}/><Field label="Password" placeholder="Enter your password" secureTextEntry value={password} onChangeText={setPassword}/>{!!error&&<Text style={s.error}>{error}</Text>}<Primary label={busy?"Please wait...":mode==="login"?"Sign in":"Create account"} onPress={submit} disabled={busy}/><Pressable onPress={()=>setMode(mode==="login"?"register":"login")}><Text style={s.link}>{mode==="login"?"New here? Create an account":"Already have an account? Sign in"}</Text></Pressable></Card>
