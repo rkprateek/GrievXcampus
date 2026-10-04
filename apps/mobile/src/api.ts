@@ -7,7 +7,15 @@ export async function register(name: string, email: string, password: string) {
     options: { data: { full_name: name, role: "student" } },
   });
   if (error) throw new Error(error.message);
-  return data;
+
+  // Supabase may create an active session immediately when email confirmation is disabled.
+  // Registration should still return the user to the login screen, so clear that session.
+  if (data.session) {
+    const { error: signOutError } = await supabase.auth.signOut();
+    if (signOutError) throw new Error(signOutError.message);
+  }
+
+  return data.user;
 }
 
 export async function login(email: string, password: string) {
@@ -57,7 +65,10 @@ export async function getComplaints() {
     .select("id, student_id, title, description, location, status, created_at, updated_at, complaint_images(id, original_filename, content_type, storage_path)")
     .order("created_at", { ascending: false });
   if (error) throw new Error(error.message);
-  return data ?? [];
+  return (data ?? []).map((item: any) => ({
+    ...item,
+    images: item.complaint_images ?? [],
+  }));
 }
 
 export async function getComplaint(id: string) {
