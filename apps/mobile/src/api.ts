@@ -24,6 +24,11 @@ export async function login(email: string, password: string) {
   return data;
 }
 
+export async function resetPassword(email: string) {
+  const { error } = await supabase.auth.resetPasswordForEmail(email);
+  if (error) throw new Error(error.message);
+}
+
 export async function signOut() {
   const { error } = await supabase.auth.signOut();
   if (error) throw new Error(error.message);
@@ -97,7 +102,6 @@ export async function uploadComplaintImage(
 
   const fileResponse = await fetch(uri);
   const blob = await fileResponse.blob();
-  const extension = filename.split(".").pop()?.toLowerCase() ?? "jpg";
   const safeFilename = filename.replace(/[^a-zA-Z0-9._-]/g, "_");
   const storagePath = `${userData.user.id}/${complaintId}/${Date.now()}-${safeFilename}`;
 
