@@ -142,8 +142,6 @@ function Auth({
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [keepSignedIn, setKeepSignedIn] = useState(true);
 
   const submit = async () => {
     try {
@@ -155,11 +153,14 @@ function Auth({
           setError("Please enter your full name.");
           return;
         }
-        await register(name.trim(), email.trim(), password);
-        setName("");
-        setPassword("");
-        setError("Account created successfully. Please sign in.");
+        const result = await register(name.trim(), email.trim(), password);
+        if (!result.session) {
+          setError("Account created. Please confirm your email, then sign in.");
+          setMode("login");
+          return;
+        }
         setMode("login");
+        setError("Account created successfully. Please sign in.");
         return;
       }
 
@@ -171,174 +172,79 @@ function Auth({
     }
   };
 
-  const forgot = async () => {
-    const value = email.trim();
-    if (!value) {
-      Alert.alert("Enter your email", "Enter your university email first.");
-      return;
-    }
-    try {
-      setBusy(true);
-      await resetPassword(value);
-      Alert.alert("Reset email sent", "Check your inbox for the password reset link.");
-    } catch (e) {
-      Alert.alert("Unable to reset password", e instanceof Error ? e.message : "Please try again.");
-    } finally {
-      setBusy(false);
-    }
-  };
-
   return (
-    <SafeAreaView style={s.authScreen}>
+    <SafeAreaView style={s.app}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
-        <ScrollView
-          contentContainerStyle={s.authScroll}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
-          <View style={s.portalPill}>
-            <View style={s.portalMark}><Text style={s.portalMarkText}>✓</Text></View>
-            <Text style={s.portalPillText}>STUDENT GRIEVANCE PORTAL</Text>
-          </View>
-
-          <Text style={s.authTitle}>{mode === "login" ? "Welcome back!" : "Create your account"}</Text>
-          <Text style={s.authSubtitle}>
-            {mode === "login"
-              ? "Sign in with your University Roll No / SRN to report\nor track issues."
-              : "Create your student account to report\nand track campus issues."}
+        <ScrollView contentContainerStyle={s.auth}>
+          <Brand />
+          <Text style={s.eyebrow}>CAMPUS CLARITY</Text>
+          <Text style={s.display}>
+            {mode === "login" ? "Welcome back." : "Join GrievX Campus."}
+          </Text>
+          <Text style={s.body}>
+            Report campus issues and keep track of your complaints.
           </Text>
 
-          <View style={s.authCard}>
+          <Card>
             {mode === "register" && (
               <Field
                 label="Full name"
-                placeholder="Enter your full name"
+                placeholder="Your full name"
                 value={name}
                 onChangeText={setName}
               />
             )}
 
-            <View style={s.fieldBlock}>
-              <View style={s.labelRow}>
-                <Text style={s.authLabel}>University Roll No or Email</Text>
-                {mode === "login" && <Text style={s.verified}>Verified ID</Text>}
-              </View>
-              <View style={s.authInputWrap}>
-                <Text style={s.inputIcon}>▣</Text>
-                <TextInput
-                  style={s.authInput}
-                  placeholder="e.g. 2022BCSE042 or student@univ.edu"
-                  placeholderTextColor="#858896"
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  value={email}
-                  onChangeText={setEmail}
-                />
-              </View>
-            </View>
+            <Field
+              label="Email"
+              placeholder="you@pesu.pes.edu"
+              keyboardType="email-address"
+              autoCapitalize="none"
+              value={email}
+              onChangeText={setEmail}
+            />
 
-            <View style={s.fieldBlock}>
-              <View style={s.labelRow}>
-                <Text style={s.authLabel}>Password</Text>
-                {mode === "login" && (
-                  <Pressable onPress={forgot} disabled={busy}>
-                    <Text style={s.verified}>Forgot Password?</Text>
-                  </Pressable>
-                )}
-              </View>
-              <View style={s.authInputWrap}>
-                <Text style={s.inputIcon}>▣</Text>
-                <TextInput
-                  style={s.authInput}
-                  placeholder="Enter university password"
-                  placeholderTextColor="#858896"
-                  secureTextEntry={!showPassword}
-                  value={password}
-                  onChangeText={setPassword}
-                />
-                <Pressable onPress={() => setShowPassword((v) => !v)} style={s.eyeButton}>
-                  <Text style={s.eye}>{showPassword ? "◉" : "◌"}</Text>
-                </Pressable>
-              </View>
-            </View>
+            <Field
+              label="Password"
+              placeholder="Enter your password"
+              secureTextEntry
+              value={password}
+              onChangeText={setPassword}
+            />
 
-            {mode === "login" && (
-              <Pressable style={s.keepRow} onPress={() => setKeepSignedIn((v) => !v)}>
-                <View style={[s.checkbox, keepSignedIn && s.checkboxOn]}>
-                  {keepSignedIn && <Text style={s.checkmark}>✓</Text>}
-                </View>
-                <Text style={s.keepText}>Keep me signed in on this device</Text>
-              </Pressable>
-            )}
+            {!!error && <Text style={s.error}>{error}</Text>}
 
-            {!!error && <Text style={s.authError}>{error}</Text>}
-
-            <Pressable
-              style={[s.portalButton, busy && { opacity: 0.55 }]}
-              onPress={submit}
-              disabled={busy}
-            >
-              <Text style={s.portalButtonText}>
-                {busy
+            <Primary
+              label={
+                busy
                   ? "Please wait..."
                   : mode === "login"
-                    ? "Sign In to Campus Portal"
-                    : "Create Campus Account"}
+                    ? "Sign in"
+                    : "Create account"
+              }
+              onPress={submit}
+              disabled={busy}
+            />
+
+            <Pressable
+              onPress={() => {
+                setError("");
+                setMode(mode === "login" ? "register" : "login");
+              }}
+            >
+              <Text style={s.link}>
+                {mode === "login"
+                  ? "New here? Create an account"
+                  : "Already have an account? Sign in"}
               </Text>
-              <Text style={s.portalArrow}>→</Text>
             </Pressable>
+          </Card>
 
-            {mode === "login" && (
-              <>
-                <View style={s.ssoDivider}>
-                  <View style={s.dividerLine} />
-                  <Text style={s.ssoText}>CAMPUS SSO</Text>
-                  <View style={s.dividerLine} />
-                </View>
-
-                <Pressable
-                  style={s.googleButton}
-                  onPress={() =>
-                    Alert.alert(
-                      "Campus SSO",
-                      "Google Workspace sign-in is shown in the portal design but is not configured in the current Supabase project yet.",
-                    )
-                  }
-                >
-                  <Text style={s.googleG}>G</Text>
-                  <Text style={s.googleText}>Sign in with Campus Google Workspace\n(@univ.edu)</Text>
-                </Pressable>
-              </>
-            )}
-          </View>
-
-          <Pressable
-            onPress={() => {
-              setError("");
-              setMode(mode === "login" ? "register" : "login");
-            }}
-          >
-            <Text style={s.registerPrompt}>
-              {mode === "login" ? "New student? " : "Already registered? "}
-              <Text style={s.registerLink}>
-                {mode === "login" ? "Register your campus account" : "Sign in to your account"}
-              </Text>
-            </Text>
-          </Pressable>
-
-          {mode === "login" && (
-            <View style={s.emergency}>
-              <Text style={s.emergencyIcon}>♢</Text>
-              <Text style={s.emergencyText}>Emergency / Security helpline: </Text>
-              <Text style={s.emergencyNumber}>1800-CAMPUS-911</Text>
-            </View>
-          )}
-
-          <Text style={s.authFootnote}>
-            {keepSignedIn ? "Secure campus access · Session stays active on this device." : "Secure campus access"}
+          <Text style={s.helper}>
+            PESU credential verification can be integrated behind the GrievX API.
           </Text>
         </ScrollView>
       </KeyboardAvoidingView>
