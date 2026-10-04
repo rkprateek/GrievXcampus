@@ -347,8 +347,7 @@ function Auth({
 }
 
 function Home({ go }: { go: (x: Screen) => void }) {
-  const [me, setMe] = useState<{ name: string } | null>(null);
-  useEffect(() => {
+  const [me, setMe] = useState<{ name: string } | null>(null);  useEffect(() => {
     getMe().then(setMe).catch(() => {});
   }, []);
   const first = me?.name?.split(" ")[0] || "Student";
@@ -697,8 +696,7 @@ function Complaints({ back, open }: { back: () => void; open: (id: string) => vo
       .finally(() => setLoading(false));
   }, []);
 
-  return (
-    <View style={s.app}>
+  return (    <View style={s.app}>
       <FlatList
         contentContainerStyle={s.page}
         data={items}
@@ -1047,8 +1045,7 @@ const s = StyleSheet.create({
   ssoDivider: { flexDirection: "row", alignItems: "center", gap: 14, marginTop: 1 },
   dividerLine: { flex: 1, height: 1.5, backgroundColor: "#DCE0EF" },
   ssoText: { color: "#7A7D88", fontSize: 18, letterSpacing: 1 },
-  googleButton: {
-    minHeight: 82,
+  googleButton: {    minHeight: 82,
     borderRadius: 18,
     backgroundColor: "#EDF0FF",
     flexDirection: "row",
@@ -1226,7 +1223,4 @@ const s = StyleSheet.create({
   logout: { height: 48, borderRadius: 12, borderWidth: 1, borderColor: "#F1B4B4", backgroundColor: "#FEF2F2", alignItems: "center", justifyContent: "center" },
   error: { fontSize: 13, color: C.red },
   body: { fontSize: 16, lineHeight: 24, color: C.text },
-  card: { backgroundColor: C.white, borderWidth: 1, borderColor: C.border, borderRadius: 16, padding: 16, gap: 10 },
-  centered: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: C.bg },
-  disabled: { opacity: 0.55 },
 });
