@@ -144,7 +144,7 @@ export default function AdminPage() {
       .from("complaints")
       .update({ status, updated_at: new Date().toISOString() })
       .eq("id", selected.id)
-      .select("id, student_id, title, description, location, status, priority, department_id, created_at, updated_at, profiles!complaints_student_id_fkey(name, email), complaint_images(id, storage_path, content_type)")
+      .select("id, student_id, title, description, location, status, priority, department_id, assigned_staff_id, created_at, updated_at, profiles!complaints_student_id_fkey(name, email), complaint_images(id, storage_path, content_type)")
       .single();
 
     if (error) {
@@ -255,6 +255,7 @@ export default function AdminPage() {
       setIsAdmin(profile?.role === "admin");
       if (profile?.role === "admin") {
         await loadDepartments();
+        await loadStaff();
         await loadComplaints();
       }
       else setMessage("This account is not an administrator.");
