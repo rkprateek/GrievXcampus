@@ -367,17 +367,28 @@ function Report({ back, done }: { back: () => void; done: () => void }) {
       });
 
       if (image) {
-        await uploadComplaintImage(
-          c.id,
-          image.uri,
-          image.fileName ?? "evidence.jpg",
-          image.mimeType,
-        );
+        try {
+          await uploadComplaintImage(
+            c.id,
+            image.uri,
+            image.fileName ?? "evidence.jpg",
+            image.mimeType,
+          );
+        } catch (imageError) {
+          // The complaint itself is already safely stored. Do not tell the user
+          // that the whole submission failed just because evidence upload failed.
+          Alert.alert(
+            "Complaint submitted",
+            `Your complaint was saved, but the photo could not be uploaded. ${imageError instanceof Error ? imageError.message : "Please try again without the photo."}`,
+            [{ text: "View complaints", onPress: done }],
+          );
+          return;
+        }
       }
 
       Alert.alert(
         "Complaint submitted",
-        "Your complaint was submitted successfully.",
+        "Your complaint and evidence were submitted successfully.",
         [{ text: "View complaints", onPress: done }],
       );
     } catch (e) {
