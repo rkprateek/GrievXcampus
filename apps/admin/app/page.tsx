@@ -12,11 +12,15 @@ type Complaint = {
   status: "submitted" | "assigned" | "in_progress" | "resolved" | "closed" | "rejected";
   created_at: string;
   updated_at: string;
+  department_id?: string | null;
+  priority?: "normal" | "high" | "critical";
   student?: { name: string; email: string } | null;
   images?: { id: string; storage_path: string; signed_url?: string | null; content_type?: string | null }[];
 };
 
 const statuses = ["all", "submitted", "assigned", "in_progress", "resolved", "closed", "rejected"] as const;
+const priorities = ["normal", "high", "critical"] as const;
+type Department = { id: string; name: string; code: string };
 
 export default function AdminPage() {
   const [sessionReady, setSessionReady] = useState(false);
@@ -28,6 +32,7 @@ export default function AdminPage() {
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
+  const [departments, setDepartments] = useState<Department[]>([]);
 
   useEffect(() => {
     const boot = async () => {
@@ -46,7 +51,10 @@ export default function AdminPage() {
 
       setIsAdmin(profile?.role === "admin");
       setSessionReady(true);
-      if (profile?.role === "admin") await loadComplaints();
+      if (profile?.role === "admin") {
+        await loadDepartments();
+        await loadComplaints();
+      }
       else setLoading(false);
     };
 
@@ -66,11 +74,20 @@ export default function AdminPage() {
     return () => listener.subscription.unsubscribe();
   }, []);
 
+  const loadDepartments = async () => {
+    const { data, error } = await supabase.from("departments").select("id, name, code").order("name");
+    if (error) {
+      setMessage(error.message);
+      return;
+    }
+    setDepartments(data ?? []);
+  };
+
   const loadComplaints = async () => {
     setLoading(true);
     const { data, error } = await supabase
       .from("complaints")
-      .select("id, student_id, title, description, location, status, created_at, updated_at, profiles!complaints_student_id_fkey(name, email), complaint_images(id, storage_path, content_type)")
+      .select("id, student_id, title, description, location, status, priority, department_id, created_at, updated_at, profiles!complaints_student_id_fkey(name, email), complaint_images(id, storage_path, content_type)")
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -138,6 +155,36 @@ export default function AdminPage() {
     setMessage("Complaint status updated.");
   };
 
+  const updateRouting = async (changes: { priority?: Complaint["priority"]; department_id?: string | null }) => {
+    if (!selected) return;
+    setMessage("");
+    const { data, error } = await supabase
+      .from("complaints")
+      .update({ ...changes, updated_at: new Date().toISOString() })
+      .eq("id", selected.id)
+      .select("id, student_id, title, description, location, status, priority, department_id, created_at, updated_at, profiles!complaints_student_id_fkey(name, email), complaint_images(id, storage_path, content_type)")
+      .single();
+
+    if (error) {
+      setMessage(error.message);
+      return;
+    }
+
+    const rawImages = Array.isArray((data as any).complaint_images) ? (data as any).complaint_images : [];
+    const images = await Promise.all(rawImages.map(async (image: any) => {
+      const { data: signed } = await supabase.storage.from("complaint-evidence").createSignedUrl(image.storage_path, 3600);
+      return { ...image, signed_url: signed?.signedUrl ?? null };
+    }));
+    const updated = {
+      ...data,
+      student: Array.isArray((data as any).profiles) ? (data as any).profiles[0] ?? null : (data as any).profiles ?? null,
+      images,
+    } as Complaint;
+    setComplaints((items) => items.map((item) => item.id === updated.id ? updated : item));
+    setSelected(updated);
+    setMessage("Complaint routing updated.");
+  };
+
   const logout = async () => {
     await supabase.auth.signOut();
   };
@@ -151,7 +198,10 @@ export default function AdminPage() {
       const { data: profile } = await supabase.from("profiles").select("role").eq("id", data.session.user.id).single();
       setUserEmail(data.session.user.email ?? "");
       setIsAdmin(profile?.role === "admin");
-      if (profile?.role === "admin") await loadComplaints();
+      if (profile?.role === "admin") {
+        await loadDepartments();
+        await loadComplaints();
+      }
       else setMessage("This account is not an administrator.");
     }} />;
   }
@@ -276,6 +326,25 @@ export default function AdminPage() {
                       ) : <span key={image.id}>Evidence file is unavailable.</span>)}
                     </div>
                   ) : <span>No evidence photo attached.</span>}
+                </div>
+
+                <div className="detailSection">
+                  <label>Priority</label>
+                  <div className="statusButtons">
+                    {priorities.map((priority) => (
+                      <button key={priority} className={selected.priority === priority ? "statusButton current" : "statusButton"} onClick={() => updateRouting({ priority })}>
+                        {priority}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="detailSection">
+                  <label>Department</label>
+                  <select className="departmentSelect" value={selected.department_id ?? ""} onChange={(e) => updateRouting({ department_id: e.target.value || null })}>
+                    <option value="">Unassigned</option>
+                    {departments.map((department) => <option key={department.id} value={department.id}>{department.name}</option>)}
+                  </select>
                 </div>
 
                 <div className="statusEditor">
