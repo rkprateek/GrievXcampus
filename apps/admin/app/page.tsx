@@ -13,6 +13,7 @@ type Complaint = {
   created_at: string;
   updated_at: string;
   student?: { name: string; email: string } | null;
+  images?: { id: string; storage_path: string; signed_url?: string | null; content_type?: string | null }[];
 };
 
 const statuses = ["all", "submitted", "assigned", "in_progress", "resolved", "closed", "rejected"] as const;
@@ -69,7 +70,7 @@ export default function AdminPage() {
     setLoading(true);
     const { data, error } = await supabase
       .from("complaints")
-      .select("id, student_id, title, description, location, status, created_at, updated_at, profiles!complaints_student_id_fkey(name, email)")
+      .select("id, student_id, title, description, location, status, created_at, updated_at, profiles!complaints_student_id_fkey(name, email), complaint_images(id, storage_path, content_type)")
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -78,9 +79,17 @@ export default function AdminPage() {
       return;
     }
 
-    const mapped = (data ?? []).map((item: any) => ({
-      ...item,
-      student: Array.isArray(item.profiles) ? item.profiles[0] ?? null : item.profiles ?? null,
+    const mapped = await Promise.all((data ?? []).map(async (item: any) => {
+      const rawImages = Array.isArray(item.complaint_images) ? item.complaint_images : [];
+      const images = await Promise.all(rawImages.map(async (image: any) => {
+        const { data: signed } = await supabase.storage.from("complaint-evidence").createSignedUrl(image.storage_path, 3600);
+        return { ...image, signed_url: signed?.signedUrl ?? null };
+      }));
+      return {
+        ...item,
+        student: Array.isArray(item.profiles) ? item.profiles[0] ?? null : item.profiles ?? null,
+        images,
+      };
     })) as Complaint[];
 
     setComplaints(mapped);
@@ -105,7 +114,7 @@ export default function AdminPage() {
       .from("complaints")
       .update({ status, updated_at: new Date().toISOString() })
       .eq("id", selected.id)
-      .select("id, student_id, title, description, location, status, created_at, updated_at, profiles!complaints_student_id_fkey(name, email)")
+      .select("id, student_id, title, description, location, status, created_at, updated_at, profiles!complaints_student_id_fkey(name, email), complaint_images(id, storage_path, content_type)")
       .single();
 
     if (error) {
@@ -113,9 +122,15 @@ export default function AdminPage() {
       return;
     }
 
+    const rawImages = Array.isArray((data as any).complaint_images) ? (data as any).complaint_images : [];
+    const images = await Promise.all(rawImages.map(async (image: any) => {
+      const { data: signed } = await supabase.storage.from("complaint-evidence").createSignedUrl(image.storage_path, 3600);
+      return { ...image, signed_url: signed?.signedUrl ?? null };
+    }));
     const updated = {
       ...data,
       student: Array.isArray((data as any).profiles) ? (data as any).profiles[0] ?? null : (data as any).profiles ?? null,
+      images,
     } as Complaint;
 
     setComplaints((items) => items.map((item) => item.id === updated.id ? updated : item));
@@ -248,6 +263,19 @@ export default function AdminPage() {
                 <div className="detailSection">
                   <label>Submitted</label>
                   <span>{formatDate(selected.created_at)}</span>
+                </div>
+
+                <div className="detailSection">
+                  <label>Evidence</label>
+                  {selected.images?.length ? (
+                    <div className="evidenceGrid">
+                      {selected.images.map((image) => image.signed_url ? (
+                        <a key={image.id} href={image.signed_url} target="_blank" rel="noreferrer">
+                          <img className="evidenceImage" src={image.signed_url} alt="Complaint evidence" />
+                        </a>
+                      ) : <span key={image.id}>Evidence file is unavailable.</span>)}
+                    </div>
+                  ) : <span>No evidence photo attached.</span>}
                 </div>
 
                 <div className="statusEditor">
