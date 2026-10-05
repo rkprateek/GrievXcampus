@@ -252,6 +252,17 @@ function Auth({
   );
 }
 
+function Brand() {
+  return (
+    <View style={s.brand}>
+      <View style={s.logo}>
+        <Text style={s.logoText}>G</Text>
+      </View>
+      <Text style={s.brandText}>GrievX Campus</Text>
+    </View>
+  );
+}
+
 function Home({ go }: { go: (x: Screen) => void }) {
   const [me, setMe] = useState<{ name: string } | null>(null);  useEffect(() => {
     getMe().then(setMe).catch(() => {});
