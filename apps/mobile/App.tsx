@@ -874,6 +874,23 @@ function date(v: string) {
 }
 
 const s = StyleSheet.create({
+  auth: { flexGrow: 1, padding: 20, justifyContent: "center", gap: 18 },
+  brand: { flexDirection: "row", alignItems: "center", gap: 10 },
+  logo: { width: 40, height: 40, borderRadius: 12, backgroundColor: C.navy, alignItems: "center", justifyContent: "center" },
+  logoText: { color: C.white, fontSize: 22, fontWeight: "800" },
+  brandText: { fontSize: 17, fontWeight: "700", color: C.text },
+  eyebrow: { fontSize: 11, fontWeight: "700", letterSpacing: 1.1, color: C.blue },
+  display: { fontSize: 30, lineHeight: 36, fontWeight: "700", color: C.text },
+  body: { fontSize: 16, lineHeight: 24, color: C.text },
+  field: { gap: 6 },
+  label: { fontSize: 14, fontWeight: "600", color: C.text },
+  input: { backgroundColor: "#F2F3FF", borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, color: C.text, fontSize: 14 },
+  card: { backgroundColor: C.white, borderWidth: 1, borderColor: C.border, borderRadius: 16, padding: 16, gap: 10 },
+  primary: { minHeight: 48, borderRadius: 12, backgroundColor: C.blue, alignItems: "center", justifyContent: "center", paddingHorizontal: 18, marginTop: 8 },
+  primaryText: { color: C.white, fontSize: 14, fontWeight: "700" },
+  disabled: { opacity: 0.55 },
+  link: { color: C.blue, fontSize: 13, fontWeight: "600", textAlign: "center", paddingVertical: 8 },
+
   app: { flex: 1, backgroundColor: C.bg },
   centered: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: C.bg },
 
