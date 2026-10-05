@@ -131,7 +131,7 @@ export default function AdminPage() {
       .from("complaints")
       .update({ status, updated_at: new Date().toISOString() })
       .eq("id", selected.id)
-      .select("id, student_id, title, description, location, status, created_at, updated_at, profiles!complaints_student_id_fkey(name, email), complaint_images(id, storage_path, content_type)")
+      .select("id, student_id, title, description, location, status, priority, department_id, created_at, updated_at, profiles!complaints_student_id_fkey(name, email), complaint_images(id, storage_path, content_type)")
       .single();
 
     if (error) {
@@ -222,7 +222,7 @@ export default function AdminPage() {
           <button className="navActive">Dashboard</button>
           <button onClick={() => setFilter("all")}>Complaints</button>
           <button onClick={() => setMessage("Analytics will be added in Week 11.")}>Analytics</button>
-          <button onClick={() => setMessage("Department routing will be added in Week 9.")}>Departments</button>
+          <button onClick={() => setMessage("Department routing is available in the current Week 5 admin flow.")}>Departments</button>
         </nav>
         <div className="sideBottom">
           <div className="adminMini"><span className="avatar">A</span><span><b>Administrator</b><small>{userEmail}</small></span></div>
