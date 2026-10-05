@@ -102,4 +102,3 @@ h1 { margin: 6px 0 6px; font-size: 30px; }
   .rowMeta { display: none; }
   .content { padding: 18px 12px; }
 }
-function sPlaceholder(){return ""}
