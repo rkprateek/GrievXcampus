@@ -14,6 +14,7 @@ type Complaint = {
   updated_at: string;
   department_id?: string | null;
   priority?: "normal" | "high" | "critical";
+  assigned_staff_id?: string | null;
   student?: { name: string; email: string } | null;
   images?: { id: string; storage_path: string; signed_url?: string | null; content_type?: string | null }[];
 };
@@ -21,6 +22,7 @@ type Complaint = {
 const statuses = ["all", "submitted", "assigned", "in_progress", "resolved", "closed", "rejected"] as const;
 const priorities = ["normal", "high", "critical"] as const;
 type Department = { id: string; name: string; code: string };
+type StaffMember = { id: string; name: string | null; email: string; role: string };
 
 export default function AdminPage() {
   const [sessionReady, setSessionReady] = useState(false);
@@ -33,6 +35,7 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
   const [departments, setDepartments] = useState<Department[]>([]);
+  const [staff, setStaff] = useState<StaffMember[]>([]);
 
   useEffect(() => {
     const boot = async () => {
@@ -53,6 +56,7 @@ export default function AdminPage() {
       setSessionReady(true);
       if (profile?.role === "admin") {
         await loadDepartments();
+        await loadStaff();
         await loadComplaints();
       }
       else setLoading(false);
@@ -74,6 +78,15 @@ export default function AdminPage() {
     return () => listener.subscription.unsubscribe();
   }, []);
 
+  const loadStaff = async () => {
+    const { data, error } = await supabase.from("profiles").select("id, name, email, role").in("role", ["staff", "department_head", "admin"]).order("name");
+    if (error) {
+      setMessage(error.message);
+      return;
+    }
+    setStaff(data ?? []);
+  };
+
   const loadDepartments = async () => {
     const { data, error } = await supabase.from("departments").select("id, name, code").order("name");
     if (error) {
@@ -87,7 +100,7 @@ export default function AdminPage() {
     setLoading(true);
     const { data, error } = await supabase
       .from("complaints")
-      .select("id, student_id, title, description, location, status, priority, department_id, created_at, updated_at, profiles!complaints_student_id_fkey(name, email), complaint_images(id, storage_path, content_type)")
+      .select("id, student_id, title, description, location, status, priority, department_id, assigned_staff_id, created_at, updated_at, profiles!complaints_student_id_fkey(name, email), complaint_images(id, storage_path, content_type)")
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -183,6 +196,48 @@ export default function AdminPage() {
     setComplaints((items) => items.map((item) => item.id === updated.id ? updated : item));
     setSelected(updated);
     setMessage("Complaint routing updated.");
+  };
+
+  const assignStaff = async (staffId: string | null) => {
+    if (!selected) return;
+    setMessage("");
+    const { data, error } = await supabase
+      .from("complaints")
+      .update({ assigned_staff_id: staffId, updated_at: new Date().toISOString() })
+      .eq("id", selected.id)
+      .select("id, student_id, title, description, location, status, priority, department_id, assigned_staff_id, created_at, updated_at, profiles!complaints_student_id_fkey(name, email), complaint_images(id, storage_path, content_type)")
+      .single();
+
+    if (error) {
+      setMessage(error.message);
+      return;
+    }
+
+    if (staffId) {
+      const { error: assignmentError } = await supabase.from("staff_assignments").insert({
+        complaint_id: selected.id,
+        staff_id: staffId,
+        assigned_by: (await supabase.auth.getUser()).data.user?.id,
+      });
+      if (assignmentError) {
+        setMessage(assignmentError.message);
+        return;
+      }
+    }
+
+    const rawImages = Array.isArray((data as any).complaint_images) ? (data as any).complaint_images : [];
+    const images = await Promise.all(rawImages.map(async (image: any) => {
+      const { data: signed } = await supabase.storage.from("complaint-evidence").createSignedUrl(image.storage_path, 3600);
+      return { ...image, signed_url: signed?.signedUrl ?? null };
+    }));
+    const updated = {
+      ...data,
+      student: Array.isArray((data as any).profiles) ? (data as any).profiles[0] ?? null : (data as any).profiles ?? null,
+      images,
+    } as Complaint;
+    setComplaints((items) => items.map((item) => item.id === updated.id ? updated : item));
+    setSelected(updated);
+    setMessage(staffId ? "Complaint assigned to staff." : "Staff assignment removed.");
   };
 
   const logout = async () => {
@@ -345,6 +400,15 @@ export default function AdminPage() {
                     <option value="">Unassigned</option>
                     {departments.map((department) => <option key={department.id} value={department.id}>{department.name}</option>)}
                   </select>
+                </div>
+
+                <div className="detailSection">
+                  <label>Assigned staff</label>
+                  <select className="departmentSelect" value={selected.assigned_staff_id ?? ""} onChange={(e) => assignStaff(e.target.value || null)}>
+                    <option value="">Unassigned</option>
+                    {staff.map((member) => <option key={member.id} value={member.id}>{member.name || member.email} ({member.role.replace("_", " ")})</option>)}
+                  </select>
+                  {staff.length === 0 && <span>No staff accounts are available yet.</span>}
                 </div>
 
                 <div className="statusEditor">
