@@ -68,6 +68,7 @@ h1 { margin: 6px 0 6px; font-size: 30px; }
 .statusButtons { display: flex; flex-wrap: wrap; gap: 7px; }
 .statusButton { border: 1px solid #dce1eb; background: #fff; border-radius: 8px; padding: 8px 9px; font-size: 10px; text-transform: capitalize; color: #586174; }
 .statusButton.current { border-color: #0b63e5; color: #0b63e5; background: #edf3ff; }
+.departmentSelect { width: 100%; border: 1px solid #dce1eb; border-radius: 9px; padding: 9px 10px; background: white; color: #333b4e; outline: none; }
 .detailEmpty { min-height: 450px; display: grid; place-content: center; text-align: center; padding: 35px; color: #737c8c; }
 .detailEmpty h2 { color: #172039; margin: 12px 0 5px; }
 .detailEmpty p { max-width: 250px; line-height: 19px; font-size: 12px; }
