@@ -91,22 +91,65 @@ export async function getComplaint(id: string) {
   return { ...data, images };
 }
 
+const IMAGE_MIME_BY_EXTENSION: Record<string, string> = {
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  png: "image/png",
+  webp: "image/webp",
+};
+
+function resolveImageMimeType(filename: string, uri: string, reportedMimeType?: string) {
+  const normalized = reportedMimeType?.toLowerCase();
+  if (normalized && Object.values(IMAGE_MIME_BY_EXTENSION).includes(normalized)) {
+    return normalized;
+  }
+
+  const candidates = [filename, uri];
+  for (const value of candidates) {
+    const match = value.toLowerCase().match(/\.([a-z0-9]+)(?:[?#].*)?$/);
+    if (match?.[1] && IMAGE_MIME_BY_EXTENSION[match[1]]) {
+      return IMAGE_MIME_BY_EXTENSION[match[1]];
+    }
+  }
+
+  // Android content providers can occasionally report text/plain for a real image.
+  // Since this screen only accepts images, safely default to JPEG instead of sending
+  // an unsupported MIME type to Supabase Storage.
+  return "image/jpeg";
+}
+
 export async function uploadComplaintImage(
   complaintId: string,
   uri: string,
   filename = "evidence.jpg",
-  mimeType = "image/jpeg",
+  mimeType?: string,
 ) {
   const { data: userData, error: userError } = await supabase.auth.getUser();
   if (userError || !userData.user) throw new Error("You are not signed in.");
 
-  const fileResponse = await fetch(uri);
-  const blob = await fileResponse.blob();
-  const safeFilename = filename.replace(/[^a-zA-Z0-9._-]/g, "_");
-  const storagePath = `${userData.user.id}/${complaintId}/${Date.now()}-${safeFilename}`;
+  const resolvedMimeType = resolveImageMimeType(filename, uri, mimeType);
+  const extension = resolvedMimeType === "image/png"
+    ? "png"
+    : resolvedMimeType === "image/webp"
+      ? "webp"
+      : "jpg";
+  const safeFilename = filename.replace(/[^a-zA-Z0-9._-]/g, "_") || `evidence.${extension}`;
+  const storageFilename = /\.[a-z0-9]+$/i.test(safeFilename)
+    ? safeFilename
+    : `${safeFilename}.${extension}`;
+  const storagePath = `${userData.user.id}/${complaintId}/${Date.now()}-${storageFilename}`;
+
+  // Supabase recommends ArrayBuffer for React Native uploads instead of Blob/File.
+  const arrayBuffer = await fetch(uri).then((response) => {
+    if (!response.ok) throw new Error("Unable to read the selected image.");
+    return response.arrayBuffer();
+  });
 
   const { error: uploadError } = await supabase.storage.from("complaint-evidence")
-    .upload(storagePath, blob, { contentType: mimeType, upsert: false });
+    .upload(storagePath, arrayBuffer, {
+      contentType: resolvedMimeType,
+      upsert: false,
+    });
   if (uploadError) throw new Error(uploadError.message);
 
   const { data, error } = await supabase.from("complaint_images")
@@ -114,7 +157,7 @@ export async function uploadComplaintImage(
       complaint_id: complaintId,
       storage_path: storagePath,
       original_filename: filename,
-      content_type: mimeType,
+      content_type: resolvedMimeType,
     })
     .select("id, complaint_id, storage_path, original_filename, content_type, created_at")
     .single();
