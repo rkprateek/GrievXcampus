@@ -1,3 +1,5 @@
+import * as FileSystem from "expo-file-system/legacy";
+import { decode } from "base64-arraybuffer";
 import { supabase } from "./supabase";
 
 export async function register(name: string, email: string, password: string) {
@@ -139,11 +141,14 @@ export async function uploadComplaintImage(
     : `${safeFilename}.${extension}`;
   const storagePath = `${userData.user.id}/${complaintId}/${Date.now()}-${storageFilename}`;
 
-  // Supabase recommends ArrayBuffer for React Native uploads instead of Blob/File.
-  const arrayBuffer = await fetch(uri).then((response) => {
-    if (!response.ok) throw new Error("Unable to read the selected image.");
-    return response.arrayBuffer();
+  // Expo Android can return content:// URIs. Read the selected asset through
+  // Expo FileSystem and convert it to binary data before sending it to Storage.
+  // Supabase documents ArrayBuffer uploads as the reliable React Native path.
+  const base64 = await FileSystem.readAsStringAsync(uri, {
+    encoding: FileSystem.EncodingType.Base64,
   });
+  if (!base64) throw new Error("Unable to read the selected image.");
+  const arrayBuffer = decode(base64);
 
   const { error: uploadError } = await supabase.storage.from("complaint-evidence")
     .upload(storagePath, arrayBuffer, {
