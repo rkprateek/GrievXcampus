@@ -312,7 +312,8 @@ function Report({ back, done }: { back: () => void; done: () => void }) {
   const [category, setCategory] = useState("Wi-Fi / Net");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [location, setLocation] = useState("");
+  const [building, setBuilding] = useState("");
+  const [room, setRoom] = useState("");
   const [priority, setPriority] = useState<"Normal" | "High" | "Critical">("High");
   const [anonymous, setAnonymous] = useState(false);
   const [image, setImage] = useState<ImagePicker.ImagePickerAsset | null>(null);
@@ -345,8 +346,15 @@ function Report({ back, done }: { back: () => void; done: () => void }) {
   };
 
   const submit = async () => {
-    if (!title.trim() || !description.trim() || !location.trim()) {
+    const campusLocation = [building.trim(), room.trim()].filter(Boolean).join(" - ");
+
+    if (!title.trim() || !description.trim() || !campusLocation) {
       Alert.alert("Missing information", "Please complete the complaint summary, description and manual campus location.");
+      return;
+    }
+
+    if (image?.fileSize && image.fileSize > 5 * 1024 * 1024) {
+      Alert.alert("Image too large", "Please choose an image smaller than 5 MB.");
       return;
     }
 
@@ -355,7 +363,7 @@ function Report({ back, done }: { back: () => void; done: () => void }) {
       const c = await createComplaint({
         title: title.trim(),
         description: description.trim(),
-        location: location.trim(),
+        location: campusLocation,
       });
 
       if (image) {
@@ -363,7 +371,7 @@ function Report({ back, done }: { back: () => void; done: () => void }) {
           c.id,
           image.uri,
           image.fileName ?? "evidence.jpg",
-          image.mimeType ?? "image/jpeg",
+          image.mimeType,
         );
       }
 
@@ -480,7 +488,7 @@ function Report({ back, done }: { back: () => void; done: () => void }) {
         <View style={s.formCard}>
           <View style={s.sectionHeader}>
             <Text style={s.formTitle}>4. Upload Evidence</Text>
-            <Text style={s.counter}>{image ? "1 / 3 Attached" : "0 / 3 Attached"}</Text>
+            <Text style={s.counter}>{image ? "1 Attached" : "0 Attached"}</Text>
           </View>
           <Text style={s.formHint}>Add a photo or clip to help technician identify the fault instantly.</Text>
           <View style={s.evidenceRow}>
@@ -499,14 +507,14 @@ function Report({ back, done }: { back: () => void; done: () => void }) {
               <Pressable style={s.evidenceEmpty} onPress={pick}>
                 <Text style={s.evidenceEmptyIcon}>▧</Text>
                 <Text style={s.addMedia}>+ Add Media</Text>
-                <Text style={s.mediaHint}>Max 3 files · 15MB</Text>
+                <Text style={s.mediaHint}>Max 1 file · 5MB</Text>
               </Pressable>
             )}
             {image && (
               <Pressable style={s.evidenceEmpty} onPress={pick}>
                 <Text style={s.evidenceEmptyIcon}>▧</Text>
                 <Text style={s.addMedia}>+ Add Media</Text>
-                <Text style={s.mediaHint}>Max 3 files · 15MB</Text>
+                <Text style={s.mediaHint}>Max 1 file · 5MB</Text>
               </Pressable>
             )}
           </View>
@@ -521,8 +529,8 @@ function Report({ back, done }: { back: () => void; done: () => void }) {
           <View style={s.locationInput}>
             <Text style={s.locationIcon}>⌂</Text>
             <TextInput
-              value={location}
-              onChangeText={setLocation}
+              value={building}
+              onChangeText={setBuilding}
               placeholder="Academic Complex - South Block"
               placeholderTextColor="#6E7381"
               style={s.locationTextInput}
@@ -533,6 +541,8 @@ function Report({ back, done }: { back: () => void; done: () => void }) {
           <View style={s.locationInput}>
             <Text style={s.locationIcon}>□</Text>
             <TextInput
+              value={room}
+              onChangeText={setRoom}
               placeholder="Room 214, 2nd Floor (Systems Lab)"
               placeholderTextColor="#6E7381"
               style={s.locationTextInput}
