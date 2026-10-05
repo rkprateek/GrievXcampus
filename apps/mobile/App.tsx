@@ -37,7 +37,7 @@ type Complaint = {
   location: string;
   status: string;
   created_at: string;
-  images: { id: string; original_filename: string; content_type: string }[];
+  images: { id: string; original_filename: string; content_type: string; signed_url?: string | null }[];
 };
 
 const C = {
@@ -703,10 +703,14 @@ function Detail({ id, back }: { id: string; back: () => void }) {
       <Card>
         <Text style={s.label}>Evidence</Text>
         {item.images.length ? item.images.map((x) => (
-          <View key={x.id} style={s.file}>
-            <Text>▧</Text>
-            <View>
-              <Text style={s.label}>{x.original_filename}</Text>
+          <View key={x.id} style={s.evidenceDetail}>
+            {x.signed_url ? (
+              <Image source={{ uri: x.signed_url }} style={s.evidenceDetailImage} />
+            ) : (
+              <View style={s.evidenceDetailPlaceholder}><Text style={s.evidenceDetailPlaceholderText}>▧</Text></View>
+            )}
+            <View style={{ flex: 1 }}>
+              <Text style={s.label} numberOfLines={1}>{x.original_filename}</Text>
               <Text style={s.helper}>{x.content_type}</Text>
             </View>
           </View>
@@ -1169,6 +1173,10 @@ const s = StyleSheet.create({
   complaintTitle: { fontSize: 17, fontWeight: "700", color: C.text },
   detailTitle: { fontSize: 24, lineHeight: 30, fontWeight: "700", color: C.text },
   file: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 7 },
+  evidenceDetail: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 8 },
+  evidenceDetailImage: { width: 88, height: 88, borderRadius: 10, backgroundColor: C.softBlue },
+  evidenceDetailPlaceholder: { width: 88, height: 88, borderRadius: 10, backgroundColor: C.softBlue, alignItems: "center", justifyContent: "center" },
+  evidenceDetailPlaceholderText: { color: C.blue, fontSize: 28 },
   timeline: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 9 },
   activeDot: { backgroundColor: C.blue },
   profile: { alignItems: "center", backgroundColor: C.white, borderWidth: 1, borderColor: C.border, borderRadius: 18, padding: 24, gap: 5 },
