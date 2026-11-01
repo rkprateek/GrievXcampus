@@ -99,3 +99,49 @@ Week 4 intentionally did not implement admin complaint management, staff assignm
 
 ### Verification
 The repository changes were implemented on the week-4-complaint-submission branch. Local pytest, PostgreSQL migration and mobile npm/typecheck commands must be run in the user's VS Code environment before this week is marked fully verified.
+
+
+## Week 4 — Current Supabase student demo
+
+### Status
+Supabase-backed student demo implemented on the `week-4-supabase-demo` branch and carried into the Week 5 integrated branch.
+
+### Completed
+- Student registration and login with Supabase Auth.
+- Persistent authentication session with AsyncStorage.
+- Student profile retrieval.
+- Complaint creation directly in Supabase PostgreSQL.
+- Manual campus location entry; GPS is not used.
+- Complaint list and complaint details.
+- Image selection, preview and upload to the private `complaint-evidence` Supabase Storage bucket.
+- Complaint image metadata stored in `complaint_images`.
+- Student-facing RLS for profiles, complaints and complaint images.
+- Evidence signed URLs for complaint details.
+
+### Verification
+The student complaint, image upload and storage flow was verified against the connected Supabase project during development. Local Expo/Android networking still needs to be verified on the current machine when the device can reach the Supabase hostname.
+
+## Week 5 — Integrated admin complaint management
+
+### Status
+Week 5 admin functionality has been integrated onto the current Supabase student branch as `week-5-integrated`.
+
+### Completed
+- Added Next.js + TypeScript admin dashboard.
+- Added administrator authentication and role enforcement with Supabase Auth.
+- Added complaint queue, search and lifecycle filters.
+- Added complaint details with student information, location and evidence.
+- Added complaint status updates.
+- Added dashboard counts for total, new, active and resolved/closed complaints.
+- Added departments and staff-assignment data model.
+- Added complaint priority field foundation: normal, high and critical.
+- Added staff assignment workflow.
+- Added admin/staff RLS policies.
+- Added profile role-escalation protection.
+- Consolidated the Week 5 Supabase database changes into a single uniquely versioned migration.
+
+### Scope control
+Automated text classification, priority prediction, department routing, notifications, duplicate detection/upvoting, analytics, campus map and deployment are not implemented in Week 5.
+
+### Verification
+Run the integrated mobile and admin applications locally and complete the end-to-end student-to-admin workflow before starting Week 6.
