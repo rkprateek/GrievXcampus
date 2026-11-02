@@ -110,8 +110,8 @@ export async function findDuplicateComplaints(input: {
     p_description: input.description,
     p_location: input.location,
     p_window_days: 90,
-    p_threshold: 0.55,
-    p_location_threshold: 0.45,
+    p_threshold: 0.40,
+    p_location_threshold: 0.30,
     p_limit: 5,
   });
 
