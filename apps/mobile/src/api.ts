@@ -166,15 +166,22 @@ export async function runAndPersistComplaintTriage(input: {
   title: string;
   description: string;
 }) {
-  const prediction = await predictComplaintWithMl({
-    title: input.title,
-    description: input.description,
-  });
+  let prediction: ComplaintPredictionResponse | null = null;
+  let predictionError: string | null = null;
+
+  try {
+    prediction = await predictComplaintWithMl({
+      title: input.title,
+      description: input.description,
+    });
+  } catch (error) {
+    predictionError = error instanceof Error ? error.message : "The ML service could not be reached.";
+  }
 
   if (!prediction) {
     return saveComplaintMlPrediction(input.complaintId, {
       complaint_id: input.complaintId,
-      prediction_state: "unavailable",
+      prediction_state: predictionError ? "error" : "unavailable",
       category: null,
       category_confidence: null,
       priority: null,
@@ -187,7 +194,7 @@ export async function runAndPersistComplaintTriage(input: {
       department_code: null,
       routing_confidence: null,
       requires_manual_review: true,
-      review_reason: "ML service is not configured or is unavailable. Staff should review the complaint manually.",
+      review_reason: predictionError ?? "ML service is not configured. Staff should review the complaint manually.",
       category_model_version: null,
       priority_model_version: null,
       routing_model_version: null,
