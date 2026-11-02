@@ -145,7 +145,8 @@ as $$
       ) as text_similarity,
       extensions.similarity(lower(c.location), lower(trim(p_location))) as location_similarity
     from public.complaints c
-    where c.created_at >= now() - make_interval(days => least(greatest(p_window_days, 1), 365))
+    where (select auth.uid()) is not null
+      and c.created_at >= now() - make_interval(days => least(greatest(p_window_days, 1), 365))
       and c.student_id <> (select auth.uid())
       and c.status not in ('closed', 'rejected')
   ),
@@ -173,7 +174,8 @@ as $$
     text_similarity,
     location_similarity
   from scored
-  where similarity >= greatest(least(p_threshold, 0.95), 0.20)
+  where (select auth.uid()) is not null
+    and similarity >= greatest(least(p_threshold, 0.95), 0.20)
     and location_similarity >= greatest(least(p_location_threshold, 0.90), 0.20)
   order by similarity desc, created_at desc
   limit greatest(least(p_limit, 10), 1);
