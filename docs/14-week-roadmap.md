@@ -30,7 +30,7 @@ Department mapping, routing model/logic based on text classification and project
 ## Week 10 — ML integration, duplicate detection, and operational workflow
 Connect classification, priority, and routing to the complaint workflow; persist predictions; expose results to authorized staff; handle low-confidence cases safely.
 
-Add **duplicate complaint detection** to the submission workflow:
+Add **duplicate complaint detection and community upvoting** to the submission workflow:
 - compare a new complaint with recent relevant complaints;
 - compare title and description similarity;
 - require matching/near-matching campus location as an important signal;
