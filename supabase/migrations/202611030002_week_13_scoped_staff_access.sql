@@ -193,3 +193,81 @@ create policy "Admins can assign department membership"
 on public.profiles for update to authenticated
 using ((select public.is_grievx_admin()))
 with check ((select public.is_grievx_admin()));
+
+-- Staff may update lifecycle state only. Department heads may manage priority and
+-- assignments inside their department, but cannot rewrite student-submitted content.
+create or replace function public.guard_scoped_complaint_updates()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  actor_role text;
+  target_staff_department uuid;
+begin
+  actor_role := (select public.current_grievx_role());
+
+  if actor_role = 'staff' and (
+    new.student_id is distinct from old.student_id
+    or new.title is distinct from old.title
+    or new.description is distinct from old.description
+    or new.location is distinct from old.location
+    or new.department_id is distinct from old.department_id
+    or new.assigned_staff_id is distinct from old.assigned_staff_id
+    or new.priority is distinct from old.priority
+    or new.category is distinct from old.category
+    or new.category_confidence is distinct from old.category_confidence
+    or new.category_model_version is distinct from old.category_model_version
+    or new.priority_confidence is distinct from old.priority_confidence
+    or new.priority_model_version is distinct from old.priority_model_version
+    or new.priority_source is distinct from old.priority_source
+    or new.department_confidence is distinct from old.department_confidence
+    or new.department_source is distinct from old.department_source
+    or new.duplicate_of_id is distinct from old.duplicate_of_id
+    or new.upvote_count is distinct from old.upvote_count
+    or new.created_at is distinct from old.created_at
+  ) then
+    raise exception 'Staff members may update complaint status only';
+  end if;
+
+  if actor_role = 'department_head' then
+    if new.student_id is distinct from old.student_id
+      or new.title is distinct from old.title
+      or new.description is distinct from old.description
+      or new.location is distinct from old.location
+      or new.created_at is distinct from old.created_at
+      or new.department_id is distinct from old.department_id
+      or new.category is distinct from old.category
+      or new.category_confidence is distinct from old.category_confidence
+      or new.category_model_version is distinct from old.category_model_version
+      or new.priority_confidence is distinct from old.priority_confidence
+      or new.priority_model_version is distinct from old.priority_model_version
+      or new.priority_source is distinct from old.priority_source
+      or new.department_confidence is distinct from old.department_confidence
+      or new.department_source is distinct from old.department_source
+      or new.duplicate_of_id is distinct from old.duplicate_of_id
+      or new.upvote_count is distinct from old.upvote_count
+    then
+      raise exception 'Department heads cannot change student-submitted complaint data or ML metadata';
+    end if;
+
+    if new.assigned_staff_id is not null then
+      select p.department_id into target_staff_department
+      from public.profiles p
+      where p.id = new.assigned_staff_id and p.role = 'staff';
+      if target_staff_department is distinct from new.department_id then
+        raise exception 'A department head may assign only staff from their own department';
+      end if;
+    end if;
+  end if;
+
+  return new;
+end;
+$$;
+
+revoke all on function public.guard_scoped_complaint_updates() from public, anon, authenticated;
+drop trigger if exists guard_scoped_complaint_updates_trigger on public.complaints;
+create trigger guard_scoped_complaint_updates_trigger
+before update on public.complaints
+for each row execute function public.guard_scoped_complaint_updates();
