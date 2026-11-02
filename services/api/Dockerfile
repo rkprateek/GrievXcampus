@@ -8,10 +8,10 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app
 RUN addgroup --system app && adduser --system --ingroup app app
 COPY services/api/pyproject.toml ./pyproject.toml
-RUN pip install --upgrade pip && pip install .
 COPY services/api/app ./app
 COPY services/api/alembic ./alembic
 COPY services/api/alembic.ini ./alembic.ini
+RUN pip install --upgrade pip && pip install .
 
 USER app
 EXPOSE 8000
