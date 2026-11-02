@@ -7,23 +7,22 @@ from sqlalchemy.orm import Session, selectinload
 from app.api.dependencies import require_roles
 from app.db.session import get_db
 from app.models import Complaint, ComplaintImage, ComplaintStatus, RoleName, User
-from app.schemas.complaint import (
-    ComplaintCreateRequest,
-    ComplaintImageUploadResponse,
-    ComplaintResponse,
-)
+from app.schemas.complaint import ComplaintCreateRequest, ComplaintImageUploadResponse, ComplaintResponse
 from app.storage import ALLOWED_IMAGE_TYPES, MAX_IMAGE_BYTES, get_object_storage
 
 router = APIRouter(prefix="/complaints", tags=["complaints"])
 
+_IMAGE_SIGNATURES = {
+    "image/jpeg": lambda data: data.startswith(b"\xff\xd8\xff"),
+    "image/png": lambda data: data.startswith(b"\x89PNG\r\n\x1a\n"),
+    "image/webp": lambda data: len(data) >= 12 and data.startswith(b"RIFF") and data[8:12] == b"WEBP",
+}
+
 
 def _get_student_complaint(db: Session, complaint_id: UUID, student_id: UUID) -> Complaint:
     complaint = db.scalar(
-        select(Complaint)
-        .options(selectinload(Complaint.images))
-        .where(
-            Complaint.id == complaint_id,
-            Complaint.student_id == student_id,
+        select(Complaint).options(selectinload(Complaint.images)).where(
+            Complaint.id == complaint_id, Complaint.student_id == student_id
         )
     )
     if complaint is None:
@@ -58,8 +57,7 @@ def list_my_complaints(
 ) -> list[Complaint]:
     return list(
         db.scalars(
-            select(Complaint)
-            .options(selectinload(Complaint.images))
+            select(Complaint).options(selectinload(Complaint.images))
             .where(Complaint.student_id == current_user.id)
             .order_by(Complaint.created_at.desc())
         ).all()
@@ -75,11 +73,7 @@ def get_my_complaint(
     return _get_student_complaint(db, complaint_id, current_user.id)
 
 
-@router.post(
-    "/{complaint_id}/images",
-    response_model=ComplaintImageUploadResponse,
-    status_code=status.HTTP_201_CREATED,
-)
+@router.post("/{complaint_id}/images", response_model=ComplaintImageUploadResponse, status_code=status.HTTP_201_CREATED)
 async def upload_complaint_image(
     complaint_id: UUID,
     file: UploadFile = File(...),
@@ -87,26 +81,19 @@ async def upload_complaint_image(
     db: Session = Depends(get_db),
 ) -> ComplaintImage:
     complaint = _get_student_complaint(db, complaint_id, current_user.id)
-
     if file.content_type not in ALLOWED_IMAGE_TYPES:
-        raise HTTPException(
-            status_code=415,
-            detail="Only JPEG, PNG, and WebP images are supported.",
-        )
-
-    content = await file.read()
+        raise HTTPException(status_code=415, detail="Only JPEG, PNG, and WebP images are supported.")
+    content = await file.read(MAX_IMAGE_BYTES + 1)
     if not content:
         raise HTTPException(status_code=400, detail="Uploaded image is empty.")
     if len(content) > MAX_IMAGE_BYTES:
         raise HTTPException(status_code=413, detail="Image exceeds the 5 MB size limit.")
+    if not _IMAGE_SIGNATURES[file.content_type](content):
+        raise HTTPException(status_code=415, detail="The file contents do not match the declared image type.")
 
-    storage = get_object_storage()
-    object_key = storage.upload_image(
-        content=content,
-        content_type=file.content_type,
-        filename=file.filename or "image",
+    object_key = get_object_storage().upload_image(
+        content=content, content_type=file.content_type, filename=file.filename or "image"
     )
-
     image = ComplaintImage(
         complaint_id=complaint.id,
         object_key=object_key,
