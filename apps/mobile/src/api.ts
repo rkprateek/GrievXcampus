@@ -148,22 +148,31 @@ export async function createComplaint(input: {
       .eq("code", ml.routing.department_code)
       .maybeSingle();
 
-    const update: Record<string, unknown> = {
-      category: ml.category.category,
-      category_confidence: ml.category.confidence,
-      category_model_version: ml.category.model_version,
-      priority: ml.priority.priority,
-      priority_confidence: ml.priority.confidence,
-      priority_model_version: ml.priority.model_version,
-      priority_source: ml.priority.method,
-      department_confidence: ml.routing.confidence,
-      department_source: ml.routing.method,
-    };
+    const { error: workflowError } = await supabase.rpc("apply_complaint_ml_predictions", {
+      p_complaint_id: data.id,
+      p_category: ml.category.category,
+      p_category_confidence: ml.category.confidence,
+      p_category_model_version: ml.category.model_version,
+      p_priority: ml.priority.priority,
+      p_priority_confidence: ml.priority.confidence,
+      p_priority_model_version: ml.priority.model_version,
+      p_priority_source: ml.priority.method,
+      p_department_code: ml.routing.department_code,
+      p_department_confidence: ml.routing.confidence,
+      p_department_source: ml.routing.method,
+    });
 
-    if (department?.id) update.department_id = department.id;
+    if (!workflowError) {
+      return {
+        ...data,
+        category: ml.category.category,
+        category_confidence: ml.category.confidence,
+        priority: ml.priority.priority,
+        priority_confidence: ml.priority.confidence,
+      };
+    }
 
-    await supabase.from("complaints").update(update).eq("id", data.id);
-    return { ...data, ...update };
+    return data;
   }
 
   return data;
