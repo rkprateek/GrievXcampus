@@ -147,7 +147,7 @@ begin
   current_user_id := (select auth.uid());
   if current_user_id is null then raise exception 'Authentication required'; end if;
 
-  select * into cfg from public.duplicate_detection_config where id = true;
+  select d.* into cfg from public.duplicate_detection_config d where d.id = true;
 
   return query
   with candidates as (
