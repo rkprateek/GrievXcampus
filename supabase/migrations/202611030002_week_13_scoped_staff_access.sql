@@ -184,3 +184,12 @@ using (
 
 -- Existing staff accounts must be assigned a department by an administrator
 -- before department-head or staff-scoped work is visible to them.
+
+-- Give administrators a controlled UI path to place staff and department heads
+-- into a department. The existing role guard still protects self-service edits.
+grant update on public.profiles to authenticated;
+drop policy if exists "Admins can assign department membership" on public.profiles;
+create policy "Admins can assign department membership"
+on public.profiles for update to authenticated
+using ((select public.is_grievx_admin()))
+with check ((select public.is_grievx_admin()));
