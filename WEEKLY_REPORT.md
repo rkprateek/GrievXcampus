@@ -231,3 +231,21 @@ Priority prediction is standalone in Week 8. Complaint submission is not automat
 
 ### Verification
 Run the FastAPI test suite and `python -m services.api.app.ml.train_models` in the local environment before treating the model metrics as verified for the project report.
+
+
+## Week 9 — Department routing
+
+### Status
+Implemented on `week-9-department-routing`.
+
+### Completed
+- Added category-to-department mapping using the project’s nine configured departments.
+- Added confidence-aware routing using the Week 7 classifier.
+- Added low-confidence fallback to General with `requires_manual_review=true`.
+- Added `POST /ml/route`.
+- Extended `POST /ml/predict` with routing output.
+- Added routing tests for IT & Network and Classroom & Facilities examples.
+- Kept routing as deterministic application logic instead of introducing a fourth ML model.
+
+### Scope control
+Week 9 does not yet persist ML predictions into complaints or activate automatic routing during complaint submission. That integration belongs to Week 10 together with duplicate detection and upvoting.
