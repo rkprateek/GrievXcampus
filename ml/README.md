@@ -110,11 +110,10 @@ The ML service is now consumed by the student complaint workflow when `EXPO_PUBL
 
 For each submitted complaint:
 - `POST /ml/predict` returns category, priority and department routing.
-- Priority is persisted to the complaint.
-- Department is auto-assigned only when routing confidence passes the configured threshold.
-- Low-confidence routing is persisted with `requires_manual_review=true`.
-- If the ML service is unavailable, the complaint is still retained and an explicit unavailable/error prediction state is recorded for staff review.
+- The mobile client persists the category, confidence, priority and department-routing fields through the existing Supabase `apply_complaint_ml_predictions` RPC.
+- Low-confidence routing is written with `department_source=manual_review`; the department fallback remains the Week 9 General route.
+- If the optional ML service is unavailable, the complaint is still retained and staff can review it manually.
 
-Duplicate detection is separate from the ML service. Supabase uses `pg_trgm` similarity over title/description and a required location similarity signal, with configurable thresholds and a bounded recent window.
+Duplicate detection is separate from the ML service. Supabase uses the existing configurable `find_possible_duplicates` RPC with `pg_trgm` title/description similarity and a near-matching campus-location signal, using the configured recency window and threshold.
 
 When a student confirms that a possible duplicate is actually the same issue, the mobile app adds a community upvote to the existing complaint instead of opening a second ticket.
