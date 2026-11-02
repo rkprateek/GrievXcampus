@@ -17,7 +17,7 @@ Build from the repository root:
 
     docker build -f services/api/Dockerfile -t grievx-api .
 
-Configure production settings in the hosting provider's secret manager. Apply database migrations as a separate release step; do not run migrations automatically in every application replica.
+Configure production settings in the hosting provider's secret manager. CORS_ORIGINS and ALLOWED_HOSTS use JSON array values. Apply database migrations as a separate release step; do not run migrations automatically in every application replica.
 
 ## Admin dashboard
 
