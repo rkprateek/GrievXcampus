@@ -195,6 +195,7 @@ export default function AdminPage() {
       ...data,
       student: Array.isArray((data as any).profiles) ? (data as any).profiles[0] ?? null : (data as any).profiles ?? null,
       images,
+      status_history: (data as any).complaint_status_history ?? [],
     } as Complaint;
     setComplaints((items) => items.map((item) => item.id === updated.id ? updated : item));
     setSelected(updated);
@@ -237,6 +238,7 @@ export default function AdminPage() {
       ...data,
       student: Array.isArray((data as any).profiles) ? (data as any).profiles[0] ?? null : (data as any).profiles ?? null,
       images,
+      status_history: (data as any).complaint_status_history ?? [],
     } as Complaint;
     setComplaints((items) => items.map((item) => item.id === updated.id ? updated : item));
     setSelected(updated);
