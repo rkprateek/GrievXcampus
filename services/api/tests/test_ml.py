@@ -62,6 +62,8 @@ def test_combined_prediction_endpoint() -> None:
     assert "priority" in payload
     assert payload["category"]["model_version"] == "text-classifier-v1.0.0"
     assert payload["priority"]["model_version"] == "priority-predictor-v1.0.0"
+    assert "routing" in payload
+    assert payload["routing"]["department_code"] in {"ELEC", "PLMB", "IT", "CLEAN", "FAC", "HOSTEL", "SEC", "TRANS", "GEN"}
 
 
 def test_model_evaluation_returns_metrics() -> None:
@@ -71,3 +73,17 @@ def test_model_evaluation_returns_metrics() -> None:
     for metrics in (classifier_metrics, priority_metrics):
         assert 0 <= metrics["accuracy"] <= 1
         assert 0 <= metrics["macro_f1"] <= 1
+
+
+def test_department_route_endpoint() -> None:
+    client = TestClient(app)
+    response = client.post(
+        "/ml/route",
+        json={
+            "title": "Wi-Fi is slow in lab",
+            "description": "The internet connection is very slow in Lab 304.",
+        },
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["department_code"] in {"IT", "GEN"}
