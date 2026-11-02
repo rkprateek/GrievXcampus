@@ -2,6 +2,15 @@ import * as FileSystem from "expo-file-system/legacy";
 import { decode } from "base64-arraybuffer";
 import { supabase } from "./supabase";
 
+export type ComplaintStatusHistory = {
+  id: string;
+  from_status: string | null;
+  to_status: string;
+  changed_by: string | null;
+  note: string | null;
+  created_at: string;
+};
+
 export async function register(name: string, email: string, password: string) {
   const { data, error } = await supabase.auth.signUp({
     email,
@@ -80,7 +89,7 @@ export async function getComplaints() {
 
 export async function getComplaint(id: string) {
   const { data, error } = await supabase.from("complaints")
-    .select("id, student_id, title, description, location, status, created_at, updated_at, complaint_images(id, original_filename, content_type, storage_path)")
+    .select("id, student_id, title, description, location, status, created_at, updated_at, complaint_images(id, original_filename, content_type, storage_path), complaint_status_history(id, from_status, to_status, changed_by, note, created_at)")
     .eq("id", id)
     .single();
   if (error) throw new Error(error.message);
@@ -90,7 +99,7 @@ export async function getComplaint(id: string) {
       .createSignedUrl(image.storage_path, 3600);
     return { ...image, signed_url: signed?.signedUrl ?? null };
   }));
-  return { ...data, images };
+  return { ...data, images, status_history: (data.complaint_status_history ?? []) as ComplaintStatusHistory[] };
 }
 
 const IMAGE_MIME_BY_EXTENSION: Record<string, string> = {
