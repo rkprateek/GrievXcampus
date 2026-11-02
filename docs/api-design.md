@@ -69,3 +69,8 @@ These inference endpoints accept:
 Classification returns category, confidence, low-confidence flag and model version.
 Priority prediction returns priority, confidence, method, explanation, matched safety rules and model version.
 The endpoints are standalone in Weeks 7–8. Complaint submission does not call them automatically until the later ML integration stage.
+
+
+## Week 9 — Department routing
+
+POST /ml/route accepts `title` and `description` and returns the predicted category, category confidence, department name/code, routing confidence, manual-review flag, reason and model version. POST /ml/predict includes the same routing result with category and priority.

@@ -75,3 +75,31 @@ Persisted model artifacts and production model deployment will be introduced whe
 
 Weeks 7–8 do not automatically classify or prioritize a newly submitted complaint.
 That end-to-end workflow integration belongs to the later ML integration stage in the roadmap.
+
+
+## Week 9 — Department routing
+
+Department routing is deterministic after text classification rather than a separate ML model.
+
+### Routing logic
+- The Week 7 classifier predicts a complaint category.
+- The predicted category is mapped to a project department code.
+- If category confidence is below `0.55`, the complaint is routed to `General` and `requires_manual_review=true`.
+- Routing returns both category confidence and routing confidence for explainability.
+
+### Mapping
+- Electrical → ELEC
+- Plumbing → PLMB
+- IT & Network → IT
+- Cleanliness → CLEAN
+- Classroom & Facilities → FAC
+- Hostel → HOSTEL
+- Security → SEC
+- Transport → TRANS
+- General → GEN
+
+### API
+- `POST /ml/route`
+- `POST /ml/predict` now includes `routing`
+
+This keeps routing transparent and easy for an admin to override later.
