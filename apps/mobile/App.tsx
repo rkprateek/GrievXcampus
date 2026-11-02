@@ -30,6 +30,7 @@ import {
   signOut,
   uploadComplaintImage,
   runAndPersistComplaintTriage,
+  upvoteComplaint,
 } from "./src/api";
 import { supabase } from "./src/supabase";
 import type { DuplicateComplaint } from "./src/api";
@@ -327,6 +328,25 @@ function Report({ back, done }: { back: () => void; done: () => void }) {
     if (!r.canceled) setImage(r.assets[0]);
   };
 
+  const supportExisting = async (match: DuplicateComplaint) => {
+    try {
+      setBusy(true);
+      await upvoteComplaint(match.id);
+      Alert.alert(
+        "Supported existing complaint",
+        "Your support was added to the existing complaint. No duplicate ticket was created.",
+        [{ text: "View complaints", onPress: done }],
+      );
+    } catch (e) {
+      Alert.alert(
+        "Could not add support",
+        e instanceof Error ? e.message : "Please try again.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const submit = async (submitAnyway = false) => {
     if (!title.trim() || !description.trim() || !location.trim()) {
       Alert.alert("Missing information", "Please complete title, description and campus location.");
@@ -441,11 +461,18 @@ function Report({ back, done }: { back: () => void; done: () => void }) {
               <View key={match.id} style={s.duplicateItem}>
                 <Text style={s.label}>{match.title}</Text>
                 <Text style={s.helper}>
-                  {match.location} · {Math.round(match.similarity * 100)}% similarity
+                  {match.location} · {Math.round(match.similarity * 100)}% similarity · {match.upvote_count} support
                 </Text>
                 <Text style={s.muted} numberOfLines={3}>
                   {match.description}
                 </Text>
+                <Pressable
+                  style={s.secondaryButton}
+                  onPress={() => supportExisting(match)}
+                  disabled={busy}
+                >
+                  <Text style={s.secondaryButtonText}>Support this existing complaint</Text>
+                </Pressable>
               </View>
             ))}
 
