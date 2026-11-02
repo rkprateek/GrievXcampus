@@ -249,3 +249,31 @@ Implemented on `week-9-department-routing`.
 
 ### Scope control
 Week 9 does not yet persist ML predictions into complaints or activate automatic routing during complaint submission. That integration belongs to Week 10 together with duplicate detection and upvoting.
+
+## Week 10 — ML integration, duplicate detection, and upvoting
+
+### Status
+Implemented on `week-10-ml-integration-duplicates`.
+
+### Completed
+- Added persisted `complaint_ml_predictions` records for category, priority, department routing, confidence, model versions and manual-review state.
+- Connected the student complaint submission workflow to the existing FastAPI `POST /ml/predict` service when `EXPO_PUBLIC_ML_API_URL` is configured.
+- Automatically writes predicted priority to the complaint.
+- Automatically assigns the mapped department only when routing confidence is sufficient.
+- Sends low-confidence routing to General/manual review instead of silently forcing an assignment.
+- Keeps complaint submission usable when the ML service is unavailable by recording an explicit unavailable/error prediction state for staff review.
+- Added database-backed duplicate detection using title/description similarity plus a required near-matching campus location.
+- Added a configurable 90-day search window, similarity thresholds and a bounded candidate list.
+- Added a student review step showing possible duplicate complaints before a new complaint is created.
+- Added an explicit “Submit anyway” path so duplicate detection never blocks legitimate unrelated complaints.
+- Added community upvoting for an existing complaint; supporting an existing complaint creates no second ticket.
+- Exposed the persisted ML triage result to authorized admin users with confidence and manual-review information.
+
+### Scope note
+Duplicate detection and upvoting are application features, not additional ML models. The three ML capabilities remain text classification, priority prediction and department routing.
+
+### Verification
+- Confirmed the live Supabase project has the Week 10 prediction table and duplicate-detection function.
+- Confirmed `pg_trgm` 1.6 is installed and available.
+- Confirmed the duplicate scoring query returns expected similarity values against existing complaint data.
+- Mobile Expo/Android and FastAPI runtime tests still need to be run in the local developer environment before Week 10 is marked fully verified.
