@@ -20,6 +20,9 @@ import {
   getComplaint,
   getComplaints,
   getMe,
+  getNotifications,
+  markAllNotificationsRead,
+  markNotificationRead,
   login,
   register,
   resetPassword,
@@ -118,13 +121,7 @@ function AppContent() {
       {screen === "detail" && id && (
         <Detail id={id} back={() => setScreen("complaints")} />
       )}
-      {screen === "notifications" && (
-        <Simple
-          title="Notifications"
-          back={() => setScreen("home")}
-          text="Notification APIs are outside the current Week 4 backend scope."
-        />
-      )}
+      {screen === "notifications" && <Notifications back={() => setScreen("home")} openComplaint={open} />}
       {screen === "profile" && <Profile back={() => setScreen("home")} logout={signOut} />}
       {screen !== "detail" && <Nav active={screen} go={setScreen} />}
     </SafeAreaView>
@@ -458,14 +455,125 @@ function Profile({ back, logout }: { back: () => void; logout: () => void }) {
   );
 }
 
-function Simple({ title, back, text }: { title: string; back: () => void; text: string }) {
+function Notifications({ back, openComplaint }: { back: () => void; openComplaint: (id: string) => void }) {
+  const [items, setItems] = useState<import("./src/api").Notification[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let mounted = true;
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+
+    const load = async () => {
+      try {
+        setLoading(true);
+        const data = await getNotifications();
+        if (mounted) setItems(data);
+
+        const { data: userData } = await supabase.auth.getUser();
+        if (!userData.user) return;
+
+        channel = supabase
+          .channel(`notifications-${userData.user.id}`)
+          .on(
+            "postgres_changes",
+            {
+              event: "INSERT",
+              schema: "public",
+              table: "notifications",
+              filter: `recipient_id=eq.${userData.user.id}`,
+            },
+            (payload) => {
+              const next = payload.new as import("./src/api").Notification;
+              if (!mounted) return;
+              setItems((current) => [
+                next,
+                ...current.filter((item) => item.id !== next.id),
+              ]);
+            },
+          )
+          .subscribe();
+      } catch (e) {
+        if (mounted) setError(e instanceof Error ? e.message : "Unable to load notifications.");
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+
+    load();
+
+    return () => {
+      mounted = false;
+      if (channel) supabase.removeChannel(channel);
+    };
+  }, []);
+
+  const unread = items.filter((item) => !item.read_at).length;
+
+  const read = async (item: import("./src/api").Notification) => {
+    if (!item.read_at) {
+      try {
+        await markNotificationRead(item.id);
+        setItems((current) => current.map((x) =>
+          x.id === item.id ? { ...x, read_at: new Date().toISOString() } : x
+        ));
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Unable to update notification.");
+        return;
+      }
+    }
+
+    if (item.complaint_id) openComplaint(item.complaint_id);
+  };
+
+  const markAll = async () => {
+    try {
+      await markAllNotificationsRead();
+      setItems((current) => current.map((item) => ({
+        ...item,
+        read_at: item.read_at ?? new Date().toISOString(),
+      })));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Unable to update notifications.");
+    }
+  };
+
   return (
     <ScrollView contentContainerStyle={s.page}>
-      <Header title={title} back={back} />
-      <View style={s.empty}>
-        <Text style={s.cardTitle}>You're all caught up</Text>
-        <Text style={s.muted}>{text}</Text>
+      <Header title="Notifications" back={back} />
+      <View style={s.notificationHeader}>
+        <View>
+          <Text style={s.cardTitle}>{unread ? `${unread} unread update${unread === 1 ? "" : "s"}` : "All caught up"}</Text>
+          <Text style={s.muted}>Status changes and complaint updates appear here.</Text>
+        </View>
+        {unread > 0 && (
+          <Pressable onPress={markAll}>
+            <Text style={s.link}>Mark all read</Text>
+          </Pressable>
+        )}
       </View>
+
+      {loading ? <ActivityIndicator color={C.blue} /> : error ? (
+        <Text style={s.error}>{error}</Text>
+      ) : items.length === 0 ? (
+        <View style={s.empty}>
+          <Text style={s.cardTitle}>No notifications yet</Text>
+          <Text style={s.muted}>You'll see an update here when your complaint is submitted or its status changes.</Text>
+        </View>
+      ) : items.map((item) => (
+        <Pressable
+          key={item.id}
+          style={[s.notificationCard, !item.read_at && s.notificationUnread]}
+          onPress={() => read(item)}
+        >
+          <View style={s.row}>
+            <Text style={s.label}>{item.title}</Text>
+            {!item.read_at && <View style={s.notificationDot} />}
+          </View>
+          <Text style={s.muted}>{item.message}</Text>
+          <Text style={s.helper}>{date(item.created_at)}</Text>
+        </Pressable>
+      ))}
     </ScrollView>
   );
 }
@@ -890,6 +998,10 @@ const s = StyleSheet.create({
   profileAvatar: { width: 82, height: 82, borderRadius: 41, backgroundColor: "#DAE2FD", alignItems: "center", justifyContent: "center" },
   profileLetter: { fontSize: 34, fontWeight: "800", color: C.navy },
   empty: { backgroundColor: C.white, borderWidth: 1, borderColor: C.border, borderRadius: 18, padding: 28, alignItems: "center", gap: 8 },
+  notificationHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", gap: 12 },
+  notificationCard: { backgroundColor: C.white, borderWidth: 1, borderColor: C.border, borderRadius: 16, padding: 16, gap: 8 },
+  notificationUnread: { borderColor: "#B9C9F7", backgroundColor: "#F6F8FF" },
+  notificationDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: C.blue },
   logout: { height: 48, borderRadius: 12, borderWidth: 1, borderColor: "#F1B4B4", backgroundColor: "#FEF2F2", alignItems: "center", justifyContent: "center" },
   error: { fontSize: 13, color: C.red },
   body: { fontSize: 16, lineHeight: 24, color: C.text },
