@@ -103,3 +103,18 @@ Department routing is deterministic after text classification rather than a sepa
 - `POST /ml/predict` now includes `routing`
 
 This keeps routing transparent and easy for an admin to override later.
+
+## Week 10 — Workflow integration
+
+The ML service is now consumed by the student complaint workflow when `EXPO_PUBLIC_ML_API_URL` points to the FastAPI service.
+
+For each submitted complaint:
+- `POST /ml/predict` returns category, priority and department routing.
+- Priority is persisted to the complaint.
+- Department is auto-assigned only when routing confidence passes the configured threshold.
+- Low-confidence routing is persisted with `requires_manual_review=true`.
+- If the ML service is unavailable, the complaint is still retained and an explicit unavailable/error prediction state is recorded for staff review.
+
+Duplicate detection is separate from the ML service. Supabase uses `pg_trgm` similarity over title/description and a required location similarity signal, with configurable thresholds and a bounded recent window.
+
+When a student confirms that a possible duplicate is actually the same issue, the mobile app adds a community upvote to the existing complaint instead of opening a second ticket.
