@@ -197,3 +197,52 @@ $$;
 
 revoke all on function public.admin_analytics_summary() from public, anon;
 grant execute on function public.admin_analytics_summary() to authenticated;
+
+
+create or replace function public.apply_complaint_ml_predictions(
+  p_complaint_id uuid,
+  p_category text,
+  p_category_confidence numeric,
+  p_category_model_version text,
+  p_priority text,
+  p_priority_confidence numeric,
+  p_priority_model_version text,
+  p_priority_source text,
+  p_department_code text,
+  p_department_confidence numeric,
+  p_department_source text
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  department_uuid uuid;
+begin
+  select d.id into department_uuid from public.departments d
+  where d.code = p_department_code limit 1;
+
+  update public.complaints
+  set category = p_category,
+      category_confidence = p_category_confidence,
+      category_model_version = p_category_model_version,
+      priority = p_priority,
+      priority_confidence = p_priority_confidence,
+      priority_model_version = p_priority_model_version,
+      priority_source = p_priority_source,
+      department_confidence = p_department_confidence,
+      department_source = p_department_source,
+      department_id = department_uuid,
+      updated_at = now()
+  where id = p_complaint_id
+    and student_id = (select auth.uid());
+
+  if not found then
+    raise exception 'Complaint not found or not owned by the current student';
+  end if;
+end;
+$$;
+
+revoke all on function public.apply_complaint_ml_predictions(uuid,text,numeric,text,text,numeric,text,text,text,numeric,text) from public, anon;
+grant execute on function public.apply_complaint_ml_predictions(uuid,text,numeric,text,text,numeric,text,text,text,numeric,text) to authenticated;
