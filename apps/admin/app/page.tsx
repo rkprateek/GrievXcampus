@@ -18,10 +18,35 @@ type Complaint = {
   status_history?: { id: string; from_status: string | null; to_status: string; changed_by: string | null; note: string | null; created_at: string }[];
   student?: { name: string; email: string } | null;
   images?: { id: string; storage_path: string; signed_url?: string | null; content_type?: string | null }[];
+  ml_prediction?: MlPrediction | null;
 };
 
 const statuses = ["all", "submitted", "assigned", "in_progress", "resolved", "closed", "rejected"] as const;
 const priorities = ["normal", "high", "critical"] as const;
+type MlPrediction = {
+  id: string;
+  complaint_id: string;
+  prediction_state: "completed" | "manual_review" | "unavailable" | "error";
+  category: string | null;
+  category_confidence: number | null;
+  priority: "normal" | "high" | "critical" | null;
+  priority_confidence: number | null;
+  priority_method: string | null;
+  priority_explanation: string | null;
+  matched_rules: string[];
+  department_id: string | null;
+  department_name: string | null;
+  department_code: string | null;
+  routing_confidence: number | null;
+  requires_manual_review: boolean;
+  review_reason: string | null;
+  category_model_version: string | null;
+  priority_model_version: string | null;
+  routing_model_version: string | null;
+  prediction_source: string;
+  created_at: string;
+  updated_at: string;
+};
 type Department = { id: string; name: string; code: string };
 type StaffMember = { id: string; name: string | null; email: string; role: string };
 
@@ -101,7 +126,7 @@ export default function AdminPage() {
     setLoading(true);
     const { data, error } = await supabase
       .from("complaints")
-      .select("id, student_id, title, description, location, status, priority, department_id, assigned_staff_id, created_at, updated_at, profiles!complaints_student_id_fkey(name, email), complaint_images(id, storage_path, content_type), complaint_status_history(id, from_status, to_status, changed_by, note, created_at)")
+      .select("id, student_id, title, description, location, status, priority, department_id, assigned_staff_id, created_at, updated_at, profiles!complaints_student_id_fkey(name, email), complaint_images(id, storage_path, content_type), complaint_status_history(id, from_status, to_status, changed_by, note, created_at), complaint_ml_predictions(*)")
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -121,6 +146,7 @@ export default function AdminPage() {
         student: Array.isArray(item.profiles) ? item.profiles[0] ?? null : item.profiles ?? null,
         images,
         status_history: item.complaint_status_history ?? [],
+        ml_prediction: Array.isArray(item.complaint_ml_predictions) ? item.complaint_ml_predictions[0] ?? null : item.complaint_ml_predictions ?? null,
       };
     })) as Complaint[];
 
@@ -146,7 +172,7 @@ export default function AdminPage() {
       .from("complaints")
       .update({ status, updated_at: new Date().toISOString() })
       .eq("id", selected.id)
-      .select("id, student_id, title, description, location, status, priority, department_id, assigned_staff_id, created_at, updated_at, profiles!complaints_student_id_fkey(name, email), complaint_images(id, storage_path, content_type)")
+      .select("id, student_id, title, description, location, status, priority, department_id, assigned_staff_id, created_at, updated_at, profiles!complaints_student_id_fkey(name, email), complaint_images(id, storage_path, content_type), complaint_status_history(id, from_status, to_status, changed_by, note, created_at), complaint_ml_predictions(*)")
       .single();
 
     if (error) {
@@ -164,6 +190,7 @@ export default function AdminPage() {
       student: Array.isArray((data as any).profiles) ? (data as any).profiles[0] ?? null : (data as any).profiles ?? null,
       images,
       status_history: (data as any).complaint_status_history ?? [],
+      ml_prediction: Array.isArray((data as any).complaint_ml_predictions) ? (data as any).complaint_ml_predictions[0] ?? null : (data as any).complaint_ml_predictions ?? null,
     } as Complaint;
 
     setComplaints((items) => items.map((item) => item.id === updated.id ? updated : item));
@@ -408,6 +435,43 @@ export default function AdminPage() {
                       ))}
                     </div>
                   ) : <span>No status history available.</span>}
+                </div>
+
+                <div className="detailSection">
+                  <label>ML triage</label>
+                  {selected.ml_prediction ? (
+                    <div className="mlCard">
+                      <div className="mlHeader">
+                        <strong>{selected.ml_prediction.category ?? "Manual review"}</strong>
+                        <span className={selected.ml_prediction.requires_manual_review ? "reviewBadge" : "readyBadge"}>
+                          {selected.ml_prediction.requires_manual_review ? "Manual review" : "Auto triage"}
+                        </span>
+                      </div>
+                      <div className="mlGrid">
+                        <div>
+                          <span>Category confidence</span>
+                          <b>{selected.ml_prediction.category_confidence != null ? Math.round(selected.ml_prediction.category_confidence * 100) + "%": "—"}</b>
+                        </div>
+                        <div>
+                          <span>Predicted priority</span>
+                          <b>{selected.ml_prediction.priority ?? "—"}</b>
+                        </div>
+                        <div>
+                          <span>Priority confidence</span>
+                          <b>{selected.ml_prediction.priority_confidence != null ? Math.round(selected.ml_prediction.priority_confidence * 100) + "%": "—"}</b>
+                        </div>
+                        <div>
+                          <span>Routed department</span>
+                          <b>{selected.ml_prediction.department_name ?? "—"}</b>
+                        </div>
+                      </div>
+                      {selected.ml_prediction.review_reason && (
+                        <p className="mlReason">{selected.ml_prediction.review_reason}</p>
+                      )}
+                    </div>
+                  ) : (
+                    <span>No ML triage record is available. Review manually.</span>
+                  )}
                 </div>
 
                 <div className="detailSection">
