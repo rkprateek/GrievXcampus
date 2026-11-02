@@ -1,316 +1,255 @@
--- GrievX Campus Week 10: ML triage persistence and safe duplicate detection.
+-- GrievX Campus Week 10.
+-- Reconciles the Week 9-12 operational complaint schema with the Week 10
+-- complaint workflow: ML triage is persisted on the complaint itself and
+-- duplicate detection uses the existing configurable application function.
+-- Duplicate detection is an application feature, not a fourth ML model.
+
+-- GrievX Campus Weeks 9-12 operational foundation.
+-- This migration mirrors the live Week 9-12 schema applied for the project.
 
 create extension if not exists pg_trgm with schema extensions;
 
-create table if not exists public.complaint_ml_predictions (
-  id uuid primary key default gen_random_uuid(),
-  complaint_id uuid not null unique references public.complaints(id) on delete cascade,
-  prediction_state text not null default 'completed'
-    check (prediction_state in ('completed', 'manual_review', 'unavailable', 'error')),
-  category text,
-  category_confidence numeric(6,5)
-    check (category_confidence is null or (category_confidence >= 0 and category_confidence <= 1)),
-  priority text
-    check (priority is null or priority in ('normal', 'high', 'critical')),
-  priority_confidence numeric(6,5)
-    check (priority_confidence is null or (priority_confidence >= 0 and priority_confidence <= 1)),
-  priority_method text,
-  priority_explanation text,
-  matched_rules text[] not null default '{}',
-  department_id uuid references public.departments(id) on delete set null,
-  department_name text,
-  department_code text,
-  routing_confidence numeric(6,5)
-    check (routing_confidence is null or (routing_confidence >= 0 and routing_confidence <= 1)),
-  requires_manual_review boolean not null default false,
-  review_reason text,
-  category_model_version text,
-  priority_model_version text,
-  routing_model_version text,
-  prediction_source text not null default 'fastapi',
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
-);
-
-create index if not exists complaint_ml_predictions_review_idx
-  on public.complaint_ml_predictions(requires_manual_review, created_at desc);
-
-create index if not exists complaint_ml_predictions_department_idx
-  on public.complaint_ml_predictions(department_id);
-
-alter table public.complaint_ml_predictions enable row level security;
-
-grant select, insert, update on public.complaint_ml_predictions to authenticated;
-
-drop policy if exists "Students can view own ML prediction" on public.complaint_ml_predictions;
-create policy "Students can view own ML prediction"
-on public.complaint_ml_predictions
-for select to authenticated
-using (
-  exists (
-    select 1
-    from public.complaints c
-    where c.id = complaint_id
-      and c.student_id = (select auth.uid())
-  )
-);
-
-drop policy if exists "Staff can view ML predictions" on public.complaint_ml_predictions;
-create policy "Staff can view ML predictions"
-on public.complaint_ml_predictions
-for select to authenticated
-using ((select public.has_grievx_staff_access()));
-
-drop policy if exists "Students can save own ML prediction" on public.complaint_ml_predictions;
-create policy "Students can save own ML prediction"
-on public.complaint_ml_predictions
-for insert to authenticated
-with check (
-  exists (
-    select 1
-    from public.complaints c
-    where c.id = complaint_id
-      and c.student_id = (select auth.uid())
-  )
-);
-
-drop policy if exists "Students can update own ML prediction" on public.complaint_ml_predictions;
-create policy "Students can update own ML prediction"
-on public.complaint_ml_predictions
-for update to authenticated
-using (
-  exists (
-    select 1
-    from public.complaints c
-    where c.id = complaint_id
-      and c.student_id = (select auth.uid())
-  )
-)
-with check (
-  exists (
-    select 1
-    from public.complaints c
-    where c.id = complaint_id
-      and c.student_id = (select auth.uid())
-  )
-);
-
-drop policy if exists "Staff can update ML predictions" on public.complaint_ml_predictions;
-create policy "Staff can update ML predictions"
-on public.complaint_ml_predictions
-for update to authenticated
-using ((select public.has_grievx_staff_access()))
-with check ((select public.has_grievx_staff_access()));
-
-create or replace function public.find_duplicate_complaints(
-  p_title text,
-  p_description text,
-  p_location text,
-  p_window_days integer default 90,
-  p_threshold numeric default 0.40,
-  p_location_threshold numeric default 0.30,
-  p_limit integer default 5
-)
-returns table (
-  id uuid,
-  title text,
-  description text,
-  location text,
-  status text,
-  created_at timestamptz,
-  similarity numeric,
-  text_similarity numeric,
-  location_similarity numeric
-)
+create or replace function public.is_grievx_admin()
+returns boolean
 language sql
 stable
 security definer
-set search_path = public, extensions
+set search_path = public
 as $$
-  with candidates as (
-    select
-      c.id,
-      c.title,
-      c.description,
-      c.location,
-      c.status,
-      c.created_at,
-      greatest(
-        extensions.similarity(lower(c.title), lower(trim(p_title))),
-        extensions.similarity(lower(c.description), lower(trim(p_description))),
-        extensions.similarity(
-          lower(c.title || ' ' || c.description),
-          lower(trim(p_title || ' ' || p_description))
-        )
-      ) as text_similarity,
-      extensions.similarity(lower(c.location), lower(trim(p_location))) as location_similarity
-    from public.complaints c
-    where (select auth.uid()) is not null
-      and c.created_at >= now() - make_interval(days => least(greatest(p_window_days, 1), 365))
-      and c.student_id <> (select auth.uid())
-      and c.status not in ('closed', 'rejected')
-  ),
-  scored as (
-    select
-      id,
-      title,
-      description,
-      location,
-      status,
-      created_at,
-      round((text_similarity * 0.70 + location_similarity * 0.30)::numeric, 4) as similarity,
-      round(text_similarity::numeric, 4) as text_similarity,
-      round(location_similarity::numeric, 4) as location_similarity
-    from candidates
-  )
-  select
-    id,
-    title,
-    description,
-    location,
-    status,
-    created_at,
-    similarity,
-    text_similarity,
-    location_similarity
-  from scored
-  where (select auth.uid()) is not null
-    and similarity >= greatest(least(p_threshold, 0.95), 0.20)
-    and location_similarity >= greatest(least(p_location_threshold, 0.90), 0.20)
-  order by similarity desc, created_at desc
-  limit greatest(least(p_limit, 10), 1);
+  select exists (
+    select 1 from public.profiles
+    where id = (select auth.uid()) and role = 'admin'
+  );
 $$;
 
-revoke all on function public.find_duplicate_complaints(text, text, text, integer, numeric, numeric, integer)
-  from public, anon;
-grant execute on function public.find_duplicate_complaints(text, text, text, integer, numeric, numeric, integer)
-  to authenticated;
+revoke all on function public.is_grievx_admin() from public, anon;
+grant execute on function public.is_grievx_admin() to authenticated;
+
+alter table public.complaints
+  add column if not exists category text,
+  add column if not exists category_confidence numeric(5,4),
+  add column if not exists category_model_version text,
+  add column if not exists priority_confidence numeric(5,4),
+  add column if not exists priority_model_version text,
+  add column if not exists priority_source text,
+  add column if not exists department_confidence numeric(5,4),
+  add column if not exists department_source text,
+  add column if not exists duplicate_of_id uuid references public.complaints(id) on delete set null,
+  add column if not exists upvote_count integer not null default 0;
+
+create index if not exists complaints_category_idx on public.complaints(category);
+create index if not exists complaints_duplicate_of_id_idx on public.complaints(duplicate_of_id);
+create index if not exists complaints_created_location_idx on public.complaints(created_at, location);
 
 create table if not exists public.complaint_upvotes (
-  id uuid primary key default gen_random_uuid(),
   complaint_id uuid not null references public.complaints(id) on delete cascade,
   student_id uuid not null references public.profiles(id) on delete cascade,
   created_at timestamptz not null default now(),
-  unique (complaint_id, student_id)
+  primary key (complaint_id, student_id)
 );
 
-create index if not exists complaint_upvotes_complaint_id_idx
-  on public.complaint_upvotes(complaint_id);
-
-create index if not exists complaint_upvotes_student_id_idx
-  on public.complaint_upvotes(student_id);
-
 alter table public.complaint_upvotes enable row level security;
-
 grant select, insert on public.complaint_upvotes to authenticated;
 
-drop policy if exists "Students can view own complaint upvotes" on public.complaint_upvotes;
-create policy "Students can view own complaint upvotes"
-on public.complaint_upvotes
-for select to authenticated
+drop policy if exists "Students can view their own complaint upvotes" on public.complaint_upvotes;
+create policy "Students can view their own complaint upvotes"
+on public.complaint_upvotes for select to authenticated
 using ((select auth.uid()) = student_id);
 
-drop policy if exists "Students can upvote other students complaints" on public.complaint_upvotes;
-create policy "Students can upvote other students complaints"
-on public.complaint_upvotes
-for insert to authenticated
+drop policy if exists "Students can upvote another student's complaint" on public.complaint_upvotes;
+create policy "Students can upvote another student's complaint"
+on public.complaint_upvotes for insert to authenticated
 with check (
   (select auth.uid()) = student_id
   and exists (
-    select 1
-    from public.complaints c
+    select 1 from public.complaints c
     where c.id = complaint_id
       and c.student_id <> (select auth.uid())
       and c.status not in ('closed', 'rejected')
   )
 );
 
-create or replace function public.find_duplicate_complaints(
-  p_title text,
-  p_description text,
-  p_location text,
-  p_window_days integer default 90,
-  p_threshold numeric default 0.55,
-  p_location_threshold numeric default 0.45,
-  p_limit integer default 5
+create or replace function public.update_complaint_upvote_count()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if tg_op = 'INSERT' then
+    update public.complaints set upvote_count = upvote_count + 1 where id = new.complaint_id;
+  elsif tg_op = 'DELETE' then
+    update public.complaints set upvote_count = greatest(upvote_count - 1, 0) where id = old.complaint_id;
+  end if;
+  return coalesce(new, old);
+end;
+$$;
+
+revoke all on function public.update_complaint_upvote_count() from public, anon, authenticated;
+drop trigger if exists complaint_upvotes_count_trigger on public.complaint_upvotes;
+create trigger complaint_upvotes_count_trigger
+after insert or delete on public.complaint_upvotes
+for each row execute function public.update_complaint_upvote_count();
+
+create table if not exists public.duplicate_detection_config (
+  id boolean primary key default true,
+  title_weight numeric(4,3) not null default 0.40,
+  description_weight numeric(4,3) not null default 0.40,
+  location_weight numeric(4,3) not null default 0.20,
+  threshold numeric(4,3) not null default 0.60,
+  recency_days integer not null default 30,
+  updated_at timestamptz not null default now(),
+  check (id = true),
+  check (threshold > 0 and threshold <= 1),
+  check (recency_days > 0)
+);
+
+insert into public.duplicate_detection_config (id) values (true)
+on conflict (id) do nothing;
+
+alter table public.duplicate_detection_config enable row level security;
+grant select, update on public.duplicate_detection_config to authenticated;
+
+drop policy if exists "Admins can view duplicate settings" on public.duplicate_detection_config;
+create policy "Admins can view duplicate settings"
+on public.duplicate_detection_config for select to authenticated
+using ((select public.is_grievx_admin()));
+
+drop policy if exists "Admins can update duplicate settings" on public.duplicate_detection_config;
+create policy "Admins can update duplicate settings"
+on public.duplicate_detection_config for update to authenticated
+using ((select public.is_grievx_admin()))
+with check ((select public.is_grievx_admin()));
+
+grant select on public.departments to authenticated;
+drop policy if exists "Authenticated users can view department directory" on public.departments;
+create policy "Authenticated users can view department directory"
+on public.departments for select to authenticated using (true);
+
+create or replace function public.find_possible_duplicates(
+  p_title text, p_description text, p_location text
 )
 returns table (
   id uuid,
-  title text,
+  title varchar,
   description text,
-  location text,
+  location varchar,
   status text,
   created_at timestamptz,
-  similarity numeric,
-  text_similarity numeric,
-  location_similarity numeric,
-  upvote_count bigint
+  upvote_count integer,
+  title_similarity real,
+  description_similarity real,
+  location_match boolean,
+  similarity_score real
 )
-language sql
-stable
+language plpgsql
 security definer
 set search_path = public, extensions
-as $
+as $$
+declare
+  cfg public.duplicate_detection_config%rowtype;
+  current_user_id uuid;
+begin
+  current_user_id := (select auth.uid());
+  if current_user_id is null then raise exception 'Authentication required'; end if;
+
+  select d.* into cfg from public.duplicate_detection_config d where d.id = true;
+
+  return query
   with candidates as (
-    select
-      c.id,
-      c.title,
-      c.description,
-      c.location,
-      c.status,
-      c.created_at,
-      greatest(
-        extensions.similarity(lower(c.title), lower(trim(p_title))),
-        extensions.similarity(lower(c.description), lower(trim(p_description))),
-        extensions.similarity(
-          lower(c.title || ' ' || c.description),
-          lower(trim(p_title || ' ' || p_description))
-        )
-      ) as text_similarity,
-      extensions.similarity(lower(c.location), lower(trim(p_location))) as location_similarity
+    select c.id, c.title, c.description, c.location, c.status, c.created_at,
+      c.upvote_count,
+      extensions.similarity(lower(coalesce(c.title, '')), lower(trim(coalesce(p_title, '')))) as title_similarity,
+      extensions.similarity(lower(coalesce(c.description, '')), lower(trim(coalesce(p_description, '')))) as description_similarity,
+      lower(trim(coalesce(c.location, ''))) = lower(trim(coalesce(p_location, ''))) as location_match
     from public.complaints c
-    where (select auth.uid()) is not null
-      and c.created_at >= now() - make_interval(days => least(greatest(p_window_days, 1), 365))
-      and c.student_id <> (select auth.uid())
+    where c.student_id <> current_user_id
+      and c.created_at >= now() - make_interval(days => cfg.recency_days)
       and c.status not in ('closed', 'rejected')
-  ),
-  scored as (
-    select
-      id,
-      title,
-      description,
-      location,
-      status,
-      created_at,
-      round((text_similarity * 0.70 + location_similarity * 0.30)::numeric, 4) as similarity,
-      round(text_similarity::numeric, 4) as text_similarity,
-      round(location_similarity::numeric, 4) as location_similarity
-    from candidates
   )
-  select
-    scored.id,
-    scored.title,
-    scored.description,
-    scored.location,
-    scored.status,
-    scored.created_at,
-    scored.similarity,
-    scored.text_similarity,
-    scored.location_similarity,
-    (select count(*) from public.complaint_upvotes u where u.complaint_id = scored.id) as upvote_count
-  from scored
-  where (select auth.uid()) is not null
-    and scored.text_similarity >= 0.35
-    and scored.similarity >= greatest(least(p_threshold, 0.95), 0.20)
-    and scored.location_similarity >= greatest(least(p_location_threshold, 0.90), 0.20)
-  order by scored.similarity desc, scored.created_at desc
-  limit greatest(least(p_limit, 10), 1);
-$;
+  select c.id, c.title, c.description, c.location, c.status, c.created_at, c.upvote_count,
+    c.title_similarity, c.description_similarity, c.location_match,
+    (cfg.title_weight * c.title_similarity
+      + cfg.description_weight * c.description_similarity
+      + cfg.location_weight * case when c.location_match then 1 else 0 end)::real
+  from candidates c
+  where (cfg.title_weight * c.title_similarity
+      + cfg.description_weight * c.description_similarity
+      + cfg.location_weight * case when c.location_match then 1 else 0 end) >= cfg.threshold
+  order by similarity_score desc, c.created_at desc
+  limit 5;
+end;
+$$;
 
-revoke all on function public.find_duplicate_complaints(text, text, text, integer, numeric, numeric, integer)
-  from public, anon;
-grant execute on function public.find_duplicate_complaints(text, text, text, integer, numeric, numeric, integer)
-  to authenticated;
+revoke all on function public.find_possible_duplicates(text, text, text) from public, anon;
+grant execute on function public.find_possible_duplicates(text, text, text) to authenticated;
 
-comment on function public.find_duplicate_complaints(text, text, text, integer, numeric, numeric, integer)
-is 'Week 10 application-level duplicate detection. Uses title/description similarity plus a required near-matching campus location. It does not block submission and returns community upvote counts.';
+create or replace function public.admin_analytics_summary()
+returns jsonb
+language sql
+security definer
+set search_path = public
+as $$
+  select case when public.is_grievx_admin() then
+    jsonb_build_object(
+      'total', (select count(*) from public.complaints),
+      'submitted', (select count(*) from public.complaints where status = 'submitted'),
+      'active', (select count(*) from public.complaints where status in ('assigned', 'in_progress')),
+      'resolved', (select count(*) from public.complaints where status in ('resolved', 'closed')),
+      'critical', (select count(*) from public.complaints where priority = 'critical')
+    )
+  else '{}'::jsonb end;
+$$;
+
+revoke all on function public.admin_analytics_summary() from public, anon;
+grant execute on function public.admin_analytics_summary() to authenticated;
+
+
+create or replace function public.apply_complaint_ml_predictions(
+  p_complaint_id uuid,
+  p_category text,
+  p_category_confidence numeric,
+  p_category_model_version text,
+  p_priority text,
+  p_priority_confidence numeric,
+  p_priority_model_version text,
+  p_priority_source text,
+  p_department_code text,
+  p_department_confidence numeric,
+  p_department_source text
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  department_uuid uuid;
+begin
+  select d.id into department_uuid from public.departments d
+  where d.code = p_department_code limit 1;
+
+  update public.complaints
+  set category = p_category,
+      category_confidence = p_category_confidence,
+      category_model_version = p_category_model_version,
+      priority = p_priority,
+      priority_confidence = p_priority_confidence,
+      priority_model_version = p_priority_model_version,
+      priority_source = p_priority_source,
+      department_confidence = p_department_confidence,
+      department_source = p_department_source,
+      department_id = department_uuid,
+      updated_at = now()
+  where id = p_complaint_id
+    and student_id = (select auth.uid());
+
+  if not found then
+    raise exception 'Complaint not found or not owned by the current student';
+  end if;
+end;
+$$;
+
+revoke all on function public.apply_complaint_ml_predictions(uuid,text,numeric,text,text,numeric,text,text,text,numeric,text) from public, anon;
+grant execute on function public.apply_complaint_ml_predictions(uuid,text,numeric,text,text,numeric,text,text,text,numeric,text) to authenticated;
+
