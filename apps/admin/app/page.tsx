@@ -14,39 +14,21 @@ type Complaint = {
   updated_at: string;
   department_id?: string | null;
   priority?: "normal" | "high" | "critical";
+  category?: string | null;
+  category_confidence?: number | null;
+  priority_confidence?: number | null;
+  department_confidence?: number | null;
+  department_source?: string | null;
+  upvote_count?: number;
+  duplicate_of_id?: string | null;
   assigned_staff_id?: string | null;
   status_history?: { id: string; from_status: string | null; to_status: string; changed_by: string | null; note: string | null; created_at: string }[];
   student?: { name: string; email: string } | null;
   images?: { id: string; storage_path: string; signed_url?: string | null; content_type?: string | null }[];
-  ml_prediction?: MlPrediction | null;
 };
 
 const statuses = ["all", "submitted", "assigned", "in_progress", "resolved", "closed", "rejected"] as const;
 const priorities = ["normal", "high", "critical"] as const;
-type MlPrediction = {
-  id: string;
-  complaint_id: string;
-  prediction_state: "completed" | "manual_review" | "unavailable" | "error";
-  category: string | null;
-  category_confidence: number | null;
-  priority: "normal" | "high" | "critical" | null;
-  priority_confidence: number | null;
-  priority_method: string | null;
-  priority_explanation: string | null;
-  matched_rules: string[];
-  department_id: string | null;
-  department_name: string | null;
-  department_code: string | null;
-  routing_confidence: number | null;
-  requires_manual_review: boolean;
-  review_reason: string | null;
-  category_model_version: string | null;
-  priority_model_version: string | null;
-  routing_model_version: string | null;
-  prediction_source: string;
-  created_at: string;
-  updated_at: string;
-};
 type Department = { id: string; name: string; code: string };
 type StaffMember = { id: string; name: string | null; email: string; role: string };
 
@@ -126,7 +108,7 @@ export default function AdminPage() {
     setLoading(true);
     const { data, error } = await supabase
       .from("complaints")
-      .select("id, student_id, title, description, location, status, priority, department_id, assigned_staff_id, created_at, updated_at, profiles!complaints_student_id_fkey(name, email), complaint_images(id, storage_path, content_type), complaint_status_history(id, from_status, to_status, changed_by, note, created_at), complaint_ml_predictions(*)")
+      .select("id, student_id, title, description, location, status, category, category_confidence, priority_confidence, department_confidence, department_source, upvote_count, duplicate_of_id, priority, department_id, assigned_staff_id, created_at, updated_at, profiles!complaints_student_id_fkey(name, email), complaint_images(id, storage_path, content_type), complaint_status_history(id, from_status, to_status, changed_by, note, created_at), complaint_ml_predictions(*)")
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -146,7 +128,6 @@ export default function AdminPage() {
         student: Array.isArray(item.profiles) ? item.profiles[0] ?? null : item.profiles ?? null,
         images,
         status_history: item.complaint_status_history ?? [],
-        ml_prediction: Array.isArray(item.complaint_ml_predictions) ? item.complaint_ml_predictions[0] ?? null : item.complaint_ml_predictions ?? null,
       };
     })) as Complaint[];
 
@@ -172,7 +153,7 @@ export default function AdminPage() {
       .from("complaints")
       .update({ status, updated_at: new Date().toISOString() })
       .eq("id", selected.id)
-      .select("id, student_id, title, description, location, status, priority, department_id, assigned_staff_id, created_at, updated_at, profiles!complaints_student_id_fkey(name, email), complaint_images(id, storage_path, content_type), complaint_status_history(id, from_status, to_status, changed_by, note, created_at), complaint_ml_predictions(*)")
+      .select("id, student_id, title, description, location, status, category, category_confidence, priority_confidence, department_confidence, department_source, upvote_count, duplicate_of_id, priority, department_id, assigned_staff_id, created_at, updated_at, profiles!complaints_student_id_fkey(name, email), complaint_images(id, storage_path, content_type), complaint_status_history(id, from_status, to_status, changed_by, note, created_at)")
       .single();
 
     if (error) {
@@ -190,7 +171,6 @@ export default function AdminPage() {
       student: Array.isArray((data as any).profiles) ? (data as any).profiles[0] ?? null : (data as any).profiles ?? null,
       images,
       status_history: (data as any).complaint_status_history ?? [],
-      ml_prediction: Array.isArray((data as any).complaint_ml_predictions) ? (data as any).complaint_ml_predictions[0] ?? null : (data as any).complaint_ml_predictions ?? null,
     } as Complaint;
 
     setComplaints((items) => items.map((item) => item.id === updated.id ? updated : item));
@@ -205,7 +185,7 @@ export default function AdminPage() {
       .from("complaints")
       .update({ ...changes, updated_at: new Date().toISOString() })
       .eq("id", selected.id)
-      .select("id, student_id, title, description, location, status, priority, department_id, created_at, updated_at, profiles!complaints_student_id_fkey(name, email), complaint_images(id, storage_path, content_type), complaint_status_history(id, from_status, to_status, changed_by, note, created_at), complaint_ml_predictions(*)")
+      .select("id, student_id, title, description, location, status, category, category_confidence, priority_confidence, department_confidence, department_source, upvote_count, duplicate_of_id, priority, department_id, created_at, updated_at, profiles!complaints_student_id_fkey(name, email), complaint_images(id, storage_path, content_type), complaint_status_history(id, from_status, to_status, changed_by, note, created_at)")
       .single();
 
     if (error) {
@@ -239,7 +219,7 @@ export default function AdminPage() {
       .from("complaints")
       .update({ assigned_staff_id: staffId, updated_at: new Date().toISOString() })
       .eq("id", selected.id)
-      .select("id, student_id, title, description, location, status, priority, department_id, assigned_staff_id, created_at, updated_at, profiles!complaints_student_id_fkey(name, email), complaint_images(id, storage_path, content_type), complaint_status_history(id, from_status, to_status, changed_by, note, created_at), complaint_ml_predictions(*)")
+      .select("id, student_id, title, description, location, status, category, category_confidence, priority_confidence, department_confidence, department_source, upvote_count, duplicate_of_id, priority, department_id, assigned_staff_id, created_at, updated_at, profiles!complaints_student_id_fkey(name, email), complaint_images(id, storage_path, content_type), complaint_status_history(id, from_status, to_status, changed_by, note, created_at)")
       .single();
 
     if (error) {
@@ -442,38 +422,26 @@ export default function AdminPage() {
 
                 <div className="detailSection">
                   <label>ML triage</label>
-                  {selected.ml_prediction ? (
+                  {selected.category ? (
                     <div className="mlCard">
                       <div className="mlHeader">
-                        <strong>{selected.ml_prediction.category ?? "Manual review"}</strong>
-                        <span className={selected.ml_prediction.requires_manual_review ? "reviewBadge" : "readyBadge"}>
-                          {selected.ml_prediction.requires_manual_review ? "Manual review" : "Auto triage"}
+                        <strong>{selected.category}</strong>
+                        <span className={selected.department_source === "manual_review" || (selected.category_confidence ?? 1) < 0.55 ? "reviewBadge" : "readyBadge"}>
+                          {selected.department_source === "manual_review" || (selected.category_confidence ?? 1) < 0.55 ? "Manual review" : "Auto triage"}
                         </span>
                       </div>
                       <div className="mlGrid">
-                        <div>
-                          <span>Category confidence</span>
-                          <b>{selected.ml_prediction.category_confidence != null ? Math.round(selected.ml_prediction.category_confidence * 100) + "%": "—"}</b>
-                        </div>
-                        <div>
-                          <span>Predicted priority</span>
-                          <b>{selected.ml_prediction.priority ?? "—"}</b>
-                        </div>
-                        <div>
-                          <span>Priority confidence</span>
-                          <b>{selected.ml_prediction.priority_confidence != null ? Math.round(selected.ml_prediction.priority_confidence * 100) + "%": "—"}</b>
-                        </div>
-                        <div>
-                          <span>Routed department</span>
-                          <b>{selected.ml_prediction.department_name ?? "—"}</b>
-                        </div>
+                        <div><span>Category confidence</span><b>{selected.category_confidence != null ? Math.round(selected.category_confidence * 100) + "%" : "—"}</b></div>
+                        <div><span>Priority confidence</span><b>{selected.priority_confidence != null ? Math.round(selected.priority_confidence * 100) + "%" : "—"}</b></div>
+                        <div><span>Department confidence</span><b>{selected.department_confidence != null ? Math.round(selected.department_confidence * 100) + "%" : "—"}</b></div>
+                        <div><span>Community support</span><b>{selected.upvote_count ?? 0}</b></div>
                       </div>
-                      {selected.ml_prediction.review_reason && (
-                        <p className="mlReason">{selected.ml_prediction.review_reason}</p>
+                      {selected.department_source === "manual_review" && (
+                        <p className="mlReason">Department routing was flagged for manual review because the classifier confidence was low.</p>
                       )}
                     </div>
                   ) : (
-                    <span>No ML triage record is available. Review manually.</span>
+                    <span>No ML triage result is stored for this complaint. Review manually.</span>
                   )}
                 </div>
 
