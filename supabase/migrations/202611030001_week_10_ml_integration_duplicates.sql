@@ -107,8 +107,8 @@ create or replace function public.find_duplicate_complaints(
   p_description text,
   p_location text,
   p_window_days integer default 90,
-  p_threshold numeric default 0.55,
-  p_location_threshold numeric default 0.45,
+  p_threshold numeric default 0.40,
+  p_location_threshold numeric default 0.30,
   p_limit integer default 5
 )
 returns table (
@@ -300,6 +300,7 @@ as $
     (select count(*) from public.complaint_upvotes u where u.complaint_id = scored.id) as upvote_count
   from scored
   where (select auth.uid()) is not null
+    and scored.text_similarity >= 0.35
     and scored.similarity >= greatest(least(p_threshold, 0.95), 0.20)
     and scored.location_similarity >= greatest(least(p_location_threshold, 0.90), 0.20)
   order by scored.similarity desc, scored.created_at desc
