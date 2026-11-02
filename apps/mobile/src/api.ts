@@ -22,6 +22,44 @@ export type ComplaintStatusHistory = {
   created_at: string;
 };
 
+export type DuplicateCandidate = {
+  id: string;
+  title: string;
+  description: string;
+  location: string;
+  status: string;
+  created_at: string;
+  upvote_count: number;
+  title_similarity: number;
+  description_similarity: number;
+  location_match: boolean;
+  similarity_score: number;
+};
+
+export type MLWorkflowResult = {
+  category: { category: string; confidence: number; low_confidence?: boolean; model_version: string };
+  priority: { priority: "normal" | "high" | "critical"; confidence: number; method: string; explanation: string; model_version: string };
+  routing: { department_code: string; confidence: number; method: string; explanation: string; model_version: string };
+};
+
+async function runMLWorkflow(title: string, description: string): Promise<MLWorkflowResult | null> {
+  const baseUrl = process.env.EXPO_PUBLIC_GRIEVX_API_URL?.trim().replace(/\/$/, "");
+  if (!baseUrl) return null;
+
+  try {
+    const response = await fetch(`${baseUrl}/ml/predict`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title, description }),
+    });
+    if (!response.ok) return null;
+    return await response.json() as MLWorkflowResult;
+  } catch {
+    // Complaint submission must remain usable when the optional ML service is offline.
+    return null;
+  }
+}
+
 export async function register(name: string, email: string, password: string) {
   const { data, error } = await supabase.auth.signUp({
     email,
@@ -68,7 +106,23 @@ export async function getMe() {
   return data;
 }
 
-export async function createComplaint(input: { title: string; description: string; location: string }) {
+export async function findPossibleDuplicates(input: { title: string; description: string; location: string }) {
+  const { data, error } = await supabase.rpc("find_possible_duplicates", {
+    p_title: input.title,
+    p_description: input.description,
+    p_location: input.location,
+  });
+
+  if (error) throw new Error(error.message);
+  return (data ?? []) as DuplicateCandidate[];
+}
+
+export async function createComplaint(input: {
+  title: string;
+  description: string;
+  location: string;
+  duplicateOfId?: string | null;
+}) {
   const { data: userData, error: userError } = await supabase.auth.getUser();
   if (userError || !userData.user) throw new Error("You are not signed in.");
 
@@ -79,28 +133,64 @@ export async function createComplaint(input: { title: string; description: strin
       description: input.description,
       location: input.location,
       status: "submitted",
+      duplicate_of_id: input.duplicateOfId ?? null,
     })
-    .select("id, student_id, title, description, location, status, created_at, updated_at")
+    .select("id, student_id, title, description, location, status, category, category_confidence, priority, priority_confidence, created_at, updated_at")
     .single();
 
   if (error) throw new Error(error.message);
+
+  const ml = await runMLWorkflow(input.title, input.description);
+  if (ml) {
+    const { data: department } = await supabase
+      .from("departments")
+      .select("id")
+      .eq("code", ml.routing.department_code)
+      .maybeSingle();
+
+    const update: Record<string, unknown> = {
+      category: ml.category.category,
+      category_confidence: ml.category.confidence,
+      category_model_version: ml.category.model_version,
+      priority: ml.priority.priority,
+      priority_confidence: ml.priority.confidence,
+      priority_model_version: ml.priority.model_version,
+      priority_source: ml.priority.method,
+      department_confidence: ml.routing.confidence,
+      department_source: ml.routing.method,
+    };
+
+    if (department?.id) update.department_id = department.id;
+
+    await supabase.from("complaints").update(update).eq("id", data.id);
+    return { ...data, ...update };
+  }
+
   return data;
 }
 
 export async function getComplaints() {
   const { data, error } = await supabase.from("complaints")
-    .select("id, student_id, title, description, location, status, created_at, updated_at, complaint_images(id, original_filename, content_type, storage_path)")
+    .select("id, student_id, title, description, location, status, priority, category, upvote_count, created_at, updated_at, complaint_images(id, original_filename, content_type, storage_path)")
     .order("created_at", { ascending: false });
   if (error) throw new Error(error.message);
+
+  const { data: userData } = await supabase.auth.getUser();
+  const myUpvotes = userData.user
+    ? await supabase.from("complaint_upvotes").select("complaint_id").eq("student_id", userData.user.id)
+    : { data: [] };
+
+  const upvotedIds = new Set((myUpvotes.data ?? []).map((x: any) => x.complaint_id));
   return (data ?? []).map((item: any) => ({
     ...item,
     images: item.complaint_images ?? [],
+    has_upvoted: upvotedIds.has(item.id),
   }));
 }
 
 export async function getComplaint(id: string) {
   const { data, error } = await supabase.from("complaints")
-    .select("id, student_id, title, description, location, status, created_at, updated_at, complaint_images(id, original_filename, content_type, storage_path), complaint_status_history(id, from_status, to_status, changed_by, note, created_at)")
+    .select("id, student_id, title, description, location, status, priority, category, upvote_count, duplicate_of_id, created_at, updated_at, complaint_images(id, original_filename, content_type, storage_path), complaint_status_history(id, from_status, to_status, changed_by, note, created_at)")
     .eq("id", id)
     .single();
   if (error) throw new Error(error.message);
@@ -110,7 +200,16 @@ export async function getComplaint(id: string) {
       .createSignedUrl(image.storage_path, 3600);
     return { ...image, signed_url: signed?.signedUrl ?? null };
   }));
-  return { ...data, images, status_history: (data.complaint_status_history ?? []) as ComplaintStatusHistory[] };
+  const { data: userData } = await supabase.auth.getUser();
+  const { data: myUpvote } = userData.user
+    ? await supabase.from("complaint_upvotes").select("complaint_id").eq("complaint_id", id).eq("student_id", userData.user.id).maybeSingle()
+    : { data: null };
+  return {
+    ...data,
+    images,
+    status_history: (data.complaint_status_history ?? []) as ComplaintStatusHistory[],
+    has_upvoted: !!myUpvote,
+  };
 }
 
 const IMAGE_MIME_BY_EXTENSION: Record<string, string> = {
@@ -224,4 +323,20 @@ export async function markAllNotificationsRead() {
     .is("read_at", null);
 
   if (error) throw new Error(error.message);
+}
+
+
+export async function upvoteComplaint(complaintId: string) {
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+  if (userError || !userData.user) throw new Error("You are not signed in.");
+
+  const { error } = await supabase.from("complaint_upvotes").insert({
+    complaint_id: complaintId,
+    student_id: userData.user.id,
+  });
+
+  if (error) {
+    if (error.code === "23505") throw new Error("You already supported this complaint.");
+    throw new Error(error.message);
+  }
 }
