@@ -158,12 +158,6 @@ export async function createComplaint(input: {
 
   const ml = await runMLWorkflow(input.title, input.description);
   if (ml) {
-    const { data: department } = await supabase
-      .from("departments")
-      .select("id")
-      .eq("code", ml.routing.department_code)
-      .maybeSingle();
-
     const { error: workflowError } = await supabase.rpc("apply_complaint_ml_predictions", {
       p_complaint_id: data.id,
       p_category: ml.category.category,
