@@ -256,24 +256,23 @@ Week 9 does not yet persist ML predictions into complaints or activate automatic
 Implemented on `week-10-ml-integration-duplicates`.
 
 ### Completed
-- Added persisted `complaint_ml_predictions` records for category, priority, department routing, confidence, model versions and manual-review state.
-- Connected the student complaint submission workflow to the existing FastAPI `POST /ml/predict` service when `EXPO_PUBLIC_ML_API_URL` is configured.
-- Automatically writes predicted priority to the complaint.
-- Automatically assigns the mapped department only when routing confidence is sufficient.
-- Sends low-confidence routing to General/manual review instead of silently forcing an assignment.
-- Keeps complaint submission usable when the ML service is unavailable by recording an explicit unavailable/error prediction state for staff review.
-- Added database-backed duplicate detection using title/description similarity plus a required near-matching campus location.
-- Added a configurable 90-day search window, similarity thresholds and a bounded candidate list.
+- Persists ML category, confidence, priority, model versions and department-routing confidence directly on the complaint record.
+- Connected the student complaint submission workflow to the existing FastAPI `POST /ml/predict` service when `EXPO_PUBLIC_GRIEVX_API_URL` is configured.
+- Applies the predictions through the existing Supabase `apply_complaint_ml_predictions` RPC.
+- Automatically routes the complaint using the Week 9 department result; low-confidence routing is marked with `department_source=manual_review`.
+- Keeps complaint submission usable when the optional ML service is unavailable.
+- Uses the existing configurable `find_possible_duplicates` RPC with title/description similarity plus a near-matching campus location.
+- Reuses the live 30-day/configurable duplicate window and threshold rather than introducing a second duplicate-detection configuration.
 - Added a student review step showing possible duplicate complaints before a new complaint is created.
 - Added an explicit “Submit anyway” path so duplicate detection never blocks legitimate unrelated complaints.
 - Added community upvoting for an existing complaint; supporting an existing complaint creates no second ticket.
-- Exposed the persisted ML triage result to authorized admin users with confidence and manual-review information.
+- Exposed the persisted ML triage result to authorized admin users with category/priority/department confidence, manual-review state and community support count.
 
 ### Scope note
 Duplicate detection and upvoting are application features, not additional ML models. The three ML capabilities remain text classification, priority prediction and department routing.
 
 ### Verification
-- Confirmed the live Supabase project has the Week 10 prediction table and duplicate-detection function.
+- Confirmed the live Supabase project has the operational ML/duplicate fields, upvote table/trigger and duplicate-detection function.
 - Confirmed `pg_trgm` 1.6 is installed and available.
-- Confirmed the duplicate scoring query returns expected similarity values against existing complaint data.
+- Confirmed the duplicate scoring query returns the expected Wi-Fi candidate while rejecting a different issue at the same room under the live threshold.
 - Mobile Expo/Android and FastAPI runtime tests still need to be run in the local developer environment before Week 10 is marked fully verified.
