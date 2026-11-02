@@ -22,6 +22,238 @@ export type ComplaintStatusHistory = {
   created_at: string;
 };
 
+
+export type DuplicateComplaint = {
+  id: string;
+  title: string;
+  description: string;
+  location: string;
+  status: string;
+  created_at: string;
+  similarity: number;
+  text_similarity: number;
+  location_similarity: number;
+};
+
+export type ComplaintMlPrediction = {
+  id: string;
+  complaint_id: string;
+  prediction_state: "completed" | "manual_review" | "unavailable" | "error";
+  category: string | null;
+  category_confidence: number | null;
+  priority: "normal" | "high" | "critical" | null;
+  priority_confidence: number | null;
+  priority_method: string | null;
+  priority_explanation: string | null;
+  matched_rules: string[];
+  department_id: string | null;
+  department_name: string | null;
+  department_code: string | null;
+  routing_confidence: number | null;
+  requires_manual_review: boolean;
+  review_reason: string | null;
+  category_model_version: string | null;
+  priority_model_version: string | null;
+  routing_model_version: string | null;
+  prediction_source: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ComplaintPredictionResponse = {
+  category: {
+    category: string;
+    confidence: number;
+    low_confidence: boolean;
+    model_version: string;
+  };
+  priority: {
+    priority: "normal" | "high" | "critical";
+    confidence: number;
+    method: string;
+    explanation: string;
+    matched_rules: string[];
+    model_version: string;
+  };
+  routing: {
+    category: string;
+    category_confidence: number;
+    department: string;
+    department_code: string;
+    routing_confidence: number;
+    requires_manual_review: boolean;
+    reason: string;
+    model_version: string;
+  };
+};
+
+export async function findDuplicateComplaints(input: {
+  title: string;
+  description: string;
+  location: string;
+}) {
+  const { data, error } = await supabase.rpc("find_duplicate_complaints", {
+    p_title: input.title,
+    p_description: input.description,
+    p_location: input.location,
+    p_window_days: 90,
+    p_threshold: 0.55,
+    p_location_threshold: 0.45,
+    p_limit: 5,
+  });
+
+  if (error) throw new Error(error.message);
+  return (data ?? []) as DuplicateComplaint[];
+}
+
+async function getMlServiceUrl() {
+  const value = process.env.EXPO_PUBLIC_ML_API_URL?.trim();
+  return value ? value.replace(/\/$/, "") : null;
+}
+
+export async function predictComplaintWithMl(input: {
+  title: string;
+  description: string;
+}): Promise<ComplaintPredictionResponse | null> {
+  const baseUrl = await getMlServiceUrl();
+  if (!baseUrl) return null;
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 7000);
+
+  try {
+    const response = await fetch(`${baseUrl}/ml/predict`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      throw new Error(`ML service returned HTTP ${response.status}.`);
+    }
+
+    return (await response.json()) as ComplaintPredictionResponse;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+export async function saveComplaintMlPrediction(
+  complaintId: string,
+  prediction: ComplaintMlPrediction | Omit<ComplaintMlPrediction, "id" | "created_at" | "updated_at">,
+) {
+  const row = {
+    ...prediction,
+    complaint_id: complaintId,
+    updated_at: new Date().toISOString(),
+  };
+  delete (row as any).id;
+  delete (row as any).created_at;
+
+  const { data, error } = await supabase
+    .from("complaint_ml_predictions")
+    .upsert(row, { onConflict: "complaint_id" })
+    .select("*")
+    .single();
+
+  if (error) throw new Error(error.message);
+  return data as ComplaintMlPrediction;
+}
+
+export async function runAndPersistComplaintTriage(input: {
+  complaintId: string;
+  title: string;
+  description: string;
+}) {
+  const prediction = await predictComplaintWithMl({
+    title: input.title,
+    description: input.description,
+  });
+
+  if (!prediction) {
+    return saveComplaintMlPrediction(input.complaintId, {
+      complaint_id: input.complaintId,
+      prediction_state: "unavailable",
+      category: null,
+      category_confidence: null,
+      priority: null,
+      priority_confidence: null,
+      priority_method: null,
+      priority_explanation: null,
+      matched_rules: [],
+      department_id: null,
+      department_name: null,
+      department_code: null,
+      routing_confidence: null,
+      requires_manual_review: true,
+      review_reason: "ML service is not configured or is unavailable. Staff should review the complaint manually.",
+      category_model_version: null,
+      priority_model_version: null,
+      routing_model_version: null,
+      prediction_source: "fastapi",
+      id: "",
+      created_at: "",
+      updated_at: new Date().toISOString(),
+    });
+  }
+
+  const routingNeedsReview =
+    prediction.category.low_confidence || prediction.routing.requires_manual_review;
+
+  const { data: department } = await supabase
+    .from("departments")
+    .select("id")
+    .eq("code", prediction.routing.department_code)
+    .maybeSingle();
+
+  const complaintUpdate: Record<string, unknown> = {
+    updated_at: new Date().toISOString(),
+  };
+
+  if (prediction.priority.priority) {
+    complaintUpdate.priority = prediction.priority.priority;
+  }
+
+  if (!routingNeedsReview && department?.id) {
+    complaintUpdate.department_id = department.id;
+  }
+
+  const { error: complaintError } = await supabase
+    .from("complaints")
+    .update(complaintUpdate)
+    .eq("id", input.complaintId);
+
+  if (complaintError) throw new Error(complaintError.message);
+
+  return saveComplaintMlPrediction(input.complaintId, {
+    complaint_id: input.complaintId,
+    prediction_state: routingNeedsReview ? "manual_review" : "completed",
+    category: prediction.category.category,
+    category_confidence: prediction.category.confidence,
+    priority: prediction.priority.priority,
+    priority_confidence: prediction.priority.confidence,
+    priority_method: prediction.priority.method,
+    priority_explanation: prediction.priority.explanation,
+    matched_rules: prediction.priority.matched_rules,
+    department_id: department?.id ?? null,
+    department_name: prediction.routing.department,
+    department_code: prediction.routing.department_code,
+    routing_confidence: prediction.routing.routing_confidence,
+    requires_manual_review: routingNeedsReview,
+    review_reason: routingNeedsReview
+      ? prediction.routing.reason
+      : null,
+    category_model_version: prediction.category.model_version,
+    priority_model_version: prediction.priority.model_version,
+    routing_model_version: prediction.routing.model_version,
+    prediction_source: "fastapi",
+    id: "",
+    created_at: "",
+    updated_at: new Date().toISOString(),
+  });
+}
+
 export async function register(name: string, email: string, password: string) {
   const { data, error } = await supabase.auth.signUp({
     email,
@@ -89,7 +321,7 @@ export async function createComplaint(input: { title: string; description: strin
 
 export async function getComplaints() {
   const { data, error } = await supabase.from("complaints")
-    .select("id, student_id, title, description, location, status, created_at, updated_at, complaint_images(id, original_filename, content_type, storage_path)")
+    .select("id, student_id, title, description, location, status, priority, department_id, created_at, updated_at, complaint_images(id, original_filename, content_type, storage_path)")
     .order("created_at", { ascending: false });
   if (error) throw new Error(error.message);
   return (data ?? []).map((item: any) => ({
@@ -100,7 +332,7 @@ export async function getComplaints() {
 
 export async function getComplaint(id: string) {
   const { data, error } = await supabase.from("complaints")
-    .select("id, student_id, title, description, location, status, created_at, updated_at, complaint_images(id, original_filename, content_type, storage_path), complaint_status_history(id, from_status, to_status, changed_by, note, created_at)")
+    .select("id, student_id, title, description, location, status, priority, department_id, created_at, updated_at, complaint_images(id, original_filename, content_type, storage_path), complaint_status_history(id, from_status, to_status, changed_by, note, created_at), complaint_ml_predictions(*)")
     .eq("id", id)
     .single();
   if (error) throw new Error(error.message);
