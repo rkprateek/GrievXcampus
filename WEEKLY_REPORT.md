@@ -145,3 +145,25 @@ Automated text classification, priority prediction, department routing, notifica
 
 ### Verification
 Run the integrated mobile and admin applications locally and complete the end-to-end student-to-admin workflow before starting Week 6.
+
+
+## Week 6 — Complaint lifecycle: status history
+
+### Status
+Status-history implementation added on `week-6-lifecycle-notifications`.
+
+### Completed
+- Added `complaint_status_history` data model and indexes.
+- Added RLS so students can see history only for their own complaints.
+- Added staff/admin visibility through the existing staff-access policy.
+- Added database trigger to automatically record the initial complaint status and every later status transition.
+- Added historical backfill for existing complaints.
+- Added student complaint detail timeline using persisted status history.
+- Added admin complaint detail status-history display.
+- Preserved status history when admin changes routing or staff assignment.
+
+### Scope control
+Notifications/realtime, text classification, priority prediction, department routing, duplicate detection/upvoting, analytics, campus map and deployment are not implemented in this step.
+
+### Verification
+The GitHub branch contains the Week 6 code and migration. The connected Supabase project is currently in `COMING_UP` state, so the Week 6 migration has not yet been applied to the live project. Database migration and end-to-end timeline verification must be completed when the project is available.
