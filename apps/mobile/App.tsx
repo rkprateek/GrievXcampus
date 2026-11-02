@@ -17,7 +17,7 @@ import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import * as ImagePicker from "expo-image-picker";
 import {
   createComplaint,
-  findDuplicateComplaints,
+  findPossibleDuplicates,
   getComplaint,
   getComplaints,
   getMe,
@@ -28,12 +28,10 @@ import {
   register,
   resetPassword,
   signOut,
-  uploadComplaintImage,
-  runAndPersistComplaintTriage,
   upvoteComplaint,
+  uploadComplaintImage,
 } from "./src/api";
 import { supabase } from "./src/supabase";
-import type { DuplicateComplaint } from "./src/api";
 
 type Screen = "home" | "report" | "complaints" | "detail" | "notifications" | "profile";
 type AuthMode = "login" | "register";
@@ -43,10 +41,14 @@ type Complaint = {
   description: string;
   location: string;
   status: string;
+  priority?: "normal" | "high" | "critical";
+  category?: string | null;
+  upvote_count?: number;
+  has_upvoted?: boolean;
+  duplicate_of_id?: string | null;
   created_at: string;
   images: { id: string; original_filename: string; content_type: string; signed_url?: string | null }[];
   status_history?: { id: string; from_status: string | null; to_status: string; changed_by: string | null; note: string | null; created_at: string }[];
-  complaint_ml_predictions?: import("./src/api").ComplaintMlPrediction[];
 };
 
 const C = {
@@ -306,230 +308,27 @@ function Home({ go }: { go: (x: Screen) => void }) {
   );
 }
 
-function Report({ back, done }: { back: () => void; done: () => void }) {
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [location, setLocation] = useState("");
-  const [image, setImage] = useState<ImagePicker.ImagePickerAsset | null>(null);
-  const [duplicates, setDuplicates] = useState<DuplicateComplaint[]>([]);
-  const [busy, setBusy] = useState(false);
-
-  const pick = async () => {
-    const p = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!p.granted) {
-      Alert.alert("Photo access needed", "Allow photo access to attach evidence.");
-      return;
-    }
-    const r = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ["images"],
-      allowsEditing: true,
-      quality: 0.8,
-    });
-    if (!r.canceled) setImage(r.assets[0]);
-  };
-
-  const supportExisting = async (match: DuplicateComplaint) => {
-    try {
-      setBusy(true);
-      await upvoteComplaint(match.id);
-      Alert.alert(
-        "Supported existing complaint",
-        "Your support was added to the existing complaint. No duplicate ticket was created.",
-        [{ text: "View complaints", onPress: done }],
-      );
-    } catch (e) {
-      Alert.alert(
-        "Could not add support",
-        e instanceof Error ? e.message : "Please try again.",
-      );
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const submit = async (submitAnyway = false) => {
-    if (!title.trim() || !description.trim() || !location.trim()) {
-      Alert.alert("Missing information", "Please complete title, description and campus location.");
-      return;
-    }
-
-    try {
-      setBusy(true);
-
-      if (!submitAnyway) {
-        const matches = await findDuplicateComplaints({
-          title: title.trim(),
-          description: description.trim(),
-          location: location.trim(),
-        });
-
-        if (matches.length > 0) {
-          setDuplicates(matches);
-          return;
-        }
-      }
-
-      const c = await createComplaint({
-        title: title.trim(),
-        description: description.trim(),
-        location: location.trim(),
-      });
-
-      if (image) {
-        await uploadComplaintImage(
-          c.id,
-          image.uri,
-          image.fileName ?? "evidence.jpg",
-          image.mimeType ?? "image/jpeg",
-        );
-      }
-
-      let triageNote = "The initial triage is ready, and staff review is required for low-confidence routing.";
-      try {
-        await runAndPersistComplaintTriage({
-          complaintId: c.id,
-          title: title.trim(),
-          description: description.trim(),
-        });
-      } catch (triageError) {
-        triageNote =
-          "Your complaint was saved, but automated triage could not be completed. Staff will review it manually.";
-      }
-
-      Alert.alert(
-        "Complaint submitted",
-        triageNote,
-        [{ text: "View complaints", onPress: done }],
-      );
-    } catch (e) {
-      Alert.alert(
-        "Submission failed",
-        e instanceof Error ? e.message : "Please try again.",
-      );
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <KeyboardAvoidingView
-      style={s.app}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-    >
-      <ScrollView contentContainerStyle={s.page}>
-        <Header title="Report an issue" back={back} />
-
-        <View style={s.progress}>
-          <Text style={s.step}>1 OF 2 · FAST ROUTE DESK</Text>
-          <Text style={s.cardTitle}>Tell us what happened.</Text>
-          <Text style={s.muted}>
-            Clear details help the complaint reach the right campus team.
-          </Text>
-        </View>
-
-        <Card>
-          <Field
-            label="Complaint summary"
-            placeholder="e.g. Wi-Fi disconnected in Lab 304"
-            maxLength={150}
-            value={title}
-            onChangeText={setTitle}
-          />
-          <Field
-            label="Detailed description"
-            placeholder="Describe the problem clearly..."
-            multiline
-            value={description}
-            onChangeText={setDescription}
-            inputStyle={s.area}
-          />
-          <Text style={s.label}>Campus location</Text>
-          <Text style={s.helper}>
-            Enter the building, room or campus area manually. No GPS is used.
-          </Text>
-          <Field
-            label=""
-            placeholder="e.g. EC Block, Lab 304"
-            value={location}
-            onChangeText={setLocation}
-          />
-        </Card>
-
-        {duplicates.length > 0 && (
-          <View style={s.duplicateCard}>
-            <Text style={s.duplicateTitle}>Possible duplicate complaints</Text>
-            <Text style={s.muted}>
-              A recent complaint is similar and from a nearby matching campus location.
-              Review it before creating another ticket.
-            </Text>
-
-            {duplicates.slice(0, 3).map((match) => (
-              <View key={match.id} style={s.duplicateItem}>
-                <Text style={s.label}>{match.title}</Text>
-                <Text style={s.helper}>
-                  {match.location} · {Math.round(match.similarity * 100)}% similarity · {match.upvote_count} support
-                </Text>
-                <Text style={s.muted} numberOfLines={3}>
-                  {match.description}
-                </Text>
-                <Pressable
-                  style={s.secondaryButton}
-                  onPress={() => supportExisting(match)}
-                  disabled={busy}
-                >
-                  <Text style={s.secondaryButtonText}>Support this existing complaint</Text>
-                </Pressable>
-              </View>
-            ))}
-
-            <Pressable
-              style={s.secondaryButton}
-              onPress={() => setDuplicates([])}
-              disabled={busy}
-            >
-              <Text style={s.secondaryButtonText}>Edit complaint</Text>
-            </Pressable>
-
-            <Primary
-              label={busy ? "Submitting..." : "Submit anyway"}
-              onPress={() => submit(true)}
-              disabled={busy}
-            />
-          </View>
-        )}
-
-        <Card>
-          <Text style={s.label}>Upload evidence</Text>
-          <Text style={s.helper}>
-            Add one photo showing the issue. JPG, PNG or WEBP · max 5 MB
-          </Text>
-          {image ? (
-            <View style={s.imageBox}>
-              <Image source={{ uri: image.uri }} style={s.image} />
-              <Pressable onPress={pick}>
-                <Text style={s.link}>Change photo</Text>
-              </Pressable>
-            </View>
-          ) : (
-            <Pressable onPress={pick} style={s.upload}>
-              <Text style={s.plus}>+</Text>
-              <Text style={s.label}>Add photo evidence</Text>
-            </Pressable>
-          )}
-        </Card>
-
-        <Primary
-          label={busy ? "Checking and submitting..." : "Submit complaint"}
-          onPress={() => submit(false)}
-          disabled={busy || duplicates.length > 0}
-        />
-        <Pressable onPress={back}>
-          <Text style={[s.muted, { textAlign: "center" }]}>Cancel</Text>
-        </Pressable>
-      </ScrollView>
-    </KeyboardAvoidingView>
-  );
-}
+function Report({back,done}:{back:()=>void;done:()=>void}){const [title,setTitle]=useState(""),[description,setDescription]=useState(""),[location,setLocation]=useState(""),[image,setImage]=useState<ImagePicker.ImagePickerAsset|null>(null),[busy,setBusy]=useState(false);
+ const pick=async()=>{const p=await ImagePicker.requestMediaLibraryPermissionsAsync();if(!p.granted){Alert.alert("Photo access needed","Allow photo access to attach evidence.");return}const r=await ImagePicker.launchImageLibraryAsync({mediaTypes:["images"],allowsEditing:true,quality:.8});if(!r.canceled)setImage(r.assets[0])};
+ const submit=async()=>{if(!title.trim()||!description.trim()||!location.trim()){Alert.alert("Missing information","Please complete title, description and campus location.");return}try{setBusy(true);
+   const input={title:title.trim(),description:description.trim(),location:location.trim()};
+   let duplicates: Awaited<ReturnType<typeof findPossibleDuplicates>> = [];
+   try { duplicates = await findPossibleDuplicates(input); } catch {}
+   const proceed=async()=>{const c=await createComplaint(input);if(image)await uploadComplaintImage(c.id,image.uri,image.fileName??"evidence.jpg",image.mimeType??"image/jpeg");Alert.alert("Complaint submitted","Your complaint was submitted successfully.",[{text:"View complaints",onPress:done}])};
+   if(duplicates.length){
+     const top=duplicates.slice(0,3).map((d,i)=>`${i+1}. ${d.title} · ${d.location} · ${Math.round(d.similarity_score*100)}% similar`).join("\n");
+     Alert.alert("Possible duplicate found","A recent complaint may describe the same issue:\n\n"+top+"\n\nReview it before submitting another report.",[
+       {text:"Cancel",style:"cancel"},
+       {text:"Submit anyway",onPress:proceed},
+     ]);
+   } else await proceed();
+ }catch(e){Alert.alert("Submission failed",e instanceof Error?e.message:"Please try again.")}finally{setBusy(false)}};
+ return <KeyboardAvoidingView style={s.app} behavior={Platform.OS==="ios"?"padding":undefined}><ScrollView contentContainerStyle={s.page}><Header title="Report an issue" back={back}/>
+ <View style={s.progress}><Text style={s.step}>1 OF 2 · FAST ROUTE DESK</Text><Text style={s.cardTitle}>Tell us what happened.</Text><Text style={s.muted}>Clear details help the complaint reach the right campus team.</Text></View>
+ <Card><Field label="Complaint summary" placeholder="e.g. Wi-Fi disconnected in Lab 304" maxLength={150} value={title} onChangeText={setTitle}/><Field label="Detailed description" placeholder="Describe the problem clearly..." multiline value={description} onChangeText={setDescription} inputStyle={s.area}/><Text style={s.label}>Campus location</Text><Text style={s.helper}>Enter the building, room or campus area manually. No GPS is used.</Text><Field label="" placeholder="e.g. EC Block, Lab 304" value={location} onChangeText={setLocation}/></Card>
+ <Card><Text style={s.label}>Upload evidence</Text><Text style={s.helper}>Add one photo showing the issue. JPG, PNG or WEBP · max 5 MB</Text>{image?<View style={s.imageBox}><Image source={{uri:image.uri}} style={s.image}/><Pressable onPress={pick}><Text style={s.link}>Change photo</Text></Pressable></View>:<Pressable onPress={pick} style={s.upload}><Text style={s.plus}>+</Text><Text style={s.label}>Add photo evidence</Text></Pressable>}</Card>
+ <Primary label={busy?"Submitting...":"Submit complaint"} onPress={submit} disabled={busy}/><Pressable onPress={back}><Text style={[s.muted,{textAlign:"center"}]}>Cancel</Text></Pressable>
+ </ScrollView></KeyboardAvoidingView>}
 
 function Complaints({ back, open }: { back: () => void; open: (id: string) => void }) {
   const [items, setItems] = useState<Complaint[]>([]);
@@ -567,6 +366,7 @@ function Complaints({ back, open }: { back: () => void; open: (id: string) => vo
             <Text style={s.complaintTitle}>{item.title}</Text>
             <Text style={s.muted} numberOfLines={2}>{item.description}</Text>
             <Text style={s.helper}>• {item.location}</Text>
+            <Text style={s.helper}>• {item.upvote_count ?? 0} campus support{item.upvote_count === 1 ? "" : "s"}</Text>
           </Pressable>
         )}
       />
@@ -609,36 +409,6 @@ function Detail({ id, back }: { id: string; back: () => void }) {
         <Text style={[s.label, { marginTop: 14 }]}>Campus location</Text>
         <Text style={s.body}>{item.location}</Text>
       </Card>
-      {item.complaint_ml_predictions?.length ? (
-        <Card>
-          <Text style={s.label}>Initial triage</Text>
-          {(() => {
-            const triage = item.complaint_ml_predictions![0];
-            return (
-              <>
-                <View style={s.triageRow}>
-                  <Text style={s.muted}>Category</Text>
-                  <Text style={s.label}>{triage.category ?? "Manual review"}</Text>
-                </View>
-                <View style={s.triageRow}>
-                  <Text style={s.muted}>Priority</Text>
-                  <Text style={s.label}>{triage.priority ?? "Not predicted"}</Text>
-                </View>
-                <View style={s.triageRow}>
-                  <Text style={s.muted}>Department</Text>
-                  <Text style={s.label}>{triage.department_name ?? "Manual review"}</Text>
-                </View>
-                {triage.requires_manual_review && (
-                  <Text style={s.helper}>
-                    Staff review required: {triage.review_reason ?? "Prediction confidence is low."}
-                  </Text>
-                )}
-              </>
-            );
-          })()}
-        </Card>
-      ) : null}
-
       <Card>
         <Text style={s.label}>Evidence</Text>
         {item.images.length ? item.images.map((x) => (
@@ -654,6 +424,19 @@ function Detail({ id, back }: { id: string; back: () => void }) {
             </View>
           </View>
         )) : <Text style={s.muted}>No evidence attached.</Text>}
+      </Card>
+      <Card>
+        <View style={s.row}>
+          <View>
+            <Text style={s.label}>Community support</Text>
+            <Text style={s.helper}>{item.upvote_count ?? 0} students support this issue.</Text>
+          </View>
+          {!item.has_upvoted && item.status !== "closed" && item.status !== "rejected" && (
+            <Pressable onPress={async()=>{try{await upvoteComplaint(item.id);setItem({...item,upvote_count:(item.upvote_count??0)+1,has_upvoted:true});}catch(e){Alert.alert("Unable to support",e instanceof Error?e.message:"Please try again.");}}}>
+              <Text style={s.link}>Support issue</Text>
+            </Pressable>
+          )}
+        </View>
       </Card>
       <Card>
         <Text style={s.label}>Status history</Text>
@@ -1118,12 +901,6 @@ const s = StyleSheet.create({
   action: { flex: 1, minHeight: 120, padding: 16, backgroundColor: C.white, borderWidth: 1, borderColor: C.border, borderRadius: 16 },
   actionIcon: { fontSize: 24, color: C.blue, marginBottom: 10 },
   card: { backgroundColor: C.white, borderWidth: 1, borderColor: C.border, borderRadius: 16, padding: 16, gap: 10 },
-  duplicateCard: { backgroundColor: "#FFF9E8", borderWidth: 1, borderColor: "#F5D995", borderRadius: 16, padding: 16, gap: 10 },
-  duplicateTitle: { fontSize: 18, fontWeight: "700", color: C.text },
-  duplicateItem: { backgroundColor: C.white, borderWidth: 1, borderColor: "#ECE4CF", borderRadius: 12, padding: 12, gap: 5 },
-  secondaryButton: { minHeight: 44, borderRadius: 12, borderWidth: 1, borderColor: C.border, backgroundColor: C.white, alignItems: "center", justifyContent: "center", paddingHorizontal: 16 },
-  secondaryButtonText: { color: C.text, fontSize: 14, fontWeight: "700" },
-  triageRow: { flexDirection: "row", justifyContent: "space-between", gap: 12, paddingVertical: 4 },
   progress: { backgroundColor: C.softBlue, borderRadius: 16, padding: 16, gap: 5 },
   cardTitle: { fontSize: 20, lineHeight: 26, fontWeight: "600", color: C.text },
   field: { gap: 6 },
