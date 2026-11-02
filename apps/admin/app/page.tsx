@@ -108,7 +108,7 @@ export default function AdminPage() {
     setLoading(true);
     const { data, error } = await supabase
       .from("complaints")
-      .select("id, student_id, title, description, location, status, category, category_confidence, priority_confidence, department_confidence, department_source, upvote_count, duplicate_of_id, priority, department_id, assigned_staff_id, created_at, updated_at, profiles!complaints_student_id_fkey(name, email), complaint_images(id, storage_path, content_type), complaint_status_history(id, from_status, to_status, changed_by, note, created_at), complaint_ml_predictions(*)")
+      .select("id, student_id, title, description, location, status, category, category_confidence, priority_confidence, department_confidence, department_source, upvote_count, duplicate_of_id, priority, department_id, assigned_staff_id, created_at, updated_at, profiles!complaints_student_id_fkey(name, email), complaint_images(id, storage_path, content_type), complaint_status_history(id, from_status, to_status, changed_by, note, created_at)")
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -202,10 +202,7 @@ export default function AdminPage() {
       ...data,
       student: Array.isArray((data as any).profiles) ? (data as any).profiles[0] ?? null : (data as any).profiles ?? null,
       images,
-      status_history: (data as any).complaint_status_history ?? selected.status_history ?? [],
-      ml_prediction: Array.isArray((data as any).complaint_ml_predictions)
-        ? (data as any).complaint_ml_predictions[0] ?? null
-        : (data as any).complaint_ml_predictions ?? selected.ml_prediction ?? null,
+      status_history: (data as any).complaint_status_history ?? selected.status_history ?? []
     } as Complaint;
     setComplaints((items) => items.map((item) => item.id === updated.id ? updated : item));
     setSelected(updated);
