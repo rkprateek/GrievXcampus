@@ -167,3 +167,29 @@ Notifications/realtime, text classification, priority prediction, department rou
 
 ### Verification
 The GitHub branch contains the Week 6 code and migration. The connected Supabase project is currently in `COMING_UP` state, so the Week 6 migration has not yet been applied to the live project. Database migration and end-to-end timeline verification must be completed when the project is available.
+
+
+## Week 6 — Notifications and realtime
+
+### Status
+Notification infrastructure completed on `week-6-lifecycle-notifications`.
+
+### Completed
+- Added `notifications` table with complaint linkage, notification type, read state and timestamps.
+- Added RLS so students can read and mark only their own notifications.
+- Added automatic notification creation from complaint status history.
+- New complaint submission creates a submission notification.
+- Admin status changes create status-change notifications automatically.
+- Added mobile APIs to fetch notifications and mark one/all as read.
+- Replaced the placeholder Alerts screen with a real notification list.
+- Added Supabase Realtime subscription for new notifications addressed to the signed-in student.
+- Enabled the `notifications` table in the `supabase_realtime` publication.
+
+### Verification
+The live Supabase database reports:
+- notification trigger exists;
+- notifications Realtime is enabled;
+- notification table has 0 rows before the next new complaint/status change;
+- status history contains 9 existing records.
+
+No synthetic complaint data was inserted just for testing.
