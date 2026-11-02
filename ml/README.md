@@ -7,4 +7,4 @@ The ML scope is limited to:
 
 Duplicate detection is an application feature, not a fourth ML model.
 
-Training and inference work begins in the planned ML weeks.
+Training and inference for Weeks 7 and 8 is implemented in the FastAPI application under `services/api/app/ml`.
