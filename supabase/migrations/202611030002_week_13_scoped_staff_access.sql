@@ -124,6 +124,23 @@ with check (
   )
 );
 
+-- Use a SECURITY DEFINER accessor to avoid recursive profile RLS evaluation.
+create or replace function public.current_grievx_department_id()
+returns uuid
+language sql
+stable
+security definer
+set search_path = public
+as $
+  select department_id
+  from public.profiles
+  where id = (select auth.uid())
+  limit 1;
+$;
+
+revoke all on function public.current_grievx_department_id() from public, anon;
+grant execute on function public.current_grievx_department_id() to authenticated;
+
 -- Staff may see only profile details needed for their own department.
 drop policy if exists "Staff can view profiles" on public.profiles;
 create policy "Staff can view profiles in authorized department"
@@ -131,13 +148,9 @@ on public.profiles for select to authenticated
 using (
   id = (select auth.uid())
   or public.is_grievx_admin()
-  or exists (
-    select 1
-    from public.profiles actor
-    where actor.id = (select auth.uid())
-      and actor.department_id is not null
-      and actor.department_id = public.profiles.department_id
-      and actor.role in ('staff', 'department_head')
+  or (
+    department_id = (select public.current_grievx_department_id())
+    and (select public.current_grievx_role()) in ('staff', 'department_head')
   )
 );
 
