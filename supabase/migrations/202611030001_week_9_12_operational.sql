@@ -66,7 +66,7 @@ with check (
 create or replace function public.update_complaint_upvote_count()
 returns trigger
 language plpgsql
-security invoker
+security definer
 set search_path = public
 as $$
 begin
