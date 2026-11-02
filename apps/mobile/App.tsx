@@ -384,15 +384,21 @@ function Report({ back, done }: { back: () => void; done: () => void }) {
         );
       }
 
-      await runAndPersistComplaintTriage({
-        complaintId: c.id,
-        title: title.trim(),
-        description: description.trim(),
-      });
+      let triageNote = "The initial triage is ready, and staff review is required for low-confidence routing.";
+      try {
+        await runAndPersistComplaintTriage({
+          complaintId: c.id,
+          title: title.trim(),
+          description: description.trim(),
+        });
+      } catch (triageError) {
+        triageNote =
+          "Your complaint was saved, but automated triage could not be completed. Staff will review it manually.";
+      }
 
       Alert.alert(
         "Complaint submitted",
-        "Your complaint was submitted. The initial triage is ready, and staff review is required for low-confidence routing.",
+        triageNote,
         [{ text: "View complaints", onPress: done }],
       );
     } catch (e) {
