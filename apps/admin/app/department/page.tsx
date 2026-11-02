@@ -88,8 +88,9 @@ export default function DepartmentPage() {
               Update status{" "}
               <select value={item.status} onChange={(event) => void updateStatus(item.id, event.target.value)}>
                 <option value={item.status}>{item.status.replace("_", " ")}</option>
-                <option value="in_progress">In progress</option>
-                <option value="resolved">Resolved</option>
+                {["assigned", "in_progress", "resolved"].filter((value) => value !== item.status).map((value) => (
+                  <option key={value} value={value}>{value.replace("_", " ")}</option>
+                ))}
               </select>
             </label>
           </article>
