@@ -205,7 +205,7 @@ export default function AdminPage() {
       .from("complaints")
       .update({ ...changes, updated_at: new Date().toISOString() })
       .eq("id", selected.id)
-      .select("id, student_id, title, description, location, status, priority, department_id, created_at, updated_at, profiles!complaints_student_id_fkey(name, email), complaint_images(id, storage_path, content_type)")
+      .select("id, student_id, title, description, location, status, priority, department_id, created_at, updated_at, profiles!complaints_student_id_fkey(name, email), complaint_images(id, storage_path, content_type), complaint_status_history(id, from_status, to_status, changed_by, note, created_at), complaint_ml_predictions(*)")
       .single();
 
     if (error) {
@@ -222,7 +222,10 @@ export default function AdminPage() {
       ...data,
       student: Array.isArray((data as any).profiles) ? (data as any).profiles[0] ?? null : (data as any).profiles ?? null,
       images,
-      status_history: (data as any).complaint_status_history ?? [],
+      status_history: (data as any).complaint_status_history ?? selected.status_history ?? [],
+      ml_prediction: Array.isArray((data as any).complaint_ml_predictions)
+        ? (data as any).complaint_ml_predictions[0] ?? null
+        : (data as any).complaint_ml_predictions ?? selected.ml_prediction ?? null,
     } as Complaint;
     setComplaints((items) => items.map((item) => item.id === updated.id ? updated : item));
     setSelected(updated);
@@ -236,7 +239,7 @@ export default function AdminPage() {
       .from("complaints")
       .update({ assigned_staff_id: staffId, updated_at: new Date().toISOString() })
       .eq("id", selected.id)
-      .select("id, student_id, title, description, location, status, priority, department_id, assigned_staff_id, created_at, updated_at, profiles!complaints_student_id_fkey(name, email), complaint_images(id, storage_path, content_type)")
+      .select("id, student_id, title, description, location, status, priority, department_id, assigned_staff_id, created_at, updated_at, profiles!complaints_student_id_fkey(name, email), complaint_images(id, storage_path, content_type), complaint_status_history(id, from_status, to_status, changed_by, note, created_at), complaint_ml_predictions(*)")
       .single();
 
     if (error) {
