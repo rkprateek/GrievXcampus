@@ -2,6 +2,17 @@ import * as FileSystem from "expo-file-system/legacy";
 import { decode } from "base64-arraybuffer";
 import { supabase } from "./supabase";
 
+export type Notification = {
+  id: string;
+  recipient_id: string;
+  complaint_id: string | null;
+  type: "complaint_submitted" | "status_changed" | "system";
+  title: string;
+  message: string;
+  read_at: string | null;
+  created_at: string;
+};
+
 export type ComplaintStatusHistory = {
   id: string;
   from_status: string | null;
@@ -181,4 +192,36 @@ export async function uploadComplaintImage(
     throw new Error(error.message);
   }
   return data;
+}
+
+export async function getNotifications() {
+  const { data, error } = await supabase
+    .from("notifications")
+    .select("id, recipient_id, complaint_id, type, title, message, read_at, created_at")
+    .order("created_at", { ascending: false });
+
+  if (error) throw new Error(error.message);
+  return (data ?? []) as Notification[];
+}
+
+export async function markNotificationRead(id: string) {
+  const { error } = await supabase
+    .from("notifications")
+    .update({ read_at: new Date().toISOString() })
+    .eq("id", id);
+
+  if (error) throw new Error(error.message);
+}
+
+export async function markAllNotificationsRead() {
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+  if (userError || !userData.user) throw new Error("You are not signed in.");
+
+  const { error } = await supabase
+    .from("notifications")
+    .update({ read_at: new Date().toISOString() })
+    .eq("recipient_id", userData.user.id)
+    .is("read_at", null);
+
+  if (error) throw new Error(error.message);
 }
