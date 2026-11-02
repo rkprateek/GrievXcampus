@@ -431,7 +431,7 @@ function Detail({ id, back }: { id: string; back: () => void }) {
             <Text style={s.helper}>{item.upvote_count ?? 0} students support this issue.</Text>
           </View>
           {!item.has_upvoted && item.status !== "closed" && item.status !== "rejected" && (
-            <Pressable style={s.statusButtons} onPress={async()=>{try{await upvoteComplaint(item.id);setItem({...item,upvote_count:(item.upvote_count??0)+1,has_upvoted:true});}catch(e){Alert.alert("Unable to support",e instanceof Error?e.message:"Please try again.");}}}>
+            <Pressable onPress={async()=>{try{await upvoteComplaint(item.id);setItem({...item,upvote_count:(item.upvote_count??0)+1,has_upvoted:true});}catch(e){Alert.alert("Unable to support",e instanceof Error?e.message:"Please try again.");}}}>
               <Text style={s.link}>Support issue</Text>
             </Pressable>
           )}
