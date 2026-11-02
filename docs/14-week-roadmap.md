@@ -58,3 +58,11 @@ End-to-end testing, bug fixing, final UI polish, documentation, architecture dia
 ## Rule
 
 A later week must not be started until the current week's implementation has been tested and reviewed.
+
+
+## Implementation checkpoint — Weeks 9–12
+- Week 9: implemented category-based department routing with confidence-aware General fallback.
+- Week 10: implemented workflow persistence for category/priority/routing, configurable duplicate detection, duplicate review/submit-anyway flow, and community upvotes.
+- Week 11: implemented admin analytics breakdowns, KPI cards and CSV export.
+- Week 12: implemented privacy-aware campus location intensity/heatmap view using manually entered campus areas; GPS is not used.
+- Runtime verification is intentionally left for the user's local environment before Weeks 9–12 are considered fully tested.
