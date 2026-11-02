@@ -15,6 +15,7 @@ type Complaint = {
   department_id?: string | null;
   priority?: "normal" | "high" | "critical";
   assigned_staff_id?: string | null;
+  status_history?: { id: string; from_status: string | null; to_status: string; changed_by: string | null; note: string | null; created_at: string }[];
   student?: { name: string; email: string } | null;
   images?: { id: string; storage_path: string; signed_url?: string | null; content_type?: string | null }[];
 };
@@ -100,7 +101,7 @@ export default function AdminPage() {
     setLoading(true);
     const { data, error } = await supabase
       .from("complaints")
-      .select("id, student_id, title, description, location, status, priority, department_id, assigned_staff_id, created_at, updated_at, profiles!complaints_student_id_fkey(name, email), complaint_images(id, storage_path, content_type)")
+      .select("id, student_id, title, description, location, status, priority, department_id, assigned_staff_id, created_at, updated_at, profiles!complaints_student_id_fkey(name, email), complaint_images(id, storage_path, content_type), complaint_status_history(id, from_status, to_status, changed_by, note, created_at)")
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -119,6 +120,7 @@ export default function AdminPage() {
         ...item,
         student: Array.isArray(item.profiles) ? item.profiles[0] ?? null : item.profiles ?? null,
         images,
+        status_history: item.complaint_status_history ?? [],
       };
     })) as Complaint[];
 
@@ -161,6 +163,7 @@ export default function AdminPage() {
       ...data,
       student: Array.isArray((data as any).profiles) ? (data as any).profiles[0] ?? null : (data as any).profiles ?? null,
       images,
+      status_history: (data as any).complaint_status_history ?? [],
     } as Complaint;
 
     setComplaints((items) => items.map((item) => item.id === updated.id ? updated : item));
@@ -192,6 +195,7 @@ export default function AdminPage() {
       ...data,
       student: Array.isArray((data as any).profiles) ? (data as any).profiles[0] ?? null : (data as any).profiles ?? null,
       images,
+      status_history: (data as any).complaint_status_history ?? [],
     } as Complaint;
     setComplaints((items) => items.map((item) => item.id === updated.id ? updated : item));
     setSelected(updated);
@@ -234,6 +238,7 @@ export default function AdminPage() {
       ...data,
       student: Array.isArray((data as any).profiles) ? (data as any).profiles[0] ?? null : (data as any).profiles ?? null,
       images,
+      status_history: (data as any).complaint_status_history ?? [],
     } as Complaint;
     setComplaints((items) => items.map((item) => item.id === updated.id ? updated : item));
     setSelected(updated);
@@ -385,6 +390,27 @@ export default function AdminPage() {
                 </div>
 
                 <div className="detailSection">
+                  <label>Status history</label>
+                  {selected.status_history?.length ? (
+                    <div className="historyList">
+                      {selected.status_history.map((entry, index) => (
+                        <div className="historyItem" key={entry.id}>
+                          <span className="historyDot" />
+                          <div>
+                            <strong>{formatStatusLabel(entry.to_status)}</strong>
+                            <small>
+                              {entry.from_status ? formatStatusLabel(entry.from_status) + " → " + formatStatusLabel(entry.to_status) : "Complaint submitted"}
+                              {" · "}
+                              {formatDate(entry.created_at)}
+                            </small>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : <span>No status history available.</span>}
+                </div>
+
+                <div className="detailSection">
                   <label>Priority</label>
                   <div className="statusButtons">
                     {priorities.map((priority) => (
@@ -486,6 +512,10 @@ function Stat({ label, value }: { label: string; value: number }) {
 
 function Status({ status }: { status: Complaint["status"] }) {
   return <span className={`status status-${status}`}><i />{status.replace("_", " ")}</span>;
+}
+
+function formatStatusLabel(value: string) {
+  return value.replace("_", " ").replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
 function formatDate(value: string) {
