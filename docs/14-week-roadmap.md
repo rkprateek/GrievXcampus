@@ -66,3 +66,15 @@ A later week must not be started until the current week's implementation has bee
 - Week 11: implemented admin analytics breakdowns, KPI cards and CSV export.
 - Week 12: implemented privacy-aware campus location intensity/heatmap view using manually entered campus areas; GPS is not used.
 - Runtime verification is intentionally left for the user's local environment before Weeks 9–12 are considered fully tested.
+
+
+## Week 13 implementation checkpoint
+- Production settings validation, API host/CORS restrictions, production API-docs disablement and response security headers.
+- Bounded and signature-checked image uploads with server-generated storage keys.
+- Non-root FastAPI container with health check.
+- Security review and deployment guide.
+- Production provider controls and all verification remain pending.
+
+## Week 14 implementation checkpoint
+- Final report outline, demonstration script and final handover checklist.
+- Complete integration review, real screenshots, final testing, bug fixing and measured results remain pending.

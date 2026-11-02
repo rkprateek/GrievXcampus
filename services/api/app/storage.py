@@ -6,9 +6,9 @@ from botocore.exceptions import ClientError
 
 from app.core.config import get_settings
 
-
 ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}
 MAX_IMAGE_BYTES = 5 * 1024 * 1024
+_IMAGE_EXTENSIONS = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp"}
 
 
 class ObjectStorage:
@@ -34,14 +34,9 @@ class ObjectStorage:
 
     def upload_image(self, content: bytes, content_type: str, filename: str) -> str:
         self.ensure_bucket()
-        safe_suffix = filename.rsplit(".", 1)[-1].lower() if "." in filename else "bin"
-        object_key = f"complaints/{uuid4()}.{safe_suffix}"
-        self.client.put_object(
-            Bucket=self.bucket,
-            Key=object_key,
-            Body=content,
-            ContentType=content_type,
-        )
+        extension = _IMAGE_EXTENSIONS.get(content_type, "bin")
+        object_key = f"complaints/{uuid4()}.{extension}"
+        self.client.put_object(Bucket=self.bucket, Key=object_key, Body=content, ContentType=content_type)
         return object_key
 
 
