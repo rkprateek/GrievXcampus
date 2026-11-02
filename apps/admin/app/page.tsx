@@ -307,6 +307,8 @@ export default function AdminPage() {
           </div>
           <div className="topActions">
             <span className="secure">● Admin access</span>
+            <a className="refresh" href="/staff">Staff directory</a>
+            <a className="refresh" href="/department">Department workspace</a>
             <button className="refresh" onClick={loadComplaints}>Refresh</button>
           </div>
         </header>
