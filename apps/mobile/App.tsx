@@ -312,7 +312,8 @@ function Report({back,done}:{back:()=>void;done:()=>void}){const [title,setTitle
  const pick=async()=>{const p=await ImagePicker.requestMediaLibraryPermissionsAsync();if(!p.granted){Alert.alert("Photo access needed","Allow photo access to attach evidence.");return}const r=await ImagePicker.launchImageLibraryAsync({mediaTypes:["images"],allowsEditing:true,quality:.8});if(!r.canceled)setImage(r.assets[0])};
  const submit=async()=>{if(!title.trim()||!description.trim()||!location.trim()){Alert.alert("Missing information","Please complete title, description and campus location.");return}try{setBusy(true);
    const input={title:title.trim(),description:description.trim(),location:location.trim()};
-   const duplicates=await findPossibleDuplicates(input);
+   let duplicates: Awaited<ReturnType<typeof findPossibleDuplicates>> = [];
+   try { duplicates = await findPossibleDuplicates(input); } catch {}
    const proceed=async()=>{const c=await createComplaint(input);if(image)await uploadComplaintImage(c.id,image.uri,image.fileName??"evidence.jpg",image.mimeType??"image/jpeg");Alert.alert("Complaint submitted","Your complaint was submitted successfully.",[{text:"View complaints",onPress:done}])};
    if(duplicates.length){
      const top=duplicates.slice(0,3).map((d,i)=>`${i+1}. ${d.title} · ${d.location} · ${Math.round(d.similarity_score*100)}% similar`).join("\n");
