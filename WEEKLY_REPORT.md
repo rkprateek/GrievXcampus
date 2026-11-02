@@ -307,6 +307,9 @@ Implementation and release documentation added on `week-13-14-hardening-release`
 - Generated object storage extensions from the validated content type.
 - Added a non-root FastAPI container definition with a health check.
 - Added security review and deployment documentation.
+- Added a scoped-access migration for staff, department heads, complaint assignments, complaint evidence and profile visibility.
+- Added a database guard so staff can update lifecycle status only, while department heads can manage permitted work within their department.
+- Added a staff/department workspace at /department and an admin staff-to-department assignment page at /staff.
 
 ### Remaining before production
 - Configure provider secrets, exact production origins/hosts, managed database and private object storage.
