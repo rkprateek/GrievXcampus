@@ -16,6 +16,7 @@ app = FastAPI(
     title=settings.app_name,
     version=settings.app_version,
     description="GrievX Campus backend API.",
+    openapi_url="/openapi.json" if settings.app_env.lower() != "production" else None,
     docs_url="/docs" if settings.app_env.lower() != "production" else None,
     redoc_url="/redoc" if settings.app_env.lower() != "production" else None,
 )
