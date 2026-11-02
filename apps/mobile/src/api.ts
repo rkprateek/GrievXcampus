@@ -22,52 +22,22 @@ export type ComplaintStatusHistory = {
   created_at: string;
 };
 
-
-export type DuplicateComplaint = {
+export type DuplicateCandidate = {
   id: string;
   title: string;
   description: string;
   location: string;
   status: string;
   created_at: string;
-  similarity: number;
-  text_similarity: number;
-  location_similarity: number;
   upvote_count: number;
+  title_similarity: number;
+  description_similarity: number;
+  location_match: boolean;
+  similarity_score: number;
 };
 
-export type ComplaintMlPrediction = {
-  id: string;
-  complaint_id: string;
-  prediction_state: "completed" | "manual_review" | "unavailable" | "error";
-  category: string | null;
-  category_confidence: number | null;
-  priority: "normal" | "high" | "critical" | null;
-  priority_confidence: number | null;
-  priority_method: string | null;
-  priority_explanation: string | null;
-  matched_rules: string[];
-  department_id: string | null;
-  department_name: string | null;
-  department_code: string | null;
-  routing_confidence: number | null;
-  requires_manual_review: boolean;
-  review_reason: string | null;
-  category_model_version: string | null;
-  priority_model_version: string | null;
-  routing_model_version: string | null;
-  prediction_source: string;
-  created_at: string;
-  updated_at: string;
-};
-
-export type ComplaintPredictionResponse = {
-  category: {
-    category: string;
-    confidence: number;
-    low_confidence: boolean;
-    model_version: string;
-  };
+export type MLWorkflowResult = {
+  category: { category: string; confidence: number; low_confidence: boolean; model_version: string };
   priority: {
     priority: "normal" | "high" | "critical";
     confidence: number;
@@ -88,190 +58,22 @@ export type ComplaintPredictionResponse = {
   };
 };
 
-export async function upvoteComplaint(complaintId: string) {
-  const { data: userData, error: userError } = await supabase.auth.getUser();
-  if (userError || !userData.user) throw new Error("You are not signed in.");
-
-  const { error } = await supabase.from("complaint_upvotes").insert({
-    complaint_id: complaintId,
-    student_id: userData.user.id,
-  });
-
-  if (error && error.code !== "23505") throw new Error(error.message);
-}
-
-export async function findDuplicateComplaints(input: {
-  title: string;
-  description: string;
-  location: string;
-}) {
-  const { data, error } = await supabase.rpc("find_duplicate_complaints", {
-    p_title: input.title,
-    p_description: input.description,
-    p_location: input.location,
-    p_window_days: 90,
-    p_threshold: 0.40,
-    p_location_threshold: 0.30,
-    p_limit: 5,
-  });
-
-  if (error) throw new Error(error.message);
-  return (data ?? []) as DuplicateComplaint[];
-}
-
-async function getMlServiceUrl() {
-  const value = process.env.EXPO_PUBLIC_ML_API_URL?.trim();
-  return value ? value.replace(/\/$/, "") : null;
-}
-
-export async function predictComplaintWithMl(input: {
-  title: string;
-  description: string;
-}): Promise<ComplaintPredictionResponse | null> {
-  const baseUrl = await getMlServiceUrl();
+async function runMLWorkflow(title: string, description: string): Promise<MLWorkflowResult | null> {
+  const baseUrl = process.env.EXPO_PUBLIC_GRIEVX_API_URL?.trim().replace(/\/$/, "");
   if (!baseUrl) return null;
-
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 7000);
 
   try {
     const response = await fetch(`${baseUrl}/ml/predict`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(input),
-      signal: controller.signal,
+      body: JSON.stringify({ title, description }),
     });
-
-    if (!response.ok) {
-      throw new Error(`ML service returned HTTP ${response.status}.`);
-    }
-
-    return (await response.json()) as ComplaintPredictionResponse;
-  } finally {
-    clearTimeout(timeout);
+    if (!response.ok) return null;
+    return await response.json() as MLWorkflowResult;
+  } catch {
+    // Complaint submission must remain usable when the optional ML service is offline.
+    return null;
   }
-}
-
-export async function saveComplaintMlPrediction(
-  complaintId: string,
-  prediction: ComplaintMlPrediction | Omit<ComplaintMlPrediction, "id" | "created_at" | "updated_at">,
-) {
-  const row = {
-    ...prediction,
-    complaint_id: complaintId,
-    updated_at: new Date().toISOString(),
-  };
-  delete (row as any).id;
-  delete (row as any).created_at;
-
-  const { data, error } = await supabase
-    .from("complaint_ml_predictions")
-    .upsert(row, { onConflict: "complaint_id" })
-    .select("*")
-    .single();
-
-  if (error) throw new Error(error.message);
-  return data as ComplaintMlPrediction;
-}
-
-export async function runAndPersistComplaintTriage(input: {
-  complaintId: string;
-  title: string;
-  description: string;
-}) {
-  let prediction: ComplaintPredictionResponse | null = null;
-  let predictionError: string | null = null;
-
-  try {
-    prediction = await predictComplaintWithMl({
-      title: input.title,
-      description: input.description,
-    });
-  } catch (error) {
-    predictionError = error instanceof Error ? error.message : "The ML service could not be reached.";
-  }
-
-  if (!prediction) {
-    return saveComplaintMlPrediction(input.complaintId, {
-      complaint_id: input.complaintId,
-      prediction_state: predictionError ? "error" : "unavailable",
-      category: null,
-      category_confidence: null,
-      priority: null,
-      priority_confidence: null,
-      priority_method: null,
-      priority_explanation: null,
-      matched_rules: [],
-      department_id: null,
-      department_name: null,
-      department_code: null,
-      routing_confidence: null,
-      requires_manual_review: true,
-      review_reason: predictionError ?? "ML service is not configured. Staff should review the complaint manually.",
-      category_model_version: null,
-      priority_model_version: null,
-      routing_model_version: null,
-      prediction_source: "fastapi",
-      id: "",
-      created_at: "",
-      updated_at: new Date().toISOString(),
-    });
-  }
-
-  const routingNeedsReview =
-    prediction.category.low_confidence || prediction.routing.requires_manual_review;
-
-  const { data: department } = await supabase
-    .from("departments")
-    .select("id")
-    .eq("code", prediction.routing.department_code)
-    .maybeSingle();
-
-  const complaintUpdate: Record<string, unknown> = {
-    updated_at: new Date().toISOString(),
-  };
-
-  if (prediction.priority.priority) {
-    complaintUpdate.priority = prediction.priority.priority;
-  }
-
-  if (!routingNeedsReview && department?.id) {
-    complaintUpdate.department_id = department.id;
-  }
-
-  const { error: complaintError } = await supabase
-    .from("complaints")
-    .update(complaintUpdate)
-    .eq("id", input.complaintId);
-
-  if (complaintError) throw new Error(complaintError.message);
-
-  return saveComplaintMlPrediction(input.complaintId, {
-    complaint_id: input.complaintId,
-    prediction_state: routingNeedsReview ? "manual_review" : "completed",
-    category: prediction.category.category,
-    category_confidence: prediction.category.confidence,
-    priority: prediction.priority.priority,
-    priority_confidence: prediction.priority.confidence,
-    priority_method: prediction.priority.method,
-    priority_explanation: prediction.priority.explanation,
-    matched_rules: prediction.priority.matched_rules,
-    department_id: department?.id ?? null,
-    department_name: prediction.routing.department,
-    department_code: prediction.routing.department_code,
-    routing_confidence: prediction.routing.routing_confidence,
-    requires_manual_review: routingNeedsReview,
-    review_reason: routingNeedsReview
-      ? prediction.routing.reason
-      : null,
-    category_model_version: prediction.category.model_version,
-    priority_model_version: prediction.priority.model_version,
-    routing_model_version: prediction.routing.model_version,
-    prediction_source: "fastapi",
-    id: "",
-    created_at: "",
-    updated_at: new Date().toISOString(),
-  });
 }
 
 export async function register(name: string, email: string, password: string) {
@@ -320,7 +122,23 @@ export async function getMe() {
   return data;
 }
 
-export async function createComplaint(input: { title: string; description: string; location: string }) {
+export async function findPossibleDuplicates(input: { title: string; description: string; location: string }) {
+  const { data, error } = await supabase.rpc("find_possible_duplicates", {
+    p_title: input.title,
+    p_description: input.description,
+    p_location: input.location,
+  });
+
+  if (error) throw new Error(error.message);
+  return (data ?? []) as DuplicateCandidate[];
+}
+
+export async function createComplaint(input: {
+  title: string;
+  description: string;
+  location: string;
+  duplicateOfId?: string | null;
+}) {
   const { data: userData, error: userError } = await supabase.auth.getUser();
   if (userError || !userData.user) throw new Error("You are not signed in.");
 
@@ -331,28 +149,75 @@ export async function createComplaint(input: { title: string; description: strin
       description: input.description,
       location: input.location,
       status: "submitted",
+      duplicate_of_id: input.duplicateOfId ?? null,
     })
-    .select("id, student_id, title, description, location, status, created_at, updated_at")
+    .select("id, student_id, title, description, location, status, category, category_confidence, priority, priority_confidence, created_at, updated_at")
     .single();
 
   if (error) throw new Error(error.message);
+
+  const ml = await runMLWorkflow(input.title, input.description);
+  if (ml) {
+    const { data: department } = await supabase
+      .from("departments")
+      .select("id")
+      .eq("code", ml.routing.department_code)
+      .maybeSingle();
+
+    const { error: workflowError } = await supabase.rpc("apply_complaint_ml_predictions", {
+      p_complaint_id: data.id,
+      p_category: ml.category.category,
+      p_category_confidence: ml.category.confidence,
+      p_category_model_version: ml.category.model_version,
+      p_priority: ml.priority.priority,
+      p_priority_confidence: ml.priority.confidence,
+      p_priority_model_version: ml.priority.model_version,
+      p_priority_source: ml.priority.method,
+      p_department_code: ml.routing.department_code,
+      p_department_confidence: ml.routing.routing_confidence,
+      p_department_source: ml.routing.requires_manual_review
+        ? "manual_review"
+        : "department_routing",
+    });
+
+    if (!workflowError) {
+      return {
+        ...data,
+        category: ml.category.category,
+        category_confidence: ml.category.confidence,
+        priority: ml.priority.priority,
+        priority_confidence: ml.priority.confidence,
+      };
+    }
+
+    return data;
+  }
+
   return data;
 }
 
 export async function getComplaints() {
   const { data, error } = await supabase.from("complaints")
-    .select("id, student_id, title, description, location, status, priority, department_id, created_at, updated_at, complaint_images(id, original_filename, content_type, storage_path)")
+    .select("id, student_id, title, description, location, status, priority, category, upvote_count, created_at, updated_at, complaint_images(id, original_filename, content_type, storage_path)")
     .order("created_at", { ascending: false });
   if (error) throw new Error(error.message);
+
+  const { data: userData } = await supabase.auth.getUser();
+  const myUpvotes = userData.user
+    ? await supabase.from("complaint_upvotes").select("complaint_id").eq("student_id", userData.user.id)
+    : { data: [] };
+
+  const upvotedIds = new Set((myUpvotes.data ?? []).map((x: any) => x.complaint_id));
   return (data ?? []).map((item: any) => ({
     ...item,
     images: item.complaint_images ?? [],
+    has_upvoted: upvotedIds.has(item.id),
   }));
 }
 
 export async function getComplaint(id: string) {
   const { data, error } = await supabase.from("complaints")
-    .select("id, student_id, title, description, location, status, priority, department_id, created_at, updated_at, complaint_images(id, original_filename, content_type, storage_path), complaint_status_history(id, from_status, to_status, changed_by, note, created_at), complaint_ml_predictions(*)")
+    .select("id, student_id, title, description, location, status, priority, category, upvote_count, duplicate_of_id, created_at, updated_at, complaint_images(id, original_filename, content_type, storage_path), complaint_status_history(id, from_status, to_status, changed_by, note, created_at)")
     .eq("id", id)
     .single();
   if (error) throw new Error(error.message);
@@ -362,7 +227,16 @@ export async function getComplaint(id: string) {
       .createSignedUrl(image.storage_path, 3600);
     return { ...image, signed_url: signed?.signedUrl ?? null };
   }));
-  return { ...data, images, status_history: (data.complaint_status_history ?? []) as ComplaintStatusHistory[] };
+  const { data: userData } = await supabase.auth.getUser();
+  const { data: myUpvote } = userData.user
+    ? await supabase.from("complaint_upvotes").select("complaint_id").eq("complaint_id", id).eq("student_id", userData.user.id).maybeSingle()
+    : { data: null };
+  return {
+    ...data,
+    images,
+    status_history: (data.complaint_status_history ?? []) as ComplaintStatusHistory[],
+    has_upvoted: !!myUpvote,
+  };
 }
 
 const IMAGE_MIME_BY_EXTENSION: Record<string, string> = {
@@ -476,4 +350,20 @@ export async function markAllNotificationsRead() {
     .is("read_at", null);
 
   if (error) throw new Error(error.message);
+}
+
+
+export async function upvoteComplaint(complaintId: string) {
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+  if (userError || !userData.user) throw new Error("You are not signed in.");
+
+  const { error } = await supabase.from("complaint_upvotes").insert({
+    complaint_id: complaintId,
+    student_id: userData.user.id,
+  });
+
+  if (error) {
+    if (error.code === "23505") throw new Error("You already supported this complaint.");
+    throw new Error(error.message);
+  }
 }
