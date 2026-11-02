@@ -290,3 +290,46 @@ Implemented on `week-9-12-operational`.
 
 ### Verification note
 The connected Supabase database has the Week 9–12 schema/functions applied. The FastAPI, React Native and Next.js builds still need to be executed in the user's local VS Code environment before reporting them as fully runtime-verified.
+
+
+## Week 13 — Security, deployment and reliability
+
+### Status
+Implementation and release documentation added on `week-13-14-hardening-release`.
+
+### Completed in this branch
+- Added production configuration validation for JWT secret strength, explicit CORS origins, allowed hosts, PostgreSQL connection, HTTPS object storage and non-placeholder storage credentials.
+- Added FastAPI trusted-host and CORS middleware.
+- Disabled interactive FastAPI API documentation when APP_ENV is production.
+- Added API security response headers and no-store behavior for authentication responses.
+- Bounded complaint image reads to the configured maximum plus one byte.
+- Added image signature validation for JPEG, PNG and WebP uploads.
+- Generated object storage extensions from the validated content type.
+- Added a non-root FastAPI container definition with a health check.
+- Added security review and deployment documentation.
+
+### Remaining before production
+- Configure provider secrets, exact production origins/hosts, managed database and private object storage.
+- Configure provider-level rate limits, monitoring, backups and restore procedure.
+- Review Supabase RLS and storage policies.
+- Execute the Week 13 security and deployment verification checklist during final testing.
+
+## Week 14 — Integration, documentation and final handover
+
+### Status
+Final handover materials added on `week-13-14-hardening-release`.
+
+### Completed
+- Added a Week 14 implementation checklist.
+- Added final report outline.
+- Added final demonstration script covering student submission, duplicate review, ML output, community support, admin workflow, notifications, analytics and manual-location heatmap.
+- Added deployment and security review documents.
+
+### Remaining
+- Complete implementation review across mobile, admin, API, Supabase and ML.
+- Prepare real screenshots and non-sensitive demo accounts.
+- Run the full automated and manual test plan.
+- Record actual test results, fix defects and finalize the report/presentation.
+
+### Verification status
+No Week 13–14 runtime or end-to-end testing is claimed complete yet.
