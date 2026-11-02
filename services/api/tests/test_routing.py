@@ -13,3 +13,9 @@ def test_unknown_category_uses_general_fallback():
     assert result.department_code == "GEN"
     assert result.method == "fallback"
     assert result.confidence == 0.50
+
+
+def test_low_confidence_known_category_falls_back_to_general():
+    result = route_category("Security", 0.40)
+    assert result.department_code == "GEN"
+    assert result.method == "fallback"
