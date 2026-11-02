@@ -4,7 +4,7 @@
 - Validate production configuration before starting the API.
 - Restrict CORS to explicit trusted origins and Host headers to configured domains.
 - Disable interactive API documentation in production unless explicitly enabled through a controlled release process.
-- Add browser/API security response headers.
+- Add API security response headers.
 - Bound image reads to the configured upload limit and verify file signatures as well as declared MIME type.
 - Generate storage object names on the server and derive extensions from validated content types.
 - Run application containers as non-root users.
