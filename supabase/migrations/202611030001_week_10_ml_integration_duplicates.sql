@@ -186,5 +186,130 @@ revoke all on function public.find_duplicate_complaints(text, text, text, intege
 grant execute on function public.find_duplicate_complaints(text, text, text, integer, numeric, numeric, integer)
   to authenticated;
 
+create table if not exists public.complaint_upvotes (
+  id uuid primary key default gen_random_uuid(),
+  complaint_id uuid not null references public.complaints(id) on delete cascade,
+  student_id uuid not null references public.profiles(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  unique (complaint_id, student_id)
+);
+
+create index if not exists complaint_upvotes_complaint_id_idx
+  on public.complaint_upvotes(complaint_id);
+
+create index if not exists complaint_upvotes_student_id_idx
+  on public.complaint_upvotes(student_id);
+
+alter table public.complaint_upvotes enable row level security;
+
+grant select, insert on public.complaint_upvotes to authenticated;
+
+drop policy if exists "Students can view own complaint upvotes" on public.complaint_upvotes;
+create policy "Students can view own complaint upvotes"
+on public.complaint_upvotes
+for select to authenticated
+using ((select auth.uid()) = student_id);
+
+drop policy if exists "Students can upvote other students complaints" on public.complaint_upvotes;
+create policy "Students can upvote other students complaints"
+on public.complaint_upvotes
+for insert to authenticated
+with check (
+  (select auth.uid()) = student_id
+  and exists (
+    select 1
+    from public.complaints c
+    where c.id = complaint_id
+      and c.student_id <> (select auth.uid())
+      and c.status not in ('closed', 'rejected')
+  )
+);
+
+create or replace function public.find_duplicate_complaints(
+  p_title text,
+  p_description text,
+  p_location text,
+  p_window_days integer default 90,
+  p_threshold numeric default 0.55,
+  p_location_threshold numeric default 0.45,
+  p_limit integer default 5
+)
+returns table (
+  id uuid,
+  title text,
+  description text,
+  location text,
+  status text,
+  created_at timestamptz,
+  similarity numeric,
+  text_similarity numeric,
+  location_similarity numeric,
+  upvote_count bigint
+)
+language sql
+stable
+security definer
+set search_path = public, extensions
+as $
+  with candidates as (
+    select
+      c.id,
+      c.title,
+      c.description,
+      c.location,
+      c.status,
+      c.created_at,
+      greatest(
+        extensions.similarity(lower(c.title), lower(trim(p_title))),
+        extensions.similarity(lower(c.description), lower(trim(p_description))),
+        extensions.similarity(
+          lower(c.title || ' ' || c.description),
+          lower(trim(p_title || ' ' || p_description))
+        )
+      ) as text_similarity,
+      extensions.similarity(lower(c.location), lower(trim(p_location))) as location_similarity
+    from public.complaints c
+    where (select auth.uid()) is not null
+      and c.created_at >= now() - make_interval(days => least(greatest(p_window_days, 1), 365))
+      and c.student_id <> (select auth.uid())
+      and c.status not in ('closed', 'rejected')
+  ),
+  scored as (
+    select
+      id,
+      title,
+      description,
+      location,
+      status,
+      created_at,
+      round((text_similarity * 0.70 + location_similarity * 0.30)::numeric, 4) as similarity,
+      round(text_similarity::numeric, 4) as text_similarity,
+      round(location_similarity::numeric, 4) as location_similarity
+    from candidates
+  )
+  select
+    scored.id,
+    scored.title,
+    scored.description,
+    scored.location,
+    scored.status,
+    scored.created_at,
+    scored.similarity,
+    scored.text_similarity,
+    scored.location_similarity,
+    (select count(*) from public.complaint_upvotes u where u.complaint_id = scored.id) as upvote_count
+  from scored
+  where (select auth.uid()) is not null
+    and scored.similarity >= greatest(least(p_threshold, 0.95), 0.20)
+    and scored.location_similarity >= greatest(least(p_location_threshold, 0.90), 0.20)
+  order by scored.similarity desc, scored.created_at desc
+  limit greatest(least(p_limit, 10), 1);
+$;
+
+revoke all on function public.find_duplicate_complaints(text, text, text, integer, numeric, numeric, integer)
+  from public, anon;
+grant execute on function public.find_duplicate_complaints(text, text, text, integer, numeric, numeric, integer)
+  to authenticated;
+
 comment on function public.find_duplicate_complaints(text, text, text, integer, numeric, numeric, integer)
-is 'Week 10 application-level duplicate detection. Uses title/description similarity plus a required near-matching campus location. It does not block submission.';
+is 'Week 10 application-level duplicate detection. Uses title/description similarity plus a required near-matching campus location. It does not block submission and returns community upvote counts.';
