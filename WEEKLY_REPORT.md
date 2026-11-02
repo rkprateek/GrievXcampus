@@ -231,3 +231,62 @@ Priority prediction is standalone in Week 8. Complaint submission is not automat
 
 ### Verification
 Run the FastAPI test suite and `python -m services.api.app.ml.train_models` in the local environment before treating the model metrics as verified for the project report.
+
+
+## Week 9 — Department routing
+
+### Status
+Implemented on `week-9-12-operational`.
+
+### Completed
+- Added category-to-department routing for all nine project categories.
+- Added `POST /ml/route` and included routing in `POST /ml/predict`.
+- Added confidence-aware routing: low-confidence or unknown categories go to General for manual review.
+- Added routing model metadata `department-router-v1.0.0`.
+- Added API tests for normal, fallback and low-confidence routing.
+
+### Scope control
+Routing uses the Week 7 text-classification result and a transparent category-to-department mapping. It is not presented as a fourth ML model.
+
+## Week 10 — ML workflow, duplicate detection and community support
+
+### Status
+Implemented on `week-9-12-operational`.
+
+### Completed
+- Complaint creation can call the combined ML service and persist category, category confidence, priority, priority confidence, model versions and routing confidence/source.
+- ML integration is optional at runtime: the complaint remains submittable when the FastAPI inference service is unavailable.
+- Added duplicate detection using title similarity, description similarity and exact normalized manual-location match.
+- Added configurable duplicate threshold, feature weights and recency window in `duplicate_detection_config`.
+- Added a student review warning for possible duplicates before submission.
+- Added an explicit “Submit anyway” path so duplicate detection does not block legitimate complaints.
+- Added community support/upvoting with one upvote per student per complaint and a persisted upvote count.
+- Added safe RLS/trigger behavior for upvote counting.
+
+### Scope control
+Duplicate detection is an application feature, not a fourth ML model.
+
+## Week 11 — Analytics and reporting
+
+### Status
+Implemented on `week-9-12-operational`.
+
+### Completed
+- Added operational analytics for total, critical, resolved/closed and average resolution time.
+- Added category, priority, department and lifecycle breakdowns.
+- Added CSV export for complaint operational data.
+- Added admin-only analytics access through the existing role-protected dashboard.
+
+## Week 12 — Campus map and operational views
+
+### Status
+Implemented on `week-9-12-operational`.
+
+### Completed
+- Added a campus issue heatmap-style operational view grouped by manually entered campus location.
+- Added hotspot intensity, open issue count, critical issue count and community-support count.
+- Kept the view privacy-aware: no GPS coordinates are stored or displayed.
+- Added responsive admin presentation for the campus operational view.
+
+### Verification note
+The connected Supabase database has the Week 9–12 schema/functions applied. The FastAPI, React Native and Next.js builds still need to be executed in the user's local VS Code environment before reporting them as fully runtime-verified.

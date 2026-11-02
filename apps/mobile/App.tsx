@@ -17,6 +17,7 @@ import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import * as ImagePicker from "expo-image-picker";
 import {
   createComplaint,
+  findPossibleDuplicates,
   getComplaint,
   getComplaints,
   getMe,
@@ -27,6 +28,7 @@ import {
   register,
   resetPassword,
   signOut,
+  upvoteComplaint,
   uploadComplaintImage,
 } from "./src/api";
 import { supabase } from "./src/supabase";
@@ -39,6 +41,11 @@ type Complaint = {
   description: string;
   location: string;
   status: string;
+  priority?: "normal" | "high" | "critical";
+  category?: string | null;
+  upvote_count?: number;
+  has_upvoted?: boolean;
+  duplicate_of_id?: string | null;
   created_at: string;
   images: { id: string; original_filename: string; content_type: string; signed_url?: string | null }[];
   status_history?: { id: string; from_status: string | null; to_status: string; changed_by: string | null; note: string | null; created_at: string }[];
@@ -303,7 +310,19 @@ function Home({ go }: { go: (x: Screen) => void }) {
 
 function Report({back,done}:{back:()=>void;done:()=>void}){const [title,setTitle]=useState(""),[description,setDescription]=useState(""),[location,setLocation]=useState(""),[image,setImage]=useState<ImagePicker.ImagePickerAsset|null>(null),[busy,setBusy]=useState(false);
  const pick=async()=>{const p=await ImagePicker.requestMediaLibraryPermissionsAsync();if(!p.granted){Alert.alert("Photo access needed","Allow photo access to attach evidence.");return}const r=await ImagePicker.launchImageLibraryAsync({mediaTypes:["images"],allowsEditing:true,quality:.8});if(!r.canceled)setImage(r.assets[0])};
- const submit=async()=>{if(!title.trim()||!description.trim()||!location.trim()){Alert.alert("Missing information","Please complete title, description and campus location.");return}try{setBusy(true);const c=await createComplaint({title:title.trim(),description:description.trim(),location:location.trim()});if(image)await uploadComplaintImage(c.id,image.uri,image.fileName??"evidence.jpg",image.mimeType??"image/jpeg");Alert.alert("Complaint submitted","Your complaint was submitted successfully.",[{text:"View complaints",onPress:done}])}catch(e){Alert.alert("Submission failed",e instanceof Error?e.message:"Please try again.")}finally{setBusy(false)}};
+ const submit=async()=>{if(!title.trim()||!description.trim()||!location.trim()){Alert.alert("Missing information","Please complete title, description and campus location.");return}try{setBusy(true);
+   const input={title:title.trim(),description:description.trim(),location:location.trim()};
+   let duplicates: Awaited<ReturnType<typeof findPossibleDuplicates>> = [];
+   try { duplicates = await findPossibleDuplicates(input); } catch {}
+   const proceed=async()=>{const c=await createComplaint(input);if(image)await uploadComplaintImage(c.id,image.uri,image.fileName??"evidence.jpg",image.mimeType??"image/jpeg");Alert.alert("Complaint submitted","Your complaint was submitted successfully.",[{text:"View complaints",onPress:done}])};
+   if(duplicates.length){
+     const top=duplicates.slice(0,3).map((d,i)=>`${i+1}. ${d.title} · ${d.location} · ${Math.round(d.similarity_score*100)}% similar`).join("\n");
+     Alert.alert("Possible duplicate found","A recent complaint may describe the same issue:\n\n"+top+"\n\nReview it before submitting another report.",[
+       {text:"Cancel",style:"cancel"},
+       {text:"Submit anyway",onPress:proceed},
+     ]);
+   } else await proceed();
+ }catch(e){Alert.alert("Submission failed",e instanceof Error?e.message:"Please try again.")}finally{setBusy(false)}};
  return <KeyboardAvoidingView style={s.app} behavior={Platform.OS==="ios"?"padding":undefined}><ScrollView contentContainerStyle={s.page}><Header title="Report an issue" back={back}/>
  <View style={s.progress}><Text style={s.step}>1 OF 2 · FAST ROUTE DESK</Text><Text style={s.cardTitle}>Tell us what happened.</Text><Text style={s.muted}>Clear details help the complaint reach the right campus team.</Text></View>
  <Card><Field label="Complaint summary" placeholder="e.g. Wi-Fi disconnected in Lab 304" maxLength={150} value={title} onChangeText={setTitle}/><Field label="Detailed description" placeholder="Describe the problem clearly..." multiline value={description} onChangeText={setDescription} inputStyle={s.area}/><Text style={s.label}>Campus location</Text><Text style={s.helper}>Enter the building, room or campus area manually. No GPS is used.</Text><Field label="" placeholder="e.g. EC Block, Lab 304" value={location} onChangeText={setLocation}/></Card>
@@ -347,6 +366,7 @@ function Complaints({ back, open }: { back: () => void; open: (id: string) => vo
             <Text style={s.complaintTitle}>{item.title}</Text>
             <Text style={s.muted} numberOfLines={2}>{item.description}</Text>
             <Text style={s.helper}>• {item.location}</Text>
+            <Text style={s.helper}>• {item.upvote_count ?? 0} campus support{item.upvote_count === 1 ? "" : "s"}</Text>
           </Pressable>
         )}
       />
@@ -404,6 +424,19 @@ function Detail({ id, back }: { id: string; back: () => void }) {
             </View>
           </View>
         )) : <Text style={s.muted}>No evidence attached.</Text>}
+      </Card>
+      <Card>
+        <View style={s.row}>
+          <View>
+            <Text style={s.label}>Community support</Text>
+            <Text style={s.helper}>{item.upvote_count ?? 0} students support this issue.</Text>
+          </View>
+          {!item.has_upvoted && item.status !== "closed" && item.status !== "rejected" && (
+            <Pressable onPress={async()=>{try{await upvoteComplaint(item.id);setItem({...item,upvote_count:(item.upvote_count??0)+1,has_upvoted:true});}catch(e){Alert.alert("Unable to support",e instanceof Error?e.message:"Please try again.");}}}>
+              <Text style={s.link}>Support issue</Text>
+            </Pressable>
+          )}
+        </View>
       </Card>
       <Card>
         <Text style={s.label}>Status history</Text>

@@ -14,6 +14,12 @@ type Complaint = {
   updated_at: string;
   department_id?: string | null;
   priority?: "normal" | "high" | "critical";
+  category?: string | null;
+  category_confidence?: number | null;
+  priority_confidence?: number | null;
+  department_confidence?: number | null;
+  department_source?: string | null;
+  upvote_count?: number;
   assigned_staff_id?: string | null;
   status_history?: { id: string; from_status: string | null; to_status: string; changed_by: string | null; note: string | null; created_at: string }[];
   student?: { name: string; email: string } | null;
@@ -37,6 +43,7 @@ export default function AdminPage() {
   const [message, setMessage] = useState("");
   const [departments, setDepartments] = useState<Department[]>([]);
   const [staff, setStaff] = useState<StaffMember[]>([]);
+  const [view, setView] = useState<"dashboard" | "analytics" | "campus">("dashboard");
 
   useEffect(() => {
     const boot = async () => {
@@ -101,7 +108,7 @@ export default function AdminPage() {
     setLoading(true);
     const { data, error } = await supabase
       .from("complaints")
-      .select("id, student_id, title, description, location, status, priority, department_id, assigned_staff_id, created_at, updated_at, profiles!complaints_student_id_fkey(name, email), complaint_images(id, storage_path, content_type), complaint_status_history(id, from_status, to_status, changed_by, note, created_at)")
+      .select("id, student_id, title, description, location, status, priority, category, category_confidence, priority_confidence, department_confidence, department_source, upvote_count, duplicate_of_id, department_id, assigned_staff_id, created_at, updated_at, profiles!complaints_student_id_fkey(name, email), complaint_images(id, storage_path, content_type), complaint_status_history(id, from_status, to_status, changed_by, note, created_at)")
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -178,7 +185,7 @@ export default function AdminPage() {
       .from("complaints")
       .update({ ...changes, updated_at: new Date().toISOString() })
       .eq("id", selected.id)
-      .select("id, student_id, title, description, location, status, priority, department_id, created_at, updated_at, profiles!complaints_student_id_fkey(name, email), complaint_images(id, storage_path, content_type)")
+      .select("id, student_id, title, description, location, status, priority, category, category_confidence, priority_confidence, department_confidence, department_source, upvote_count, duplicate_of_id, department_id, created_at, updated_at, profiles!complaints_student_id_fkey(name, email), complaint_images(id, storage_path, content_type)")
       .single();
 
     if (error) {
@@ -280,10 +287,10 @@ export default function AdminPage() {
         <div className="brand"><span className="brandMark">✓</span><span>GrievX</span></div>
         <div className="brandSub">CAMPUS ADMIN</div>
         <nav>
-          <button className="navActive">Dashboard</button>
-          <button onClick={() => setFilter("all")}>Complaints</button>
-          <button onClick={() => setMessage("Analytics will be added in Week 11.")}>Analytics</button>
-          <button onClick={() => setMessage("Department routing is available in the current Week 5 admin flow.")}>Departments</button>
+          <button className={view === "dashboard" ? "navActive" : ""} onClick={() => setView("dashboard")}>Dashboard</button>
+          <button className={view === "dashboard" ? "navActive" : ""} onClick={() => { setView("dashboard"); setFilter("all"); }}>Complaints</button>
+          <button className={view === "analytics" ? "navActive" : ""} onClick={() => setView("analytics")}>Analytics</button>
+          <button className={view === "campus" ? "navActive" : ""} onClick={() => setView("campus")}>Campus map</button>
         </nav>
         <div className="sideBottom">
           <div className="adminMini"><span className="avatar">A</span><span><b>Administrator</b><small>{userEmail}</small></span></div>
@@ -305,6 +312,13 @@ export default function AdminPage() {
         </header>
 
         {message && <div className="notice">{message}</div>}
+
+        {view === "analytics" ? (
+          <AnalyticsView complaints={complaints} departments={departments} onExport={() => exportComplaints(complaints, departments)} />
+        ) : view === "campus" ? (
+          <CampusView complaints={complaints} />
+        ) : (
+        <>
 
         <div className="stats">
           <Stat label="Total complaints" value={counts.total} />
@@ -462,6 +476,8 @@ export default function AdminPage() {
             )}
           </aside>
         </div>
+        </>
+        )}
       </section>
     </main>
   );
@@ -520,4 +536,131 @@ function formatStatusLabel(value: string) {
 
 function formatDate(value: string) {
   return new Date(value).toLocaleString(undefined, { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
+}
+
+
+function AnalyticsView({ complaints, departments, onExport }: { complaints: Complaint[]; departments: Department[]; onExport: () => void }) {
+  const resolutionHours = complaints
+    .filter((x) => x.status === "resolved" || x.status === "closed")
+    .map((x) => (new Date(x.updated_at).getTime() - new Date(x.created_at).getTime()) / 3600000)
+    .filter((x) => Number.isFinite(x) && x >= 0);
+  const avgResolution = resolutionHours.length
+    ? resolutionHours.reduce((a, b) => a + b, 0) / resolutionHours.length
+    : 0;
+
+  const countBy = (values: (string | null | undefined)[]) => values.reduce<Record<string, number>>((acc, value) => {
+    const key = value || "Unclassified";
+    acc[key] = (acc[key] ?? 0) + 1;
+    return acc;
+  }, {});
+
+  const categories = countBy(complaints.map((x) => x.category));
+  const priorities = countBy(complaints.map((x) => x.priority));
+  const departmentsById = new Map(departments.map((d) => [d.id, d.name]));
+  const departmentCounts = countBy(complaints.map((x) => x.department_id ? departmentsById.get(x.department_id) ?? "Unassigned" : "Unassigned"));
+  const statuses = countBy(complaints.map((x) => x.status));
+
+  return (
+    <div className="analyticsGrid">
+      <div className="topbar">
+        <div>
+          <span className="eyebrow">WEEK 11 · REPORTING</span>
+          <h1>Operational analytics</h1>
+          <p>Category, priority, department and lifecycle performance from the complaint dataset.</p>
+        </div>
+        <button className="refresh" onClick={onExport}>Export CSV</button>
+      </div>
+
+      <div className="stats">
+        <Stat label="Total complaints" value={complaints.length} />
+        <Stat label="Critical" value={complaints.filter((x) => x.priority === "critical").length} />
+        <Stat label="Resolved / closed" value={complaints.filter((x) => x.status === "resolved" || x.status === "closed").length} />
+        <Stat label="Avg resolution (h)" value={Number(avgResolution.toFixed(1))} />
+      </div>
+
+      <div className="analyticsCards">
+        <Breakdown title="By category" values={categories} />
+        <Breakdown title="By priority" values={priorities} />
+        <Breakdown title="By department" values={departmentCounts} />
+        <Breakdown title="By lifecycle" values={statuses} />
+      </div>
+    </div>
+  );
+}
+
+function Breakdown({ title, values }: { title: string; values: Record<string, number> }) {
+  const entries = Object.entries(values).sort((a, b) => b[1] - a[1]);
+  const max = entries[0]?.[1] ?? 1;
+  return (
+    <section className="analyticsCard">
+      <div className="cardHeading"><strong>{title}</strong><span>{entries.reduce((sum, [, value]) => sum + value, 0)} complaints</span></div>
+      <div className="breakdownList">
+        {entries.map(([label, value]) => (
+          <div className="breakdownRow" key={label}>
+            <div className="breakdownLabel"><span>{label}</span><b>{value}</b></div>
+            <div className="barTrack"><div className="barFill" style={{ width: `${Math.max(6, (value / max) * 100)}%` }} /></div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function CampusView({ complaints }: { complaints: Complaint[] }) {
+  const locations = complaints.reduce<Record<string, { total: number; open: number; critical: number; upvotes: number }>>((acc, item) => {
+    const key = item.location.trim() || "Unknown campus area";
+    const current = acc[key] ?? { total: 0, open: 0, critical: 0, upvotes: 0 };
+    current.total += 1;
+    current.open += item.status !== "resolved" && item.status !== "closed" && item.status !== "rejected" ? 1 : 0;
+    current.critical += item.priority === "critical" ? 1 : 0;
+    current.upvotes += item.upvote_count ?? 0;
+    acc[key] = current;
+    return acc;
+  }, {});
+  const rows = Object.entries(locations).sort((a, b) => b[1].total - a[1].total);
+  const max = rows[0]?.[1].total ?? 1;
+
+  return (
+    <div className="analyticsGrid">
+      <div className="topbar">
+        <div>
+          <span className="eyebrow">WEEK 12 · CAMPUS OPERATIONS</span>
+          <h1>Campus issue heatmap</h1>
+          <p>Privacy-aware intensity by manually entered campus area. No GPS coordinates are stored or displayed.</p>
+        </div>
+      </div>
+      <section className="analyticsCard campusCard">
+        <div className="cardHeading"><strong>Hotspot areas</strong><span>{rows.length} areas</span></div>
+        {rows.length === 0 ? <div className="empty">No location data yet.</div> : (
+          <div className="campusGrid">
+            {rows.map(([location, stats]) => (
+              <div className="campusCell" key={location} style={{ opacity: 0.55 + (stats.total / max) * 0.45 }}>
+                <div className="campusCellTop"><strong>{location}</strong><b>{stats.total}</b></div>
+                <div className="campusMeter"><span style={{ width: `${Math.max(8, (stats.total / max) * 100)}%` }} /></div>
+                <div className="campusMeta">{stats.open} open · {stats.critical} critical · {stats.upvotes} support</div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}
+
+function exportComplaints(complaints: Complaint[], departments: Department[]) {
+  const departmentNames = new Map(departments.map((d) => [d.id, d.name]));
+  const headers = ["id", "title", "location", "status", "priority", "category", "department", "upvotes", "created_at", "updated_at"];
+  const rows = complaints.map((x) => [
+    x.id, x.title, x.location, x.status, x.priority ?? "", x.category ?? "",
+    x.department_id ? departmentNames.get(x.department_id) ?? "" : "",
+    String(x.upvote_count ?? 0), x.created_at, x.updated_at,
+  ]);
+  const csv = [headers, ...rows].map((row) => row.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `grievx-complaints-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
 }

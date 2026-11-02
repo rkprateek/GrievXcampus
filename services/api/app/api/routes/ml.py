@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
+from app.ml.department_router import route_category
 from app.ml.priority_predictor import get_priority_predictor
 from app.ml.text_classifier import get_text_classifier
 
@@ -24,11 +25,20 @@ def predict_priority(payload: ComplaintTextRequest) -> dict:
     return result.__dict__
 
 
+@router.post("/route")
+def route_complaint(payload: ComplaintTextRequest) -> dict:
+    category = get_text_classifier().predict(payload.title, payload.description)
+    route = route_category(category.category, category.confidence)
+    return route.__dict__
+
+
 @router.post("/predict")
 def predict_complaint(payload: ComplaintTextRequest) -> dict:
     category = get_text_classifier().predict(payload.title, payload.description)
     priority = get_priority_predictor().predict(payload.title, payload.description)
+    routing = route_category(category.category, category.confidence)
     return {
         "category": category.__dict__,
         "priority": priority.__dict__,
+        "routing": routing.__dict__,
     }
