@@ -33,6 +33,7 @@ export type DuplicateComplaint = {
   similarity: number;
   text_similarity: number;
   location_similarity: number;
+  upvote_count: number;
 };
 
 export type ComplaintMlPrediction = {
@@ -86,6 +87,18 @@ export type ComplaintPredictionResponse = {
     model_version: string;
   };
 };
+
+export async function upvoteComplaint(complaintId: string) {
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+  if (userError || !userData.user) throw new Error("You are not signed in.");
+
+  const { error } = await supabase.from("complaint_upvotes").insert({
+    complaint_id: complaintId,
+    student_id: userData.user.id,
+  });
+
+  if (error && error.code !== "23505") throw new Error(error.message);
+}
 
 export async function findDuplicateComplaints(input: {
   title: string;
