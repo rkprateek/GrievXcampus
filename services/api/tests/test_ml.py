@@ -71,3 +71,36 @@ def test_model_evaluation_returns_metrics() -> None:
     for metrics in (classifier_metrics, priority_metrics):
         assert 0 <= metrics["accuracy"] <= 1
         assert 0 <= metrics["macro_f1"] <= 1
+
+
+def test_department_routing_endpoint() -> None:
+    client = TestClient(app)
+    response = client.post(
+        "/ml/route",
+        json={
+            "title": "Wi-Fi is slow in lab",
+            "description": "The internet connection is very slow in Lab 304.",
+        },
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["department"] == "IT & Network"
+    assert payload["department_code"] == "IT"
+    assert payload["requires_manual_review"] is False
+    assert payload["category_confidence"] >= 0
+
+
+def test_combined_prediction_contains_routing() -> None:
+    client = TestClient(app)
+    response = client.post(
+        "/ml/predict",
+        json={
+            "title": "Broken classroom chair",
+            "description": "Several chairs in Room 105 are broken.",
+        },
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert "routing" in payload
+    assert "department" in payload["routing"]
+    assert payload["routing"]["department"] == "Classroom & Facilities"
