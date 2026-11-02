@@ -326,6 +326,7 @@ Final handover materials added on `week-13-14-hardening-release`.
 - Added a Week 14 implementation checklist.
 - Added final report outline.
 - Added final demonstration script covering student submission, duplicate review, ML output, community support, admin workflow, notifications, analytics and manual-location heatmap.
+- Added the staff/department complaint workspace and administrator staff-to-department assignment page.
 - Added deployment and security review documents.
 
 ### Remaining
