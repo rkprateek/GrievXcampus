@@ -38,6 +38,7 @@ type Complaint = {
   status: string;
   created_at: string;
   images: { id: string; original_filename: string; content_type: string; signed_url?: string | null }[];
+  status_history?: { id: string; from_status: string | null; to_status: string; changed_by: string | null; note: string | null; created_at: string }[];
 };
 
 const C = {
@@ -408,13 +409,24 @@ function Detail({ id, back }: { id: string; back: () => void }) {
         )) : <Text style={s.muted}>No evidence attached.</Text>}
       </Card>
       <Card>
-        <Text style={s.label}>Complaint status</Text>
-        {["Submitted", "Assigned", "In progress", "Resolved"].map((x, i) => (
-          <View style={s.timeline} key={x}>
-            <View style={[s.dot, i === 0 && s.activeDot]} />
-            <Text style={i === 0 ? s.label : s.muted}>{x}</Text>
+        <Text style={s.label}>Status history</Text>
+        {item.status_history?.length ? item.status_history.map((entry, index) => (
+          <View style={s.timeline} key={entry.id}>
+            <View style={[s.dot, index === item.status_history!.length - 1 && s.activeDot]} />
+            <View style={{ flex: 1 }}>
+              <Text style={index === item.status_history!.length - 1 ? s.label : s.muted}>
+                {formatStatus(entry.to_status)}
+              </Text>
+              <Text style={s.helper}>
+                {entry.from_status ? formatStatus(entry.from_status) + " → " + formatStatus(entry.to_status) : "Complaint submitted"}
+                {" · "}
+                {date(entry.created_at)}
+              </Text>
+            </View>
           </View>
-        ))}
+        )) : (
+          <Text style={s.muted}>No status history available yet.</Text>
+        )}
       </Card>
     </ScrollView>
   );
@@ -590,6 +602,10 @@ function Action({
 
 function Centered({ children }: { children: React.ReactNode }) {
   return <SafeAreaView style={s.centered}>{children}</SafeAreaView>;
+}
+
+function formatStatus(v: string) {
+  return v.replace("_", " ").replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
 function date(v: string) {
