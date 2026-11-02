@@ -193,3 +193,41 @@ The live Supabase database reports:
 - status history contains 9 existing records.
 
 No synthetic complaint data was inserted just for testing.
+
+
+## Week 7 — Text classification
+
+### Status
+Implemented on `week-7-8-ml`.
+
+### Completed
+- Added a curated 54-example campus complaint seed dataset covering the nine project categories.
+- Added TF-IDF unigram/bigram preprocessing.
+- Added Logistic Regression category baseline with class balancing.
+- Added stratified 80/20 evaluation with fixed random seed.
+- Added model version `text-classifier-v1.0.0` and registry metadata.
+- Added confidence and low-confidence output.
+- Added FastAPI inference endpoints `POST /ml/classify` and `POST /ml/predict`.
+- Added automated API and evaluation tests.
+
+### Scope control
+This is a reproducible baseline using the curated development dataset. Production training on institutional complaint data and end-to-end workflow integration remain later tasks.
+
+## Week 8 — Priority prediction
+
+### Status
+Implemented on `week-7-8-ml`.
+
+### Completed
+- Added TF-IDF + Logistic Regression baseline for normal/high/critical priority.
+- Added model version `priority-predictor-v1.0.0` and registry metadata.
+- Added explainable safety-rule override for critical hazards.
+- Added confidence, explanation, method and matched-rule output.
+- Added FastAPI inference endpoint `POST /ml/priority` and combined `POST /ml/predict`.
+- Added automated priority and combined-prediction tests.
+
+### Scope control
+Priority prediction is standalone in Week 8. Complaint submission is not automatically calling the model yet; that integration belongs to the later ML workflow stage.
+
+### Verification
+Run the FastAPI test suite and `python -m services.api.app.ml.train_models` in the local environment before treating the model metrics as verified for the project report.
