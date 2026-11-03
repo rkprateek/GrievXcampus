@@ -205,12 +205,19 @@ export async function getNotifications() {
 }
 
 export async function markNotificationRead(id: string) {
-  const { error } = await supabase
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+  if (userError || !userData.user) throw new Error("You are not signed in.");
+
+  const { data, error } = await supabase
     .from("notifications")
     .update({ read_at: new Date().toISOString() })
-    .eq("id", id);
+    .eq("id", id)
+    .eq("recipient_id", userData.user.id)
+    .select("id")
+    .maybeSingle();
 
   if (error) throw new Error(error.message);
+  if (!data) throw new Error("Notification was not updated. Check that it belongs to your account and try again.");
 }
 
 export async function markAllNotificationsRead() {
@@ -221,7 +228,8 @@ export async function markAllNotificationsRead() {
     .from("notifications")
     .update({ read_at: new Date().toISOString() })
     .eq("recipient_id", userData.user.id)
-    .is("read_at", null);
+    .is("read_at", null)
+    .select("id");
 
   if (error) throw new Error(error.message);
 }
