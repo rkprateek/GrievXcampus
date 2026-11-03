@@ -5,6 +5,7 @@ import {
   FlatList,
   Image,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -17,6 +18,8 @@ import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import * as ImagePicker from "expo-image-picker";
 import {
   createComplaint,
+  updateComplaint,
+  withdrawComplaint,
   findPossibleDuplicates,
   getComplaint,
   getComplaints,
@@ -366,15 +369,75 @@ function Complaints({ back, open }: { back: () => void; open: (id: string) => vo
   const [items, setItems] = useState<Complaint[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [editing, setEditing] = useState<Complaint | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editLocation, setEditLocation] = useState("");
+  const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    getComplaints()
-      .then(setItems)
-      .catch((e) => setError(e instanceof Error ? e.message : "Unable to load complaints."))
-      .finally(() => setLoading(false));
-  }, []);
+  const refresh = async () => {
+    try {
+      setError("");
+      setItems(await getComplaints() as Complaint[]);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Unable to load complaints.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  return (    <View style={s.app}>
+  useEffect(() => { refresh(); }, []);
+
+  const beginEdit = (item: Complaint) => {
+    setEditing(item);
+    setEditTitle(item.title);
+    setEditDescription(item.description);
+    setEditLocation(item.location);
+  };
+
+  const saveEdit = async () => {
+    if (!editing || !editTitle.trim() || !editDescription.trim() || !editLocation.trim()) {
+      Alert.alert("Missing information", "Please complete the title, description and location.");
+      return;
+    }
+    try {
+      setSaving(true);
+      await updateComplaint(editing.id, {
+        title: editTitle.trim(),
+        description: editDescription.trim(),
+        location: editLocation.trim(),
+      });
+      setEditing(null);
+      await refresh();
+      Alert.alert("Complaint updated", "Your changes have been saved.");
+    } catch (e) {
+      Alert.alert("Unable to update", e instanceof Error ? e.message : "Please try again.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const confirmWithdraw = (item: Complaint) => {
+    Alert.alert(
+      "Withdraw complaint?",
+      "This will mark your submitted complaint as withdrawn. You cannot undo this action.",
+      [
+        { text: "Keep complaint", style: "cancel" },
+        { text: "Withdraw", style: "destructive", onPress: async () => {
+          try {
+            await withdrawComplaint(item.id);
+            await refresh();
+            Alert.alert("Complaint withdrawn", "Your complaint has been withdrawn.");
+          } catch (e) {
+            Alert.alert("Unable to withdraw", e instanceof Error ? e.message : "Please try again.");
+          }
+        }},
+      ],
+    );
+  };
+
+  return (
+    <View style={s.app}>
       <FlatList
         contentContainerStyle={s.page}
         data={items}
@@ -389,19 +452,55 @@ function Complaints({ back, open }: { back: () => void; open: (id: string) => vo
         ListEmptyComponent={
           loading ? <ActivityIndicator color={C.blue} /> : <Text style={s.error}>{error || "No complaints yet."}</Text>
         }
-        renderItem={({ item }) => (
-          <Pressable style={s.complaint} onPress={() => open(item.id)}>
-            <View style={s.row}>
-              <Status status={item.status} />
-              <Text style={s.date}>{date(item.created_at)}</Text>
+        renderItem={({ item }) => {
+          const canManage = item.status.toLowerCase() === "submitted";
+          return (
+            <View style={s.complaint}>
+              <Pressable onPress={() => open(item.id)}>
+                <View style={s.row}>
+                  <Status status={item.status} />
+                  <Text style={s.date}>{date(item.created_at)}</Text>
+                </View>
+                <Text style={s.complaintTitle}>{item.title}</Text>
+                <Text style={s.muted} numberOfLines={2}>{item.description}</Text>
+                <Text style={s.helper}>• {item.location}</Text>
+                <Text style={s.helper}>• {item.upvote_count ?? 0} campus support{item.upvote_count === 1 ? "" : "s"}</Text>
+              </Pressable>
+              {canManage && (
+                <View style={s.complaintActions}>
+                  <Pressable style={s.editComplaintButton} onPress={() => beginEdit(item)}>
+                    <Text style={s.editComplaintText}>✎  Edit</Text>
+                  </Pressable>
+                  <Pressable style={s.withdrawComplaintButton} onPress={() => confirmWithdraw(item)}>
+                    <Text style={s.withdrawComplaintText}>▤  Withdraw</Text>
+                  </Pressable>
+                </View>
+              )}
             </View>
-            <Text style={s.complaintTitle}>{item.title}</Text>
-            <Text style={s.muted} numberOfLines={2}>{item.description}</Text>
-            <Text style={s.helper}>• {item.location}</Text>
-            <Text style={s.helper}>• {item.upvote_count ?? 0} campus support{item.upvote_count === 1 ? "" : "s"}</Text>
-          </Pressable>
-        )}
+          );
+        }}
       />
+      <Modal visible={!!editing} transparent animationType="slide" onRequestClose={() => !saving && setEditing(null)}>
+        <View style={s.editModalBackdrop}>
+          <View style={s.editModalCard}>
+            <Text style={s.cardTitle}>Edit complaint</Text>
+            <Text style={s.label}>Title</Text>
+            <TextInput style={s.editInput} value={editTitle} onChangeText={setEditTitle} maxLength={150} />
+            <Text style={s.label}>Description</Text>
+            <TextInput style={[s.editInput, s.editMultiline]} value={editDescription} onChangeText={setEditDescription} multiline textAlignVertical="top" />
+            <Text style={s.label}>Campus location</Text>
+            <TextInput style={s.editInput} value={editLocation} onChangeText={setEditLocation} />
+            <View style={s.editModalActions}>
+              <Pressable style={s.cancelEditButton} disabled={saving} onPress={() => setEditing(null)}>
+                <Text style={s.cancelEditText}>Cancel</Text>
+              </Pressable>
+              <Pressable style={s.saveEditButton} disabled={saving} onPress={saveEdit}>
+                <Text style={s.saveEditText}>{saving ? "Saving..." : "Save changes"}</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -1120,6 +1219,21 @@ const s = StyleSheet.create({
   date: { fontSize: 11, color: C.muted },
   complaint: { backgroundColor: C.white, borderWidth: 1, borderColor: C.border, borderRadius: 16, padding: 16, marginBottom: 10, gap: 8 },
   complaintTitle: { fontSize: 17, fontWeight: "700", color: C.text },
+  complaintActions: { flexDirection: "row", justifyContent: "flex-end", gap: 9, borderTopWidth: 1, borderTopColor: C.border, paddingTop: 10, marginTop: 4 },
+  editComplaintButton: { borderWidth: 1.5, borderColor: C.blue, borderRadius: 10, paddingVertical: 8, paddingHorizontal: 15 },
+  editComplaintText: { color: C.blue, fontSize: 13, fontWeight: "700" },
+  withdrawComplaintButton: { borderWidth: 1.5, borderColor: C.red, borderRadius: 10, paddingVertical: 8, paddingHorizontal: 13 },
+  withdrawComplaintText: { color: C.red, fontSize: 13, fontWeight: "700" },
+  editModalBackdrop: { flex: 1, backgroundColor: "rgba(6,22,74,0.42)", justifyContent: "center", padding: 20 },
+  editModalCard: { backgroundColor: C.white, borderRadius: 18, padding: 18, gap: 9 },
+  editInput: { minHeight: 43, borderWidth: 1, borderColor: C.border, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 9, color: C.text, fontSize: 14 },
+  editMultiline: { minHeight: 105 },
+  editModalActions: { flexDirection: "row", justifyContent: "flex-end", gap: 10, marginTop: 8 },
+  cancelEditButton: { paddingVertical: 11, paddingHorizontal: 15, borderRadius: 10, backgroundColor: C.softBlue },
+  cancelEditText: { color: C.navy, fontWeight: "700" },
+  saveEditButton: { paddingVertical: 11, paddingHorizontal: 16, borderRadius: 10, backgroundColor: C.blue },
+  saveEditText: { color: C.white, fontWeight: "700" },
+
   detailTitle: { fontSize: 24, lineHeight: 30, fontWeight: "700", color: C.text },
   file: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 7 },
   evidenceDetail: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 8 },
