@@ -33,7 +33,7 @@ import {
 } from "./src/api";
 import { supabase } from "./src/supabase";
 
-type Screen = "home" | "report" | "complaints" | "detail" | "notifications" | "profile";
+type Screen = "home" | "report" | "complaints" | "detail" | "notifications" | "profile" | "settings";
 type AuthMode = "login" | "register";
 type Complaint = {
   id: string;
@@ -129,7 +129,7 @@ function AppContent() {
         <Detail id={id} back={() => setScreen("complaints")} />
       )}
       {screen === "notifications" && <Notifications back={() => setScreen("home")} openComplaint={open} />}
-      {screen === "profile" && <Profile back={() => setScreen("home")} logout={signOut} />}
+      {screen === "profile" && <Profile back={() => setScreen("home")} openSettings={() => setScreen("settings")} logout={signOut} />}\n      {screen === "settings" && <Settings back={() => setScreen("profile")} />}
       {screen !== "detail" && <Nav active={screen} go={setScreen} />}
     </SafeAreaView>
   );
@@ -493,7 +493,7 @@ function Detail({ id, back }: { id: string; back: () => void }) {
   );
 }
 
-function Profile({ back, logout }: { back: () => void; logout: () => void }) {
+function Profile({ back, openSettings, logout }: { back: () => void; openSettings: () => void; logout: () => void }) {
   const [me, setMe] = useState<{ name: string; email?: string } | null>(null);
   useEffect(() => {
     getMe().then(setMe).catch(() => {});
@@ -512,11 +512,78 @@ function Profile({ back, logout }: { back: () => void; logout: () => void }) {
         <Text style={s.body}>Student account</Text>
         <Text style={s.helper}>Authentication and student data are handled by Supabase in the current demo implementation.</Text>
       </Card>
+      <Pressable style={s.settingsRow} onPress={openSettings}>
+        <View style={s.settingsIcon}><LineIcon name="settings" color={C.blue} size={21} /></View>
+        <View style={{ flex: 1 }}>
+          <Text style={s.label}>Settings</Text>
+          <Text style={s.helper}>App preferences and information</Text>
+        </View>
+        <Text style={s.settingsChevron}>›</Text>
+      </Pressable>
       <Pressable style={s.logout} onPress={logout}>
         <Text style={{ color: "#B91C1C", fontWeight: "700" }}>Sign out</Text>
       </Pressable>
     </ScrollView>
   );
+}
+
+function Settings({ back }: { back: () => void }) {
+  return (
+    <ScrollView contentContainerStyle={s.page}>
+      <Header title="Settings" back={back} />
+      <Card>
+        <View style={s.settingsDetailHeader}>
+          <LineIcon name="settings" color={C.blue} size={22} />
+          <Text style={s.cardTitle}>GrievX preferences</Text>
+        </View>
+        <Text style={s.muted}>Your app uses the GrievX campus colour theme and your signed-in student account.</Text>
+      </Card>
+      <Card>
+        <Text style={s.label}>Notifications</Text>
+        <Text style={s.muted}>Complaint updates and status alerts are available in the Alert tab.</Text>
+      </Card>
+      <Card>
+        <Text style={s.label}>About</Text>
+        <Text style={s.muted}>GrievX Campus helps students report campus issues and follow their resolution.</Text>
+      </Card>
+    </ScrollView>
+  );
+}
+
+function LineIcon({ name, color, size = 22 }: { name: "home" | "clipboard" | "bell" | "user" | "settings"; color: string; size?: number }) {
+  const scale = size / 22;
+  const line = { borderColor: color, borderWidth: 1.8 * scale } as const;
+  if (name === "home") return (
+    <View style={{ width: size, height: size, alignItems: "center", justifyContent: "center" }}>
+      <View style={{ position: "absolute", top: 3 * scale, width: 13 * scale, height: 13 * scale, borderTopWidth: 1.8 * scale, borderLeftWidth: 1.8 * scale, borderColor: color, transform: [{ rotate: "45deg" }] }} />
+      <View style={{ position: "absolute", bottom: 2 * scale, width: 15 * scale, height: 11 * scale, borderTopWidth: 1.8 * scale, borderLeftWidth: 1.8 * scale, borderRightWidth: 1.8 * scale, borderColor: color, alignItems: "center", justifyContent: "flex-end" }}>
+        <View style={{ width: 4 * scale, height: 6 * scale, borderWidth: 1.4 * scale, borderBottomWidth: 0, borderColor: color }} />
+      </View>
+    </View>
+  );
+  if (name === "clipboard") return (
+    <View style={{ width: 15 * scale, height: 18 * scale, borderRadius: 2 * scale, ...line, alignItems: "center", paddingTop: 6 * scale, gap: 2.5 * scale }}>
+      <View style={{ position: "absolute", top: -3 * scale, width: 8 * scale, height: 5 * scale, borderRadius: 2 * scale, backgroundColor: C.white, ...line }} />
+      <View style={{ width: 8 * scale, height: 1.4 * scale, backgroundColor: color }} />
+      <View style={{ width: 8 * scale, height: 1.4 * scale, backgroundColor: color }} />
+      <View style={{ width: 6 * scale, height: 1.4 * scale, backgroundColor: color }} />
+    </View>
+  );
+  if (name === "bell") return (
+    <View style={{ width: 18 * scale, height: 20 * scale, alignItems: "center", justifyContent: "flex-end" }}>
+      <View style={{ position: "absolute", top: 3 * scale, width: 15 * scale, height: 13 * scale, borderTopLeftRadius: 9 * scale, borderTopRightRadius: 9 * scale, borderBottomLeftRadius: 3 * scale, borderBottomRightRadius: 3 * scale, borderWidth: 1.8 * scale, borderBottomWidth: 0, borderColor: color }} />
+      <View style={{ width: 18 * scale, height: 3 * scale, borderTopWidth: 1.8 * scale, borderColor: color }} />
+      <View style={{ width: 4 * scale, height: 3 * scale, borderBottomLeftRadius: 4 * scale, borderBottomRightRadius: 4 * scale, backgroundColor: color }} />
+      <View style={{ position: "absolute", top: 1 * scale, width: 3 * scale, height: 3 * scale, borderRadius: 2 * scale, backgroundColor: color }} />
+    </View>
+  );
+  if (name === "user") return (
+    <View style={{ width: 19 * scale, height: 20 * scale, alignItems: "center", justifyContent: "flex-end", gap: 2 * scale }}>
+      <View style={{ width: 7 * scale, height: 7 * scale, borderRadius: 4 * scale, borderWidth: 1.8 * scale, borderColor: color }} />
+      <View style={{ width: 17 * scale, height: 9 * scale, borderTopLeftRadius: 10 * scale, borderTopRightRadius: 10 * scale, borderWidth: 1.8 * scale, borderBottomWidth: 0, borderColor: color }} />
+    </View>
+  );
+  return <Text style={{ color, fontSize: size, lineHeight: size + 2 }}>⚙</Text>;
 }
 
 function Notifications({ back, openComplaint }: { back: () => void; openComplaint: (id: string) => void }) {
@@ -643,35 +710,33 @@ function Notifications({ back, openComplaint }: { back: () => void; openComplain
 }
 
 function Nav({ active, go }: { active: Screen; go: (x: Screen) => void }) {
-  const items: [Screen, string, string][] = [
-    ["home", "🏠", "Home"],
-    ["complaints", "📋", "Complaints"],
-    ["report", "+", "Report"],
-    ["notifications", "🔔", "Alerts"],
-    ["profile", "👤", "Profile"],
+  const items: { key: Screen; icon: "home" | "clipboard" | "bell" | "user"; label: string }[] = [
+    { key: "home", icon: "home", label: "Home" },
+    { key: "complaints", icon: "clipboard", label: "Complaints" },
+    { key: "notifications", icon: "bell", label: "Alert" },
+    { key: "profile", icon: "user", label: "Profile" },
   ];
-
   return (
     <View style={s.nav}>
-      {items.map(([key, icon, label]) => {
+      {items.slice(0, 2).map(({ key, icon, label }) => {
         const selected = active === key;
-        if (key === "report") {
-          return (
-            <Pressable key={key} style={s.reportNavItem} onPress={() => go("report")}>
-              <View style={[s.reportNavCircle, selected && s.reportNavCircleActive]}>
-                <Text style={s.reportNavPlus}>{icon}</Text>
-              </View>
-              <Text style={[s.navLabel, selected && s.navActive]}>Report</Text>
-            </Pressable>
-          );
-        }
-
-        return (
-          <Pressable key={key} style={s.navItem} onPress={() => go(key)}>
-            <Text style={[s.navIcon, selected && s.navActive]}>{icon}</Text>
-            <Text style={[s.navLabel, selected && s.navActive]}>{label}</Text>
-          </Pressable>
-        );
+        return <Pressable key={key} style={s.navItem} onPress={() => go(key)}>
+          <LineIcon name={icon} color={selected ? C.blue : C.muted} size={21} />
+          <Text style={[s.navLabel, selected && s.navActive]}>{label}</Text>
+        </Pressable>;
+      })}
+      <Pressable style={s.reportNavItem} onPress={() => go("report")}>
+        <View style={[s.reportNavCircle, active === "report" && s.reportNavCircleActive]}>
+          <Text style={s.reportNavPlus}>+</Text>
+        </View>
+        <Text style={[s.navLabel, active === "report" && s.navActive]}>Report</Text>
+      </Pressable>
+      {items.slice(2).map(({ key, icon, label }) => {
+        const selected = active === key;
+        return <Pressable key={key} style={s.navItem} onPress={() => go(key)}>
+          <LineIcon name={icon} color={selected ? C.blue : C.muted} size={21} />
+          <Text style={[s.navLabel, selected && s.navActive]}>{label}</Text>
+        </Pressable>;
       })}
     </View>
   );
@@ -1036,12 +1101,12 @@ const s = StyleSheet.create({
   nav: { position: "absolute", left: 0, right: 0, bottom: 0, height: 67, borderTopWidth: 1, borderTopColor: "#E7E8F0", backgroundColor: C.white, flexDirection: "row", alignItems: "center", paddingHorizontal: 3 },
   navItem: { flex: 1, alignItems: "center", gap: 2 },
   navIcon: { fontSize: 19, color: "#252C3E" },
-  navLabel: { fontSize: 9, fontWeight: "600", color: "#252C3E" },
+  navLabel: { fontSize: 9, fontWeight: "600", color: C.muted },
   navActive: { color: C.blue },
   reportNavItem: { flex: 1, alignItems: "center", justifyContent: "center", marginTop: -18 },
   reportNavCircle: { width: 43, height: 43, borderRadius: 22, backgroundColor: "#0A5CDA", alignItems: "center", justifyContent: "center", borderWidth: 4, borderColor: C.white },
   reportNavCircleActive: { backgroundColor: "#0A5CDA" },
-  reportNavPlus: { color: C.white, fontSize: 28, lineHeight: 30, fontWeight: "300" },
+  reportNavPlus: { color: C.white, fontSize: 28, lineHeight: 30, fontWeight: "300" },\n  settingsRow: { minHeight: 66, backgroundColor: C.white, borderWidth: 1, borderColor: C.border, borderRadius: 14, paddingHorizontal: 14, flexDirection: "row", alignItems: "center", gap: 12 },\n  settingsIcon: { width: 38, height: 38, borderRadius: 12, backgroundColor: C.softBlue, alignItems: "center", justifyContent: "center" },\n  settingsChevron: { color: C.muted, fontSize: 26 },\n  settingsDetailHeader: { flexDirection: "row", alignItems: "center", gap: 10 },
 
   row: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   status: { flexDirection: "row", alignItems: "center", alignSelf: "flex-start", borderRadius: 999, paddingVertical: 5, paddingHorizontal: 10, gap: 6 },
