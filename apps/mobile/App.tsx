@@ -16,6 +16,7 @@ import {
 } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import * as ImagePicker from "expo-image-picker";
+import { Feather } from "@expo/vector-icons";
 import {
   createComplaint,
   updateComplaint,
@@ -679,17 +680,17 @@ function Profile({ back, go, logout }: { back: () => void; go: (screen: Screen) 
     }
   };
 
-  const menuRow = (symbol: string, title: string, subtitle: string, onPress: () => void, badgeText?: string) => (
+  const menuRow = (icon: keyof typeof Feather.glyphMap, title: string, subtitle: string, onPress: () => void, badgeText?: string) => (
     <Pressable style={s.profileMenuRow} onPress={onPress}>
       <View style={s.profileMenuIcon}>
-        <Text style={s.profileMenuSymbol}>{symbol}</Text>
+        <Feather name={icon} size={20} color={C.blue} strokeWidth={2} />
       </View>
       <View style={{ flex: 1, gap: 2 }}>
         <Text style={s.profileMenuTitle}>{title}</Text>
         <Text style={s.profileMenuSubtitle}>{subtitle}</Text>
       </View>
       {badgeText ? <Text style={s.profileMenuBadge}>{badgeText}</Text> : null}
-      <Text style={s.settingsChevron}>›</Text>
+      <Feather name="chevron-right" size={20} color={C.muted} />
     </Pressable>
   );
 
@@ -709,7 +710,7 @@ function Profile({ back, go, logout }: { back: () => void; go: (screen: Screen) 
           <View style={s.rolePill}><Text style={s.rolePillText}>{(me?.role || "student").replace("_", " ").replace(/\b\w/g, (x) => x.toUpperCase())}</Text></View>
         </View>
         <Pressable style={s.editProfileButton} onPress={() => { setName(me?.name || ""); setEditing(true); }}>
-          <Text style={s.editProfileButtonText}>✎  Edit</Text>
+          <Feather name="edit-2" size={14} color={C.blue} /><Text style={s.editProfileButtonText}> Edit Profile</Text>
         </Pressable>
       </View>
 
@@ -730,30 +731,30 @@ function Profile({ back, go, logout }: { back: () => void; go: (screen: Screen) 
 
       <Card>
         <Text style={s.profileSectionTitle}>My Activity</Text>
-        {menuRow("☰", "My Complaints", "View and manage your raised complaints", () => go("complaints"))}
-        {menuRow("♢", "Notifications", "Complaint updates and alerts", () => go("notifications"), unread ? String(unread) : undefined)}
+        {menuRow("clipboard-list", "My Complaints", "View and manage your raised complaints", () => go("complaints"))}
+        {menuRow("bell", "Notifications", "Complaint updates and alerts", () => go("notifications"), unread ? String(unread) : undefined)}
       </Card>
 
       <Card>
         <Text style={s.profileSectionTitle}>Account</Text>
-        {menuRow("○", "Personal Information", "Update your name and view account email", () => { setName(me?.name || ""); setEditing(true); })}
-        {menuRow("⬡", "Security", "Send a secure password reset email", changePassword)}
+        {menuRow("user", "Personal Information", "Update your name and view account email", () => { setName(me?.name || ""); setEditing(true); })}
+        {menuRow("shield", "Security", "Send a secure password reset email", changePassword)}
       </Card>
 
       <Card>
         <Text style={s.profileSectionTitle}>App</Text>
-        {menuRow("⚙", "Settings", "Notification updates and app information", () => go("settings"))}
-        {menuRow("ⓘ", "About GrievX", "About this campus complaint platform", () => Alert.alert("About GrievX", "GrievX Campus helps students report campus issues, track complaint progress and receive updates from campus teams."))}
+        {menuRow("settings", "Settings", "Notification updates and app information", () => go("settings"))}
+        {menuRow("info", "About GrievX", "About this campus complaint platform", () => Alert.alert("About GrievX", "GrievX Campus helps students report campus issues, track complaint progress and receive updates from campus teams."))}
       </Card>
 
       <Card>
         <Text style={s.profileSectionTitle}>Support</Text>
-        {menuRow("ⓘ", "Help & Support", "Quick answers about using GrievX", () => Alert.alert("Help & Support", "• Report an issue: use the Report tab and provide a clear title, description and campus location.\n\n• Track a complaint: open My Complaints to view its latest status.\n\n• Edit or withdraw: available while a complaint is still submitted.\n\n• Updates: check the Alert tab for complaint notifications."))}
-        {menuRow("▱", "Send Feedback", "Share suggestions or report a problem", () => setFeedbackOpen(true))}
+        {menuRow("help-circle", "Help & Support", "Quick answers about using GrievX", () => Alert.alert("Help & Support", "• Report an issue: use the Report tab and provide a clear title, description and campus location.\n\n• Track a complaint: open My Complaints to view its latest status.\n\n• Edit or withdraw: available while a complaint is still submitted.\n\n• Updates: check the Alert tab for complaint notifications."))}
+        {menuRow("message-square", "Send Feedback", "Share suggestions or report a problem", () => setFeedbackOpen(true))}
       </Card>
 
       <Pressable style={s.logout} onPress={confirmLogout}>
-        <Text style={s.logoutText}>⇥  Sign out</Text>
+        <Feather name="log-out" size={19} color={C.red} /><Text style={s.logoutText}>Sign out</Text>
       </Pressable>
 
       <Modal visible={editing} transparent animationType="slide" onRequestClose={() => {
