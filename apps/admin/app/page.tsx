@@ -9,7 +9,7 @@ type Complaint = {
   title: string;
   description: string;
   location: string;
-  status: "submitted" | "assigned" | "in_progress" | "resolved" | "closed" | "rejected";
+  status: "submitted" | "assigned" | "in_progress" | "resolved" | "closed" | "rejected" | "withdrawn";
   created_at: string;
   updated_at: string;
   department_id?: string | null;
@@ -27,7 +27,7 @@ type Complaint = {
   images?: { id: string; storage_path: string; signed_url?: string | null; content_type?: string | null }[];
 };
 
-const statuses = ["all", "submitted", "assigned", "in_progress", "resolved", "closed", "rejected"] as const;
+const statuses = ["all", "submitted", "assigned", "in_progress", "resolved", "closed", "rejected", "withdrawn"] as const;
 const priorities = ["normal", "high", "critical"] as const;
 type Department = { id: string; name: string; code: string };
 type StaffMember = { id: string; name: string | null; email: string; role: string };
@@ -185,7 +185,7 @@ export default function AdminPage() {
       .from("complaints")
       .update({ ...changes, updated_at: new Date().toISOString() })
       .eq("id", selected.id)
-      .select("id, student_id, title, description, location, status, category, category_confidence, priority_confidence, department_confidence, department_source, upvote_count, duplicate_of_id, priority, department_id, created_at, updated_at, profiles!complaints_student_id_fkey(name, email), complaint_images(id, storage_path, content_type), complaint_status_history(id, from_status, to_status, changed_by, note, created_at)")
+      .select("id, student_id, title, description, location, status, category, category_confidence, priority_confidence, department_confidence, department_source, upvote_count, duplicate_of_id, priority, department_id, assigned_staff_id, created_at, updated_at, profiles!complaints_student_id_fkey(name, email), complaint_images(id, storage_path, content_type), complaint_status_history(id, from_status, to_status, changed_by, note, created_at)")
       .single();
 
     if (error) {
@@ -212,6 +212,15 @@ export default function AdminPage() {
   const assignStaff = async (staffId: string | null) => {
     if (!selected) return;
     setMessage("");
+
+    const { data: authData } = await supabase.auth.getUser();
+    const adminId = authData.user?.id;
+    if (!adminId) {
+      setMessage("Your admin session has expired. Please sign in again.");
+      return;
+    }
+
+    // Update the complaint first. Keep assignment history in sync only after this succeeds.
     const { data, error } = await supabase
       .from("complaints")
       .update({ assigned_staff_id: staffId, updated_at: new Date().toISOString() })
@@ -224,14 +233,28 @@ export default function AdminPage() {
       return;
     }
 
+    const now = new Date().toISOString();
+    const { error: historyCloseError } = await supabase
+      .from("staff_assignments")
+      .update({ unassigned_at: now })
+      .eq("complaint_id", selected.id)
+      .is("unassigned_at", null);
+
+    if (historyCloseError) {
+      setMessage(`Complaint assignment changed, but assignment history could not be closed: ${historyCloseError.message}`);
+      await loadComplaints();
+      return;
+    }
+
     if (staffId) {
       const { error: assignmentError } = await supabase.from("staff_assignments").insert({
         complaint_id: selected.id,
         staff_id: staffId,
-        assigned_by: (await supabase.auth.getUser()).data.user?.id,
+        assigned_by: adminId,
       });
       if (assignmentError) {
-        setMessage(assignmentError.message);
+        setMessage(`Complaint assignment changed, but history could not be recorded: ${assignmentError.message}`);
+        await loadComplaints();
         return;
       }
     }
@@ -245,7 +268,7 @@ export default function AdminPage() {
       ...data,
       student: Array.isArray((data as any).profiles) ? (data as any).profiles[0] ?? null : (data as any).profiles ?? null,
       images,
-      status_history: (data as any).complaint_status_history ?? [],
+      status_history: (data as any).complaint_status_history ?? selected.status_history ?? [],
     } as Complaint;
     setComplaints((items) => items.map((item) => item.id === updated.id ? updated : item));
     setSelected(updated);
@@ -289,8 +312,8 @@ export default function AdminPage() {
         <nav>
           <button className="navActive">Dashboard</button>
           <button onClick={() => setFilter("all")}>Complaints</button>
-          <button onClick={() => setMessage("Analytics will be added in Week 11.")}>Analytics</button>
-          <button onClick={() => setMessage("Department routing is available in the current Week 5 admin flow.")}>Departments</button>
+          <button onClick={() => setMessage("Analytics is not available in this build yet. Complaint totals are shown above.")}>Analytics · Coming soon</button>
+          <button onClick={() => setMessage(departments.length ? `${departments.length} departments are available for assignment in complaint details.` : "No departments are configured yet. Add department records in Supabase before assigning complaints.")}>Departments</button>
         </nav>
         <div className="sideBottom">
           <div className="adminMini"><span className="avatar">A</span><span><b>Administrator</b><small>{userEmail}</small></span></div>
