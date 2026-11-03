@@ -100,7 +100,17 @@ export async function login(email: string, password: string) {
   return data;
 }
 
-export async function resetPassword(email: string) {
+export async function resetPassword() {
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+  if (userError || !userData.user) {
+    throw new Error(userError?.message ?? "You are not signed in.");
+  }
+
+  const email = userData.user.email?.trim();
+  if (!email) {
+    throw new Error("No email address is registered for this account.");
+  }
+
   const { error } = await supabase.auth.resetPasswordForEmail(email);
   if (error) throw new Error(error.message);
 }
