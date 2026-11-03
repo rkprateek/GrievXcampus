@@ -1427,7 +1427,6 @@ const s = StyleSheet.create({
   profileMenuTitle: { fontSize: 14, fontWeight: "700", color: C.text },
   profileMenuSubtitle: { fontSize: 11, color: C.muted, lineHeight: 15 },
   profileMenuBadge: { color: C.white, backgroundColor: C.blue, overflow: "hidden", borderRadius: 10, paddingHorizontal: 7, paddingVertical: 2, fontSize: 10, fontWeight: "700" },
-  logoutText: { color: C.red, fontWeight: "800", fontSize: 15 },
 
   profile: { alignItems: "center", backgroundColor: C.white, borderWidth: 1, borderColor: C.border, borderRadius: 18, padding: 24, gap: 5 },
   profileAvatar: { width: 82, height: 82, borderRadius: 41, backgroundColor: "#DAE2FD", alignItems: "center", justifyContent: "center" },
