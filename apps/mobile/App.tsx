@@ -681,7 +681,9 @@ function Profile({ back, go, logout }: { back: () => void; go: (screen: Screen) 
 
   const menuRow = (symbol: string, title: string, subtitle: string, onPress: () => void, badgeText?: string) => (
     <Pressable style={s.profileMenuRow} onPress={onPress}>
-      <View style={s.profileMenuIcon}><Text style={s.profileMenuSymbol}>{symbol}</Text></View>
+      <View style={s.profileMenuIcon}>
+        <Text style={s.profileMenuSymbol}>{symbol}</Text>
+      </View>
       <View style={{ flex: 1, gap: 2 }}>
         <Text style={s.profileMenuTitle}>{title}</Text>
         <Text style={s.profileMenuSubtitle}>{subtitle}</Text>
@@ -728,13 +730,13 @@ function Profile({ back, go, logout }: { back: () => void; go: (screen: Screen) 
 
       <Card>
         <Text style={s.profileSectionTitle}>My Activity</Text>
-        {menuRow("☷", "My Complaints", "View and manage your raised complaints", () => go("complaints"))}
-        {menuRow("♧", "Notifications", "Complaint updates and alerts", () => go("notifications"), unread ? String(unread) : undefined)}
+        {menuRow("☰", "My Complaints", "View and manage your raised complaints", () => go("complaints"))}
+        {menuRow("♢", "Notifications", "Complaint updates and alerts", () => go("notifications"), unread ? String(unread) : undefined)}
       </Card>
 
       <Card>
         <Text style={s.profileSectionTitle}>Account</Text>
-        {menuRow("♙", "Personal Information", "Update your name and view account email", () => { setName(me?.name || ""); setEditing(true); })}
+        {menuRow("○", "Personal Information", "Update your name and view account email", () => { setName(me?.name || ""); setEditing(true); })}
         {menuRow("⬡", "Security", "Send a secure password reset email", changePassword)}
       </Card>
 
@@ -746,8 +748,8 @@ function Profile({ back, go, logout }: { back: () => void; go: (screen: Screen) 
 
       <Card>
         <Text style={s.profileSectionTitle}>Support</Text>
-        {menuRow("?", "Help & Support", "Quick answers about using GrievX", () => Alert.alert("Help & Support", "• Report an issue: use the Report tab and provide a clear title, description and campus location.\n\n• Track a complaint: open My Complaints to view its latest status.\n\n• Edit or withdraw: available while a complaint is still submitted.\n\n• Updates: check the Alert tab for complaint notifications."))}
-        {menuRow("▤", "Send Feedback", "Share suggestions or report a problem", () => setFeedbackOpen(true))}
+        {menuRow("ⓘ", "Help & Support", "Quick answers about using GrievX", () => Alert.alert("Help & Support", "• Report an issue: use the Report tab and provide a clear title, description and campus location.\n\n• Track a complaint: open My Complaints to view its latest status.\n\n• Edit or withdraw: available while a complaint is still submitted.\n\n• Updates: check the Alert tab for complaint notifications."))}
+        {menuRow("▱", "Send Feedback", "Share suggestions or report a problem", () => setFeedbackOpen(true))}
       </Card>
 
       <Pressable style={s.logout} onPress={confirmLogout}>
@@ -1429,7 +1431,7 @@ const s = StyleSheet.create({
   profileSectionTitle: { fontSize: 16, fontWeight: "800", color: C.text, marginBottom: 2 },
   profileMenuRow: { minHeight: 58, flexDirection: "row", alignItems: "center", gap: 11, paddingVertical: 5 },
   profileMenuIcon: { width: 36, height: 36, borderRadius: 18, backgroundColor: C.softBlue, alignItems: "center", justifyContent: "center" },
-  profileMenuSymbol: { fontSize: 19, color: C.blue, fontWeight: "700" },
+  profileMenuSymbol: { fontSize: 19, color: C.blue, fontWeight: "400", includeFontPadding: false, textAlign: "center" },
   profileMenuTitle: { fontSize: 14, fontWeight: "700", color: C.text },
   profileMenuSubtitle: { fontSize: 11, color: C.muted, lineHeight: 15 },
   profileMenuBadge: { color: C.white, backgroundColor: C.blue, overflow: "hidden", borderRadius: 10, paddingHorizontal: 7, paddingVertical: 2, fontSize: 10, fontWeight: "700" },
