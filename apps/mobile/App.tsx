@@ -482,7 +482,9 @@ function Complaints({ back, open }: { back: () => void; open: (id: string) => vo
           );
         }}
       />
-      <Modal visible={!!editing} transparent animationType="slide" onRequestClose={() => !saving && setEditing(null)}>
+      <Modal visible={!!editing} transparent animationType="slide" onRequestClose={() => {
+        if (!saving) setEditing(null);
+      }}>
         <View style={s.editModalBackdrop}>
           <View style={s.editModalCard}>
             <Text style={s.cardTitle}>Edit complaint</Text>
@@ -752,7 +754,9 @@ function Profile({ back, go, logout }: { back: () => void; go: (screen: Screen) 
         <Text style={s.logoutText}>⇥  Sign out</Text>
       </Pressable>
 
-      <Modal visible={editing} transparent animationType="slide" onRequestClose={() => !saving && setEditing(false)}>
+      <Modal visible={editing} transparent animationType="slide" onRequestClose={() => {
+        if (!saving) setEditing(false);
+      }}>
         <View style={s.editModalBackdrop}>
           <View style={s.editModalCard}>
             <Text style={s.cardTitle}>Personal information</Text>
@@ -769,7 +773,9 @@ function Profile({ back, go, logout }: { back: () => void; go: (screen: Screen) 
         </View>
       </Modal>
 
-      <Modal visible={feedbackOpen} transparent animationType="slide" onRequestClose={() => !sendingFeedback && setFeedbackOpen(false)}>
+      <Modal visible={feedbackOpen} transparent animationType="slide" onRequestClose={() => {
+        if (!sendingFeedback) setFeedbackOpen(false);
+      }}>
         <View style={s.editModalBackdrop}>
           <View style={s.editModalCard}>
             <Text style={s.cardTitle}>Send feedback</Text>
