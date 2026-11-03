@@ -731,7 +731,7 @@ function Profile({ back, go, logout }: { back: () => void; go: (screen: Screen) 
 
       <Card>
         <Text style={s.profileSectionTitle}>My Activity</Text>
-        {menuRow("clipboard-list", "My Complaints", "View and manage your raised complaints", () => go("complaints"))}
+        {menuRow("clipboard", "My Complaints", "View and manage your raised complaints", () => go("complaints"))}
         {menuRow("bell", "Notifications", "Complaint updates and alerts", () => go("notifications"), unread ? String(unread) : undefined)}
       </Card>
 
