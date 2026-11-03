@@ -264,10 +264,41 @@ function Brand() {
 }
 
 function Home({ go }: { go: (x: Screen) => void }) {
-  const [me, setMe] = useState<{ name: string } | null>(null);  useEffect(() => {
-    getMe().then(setMe).catch(() => {});
+  const [me, setMe] = useState<{ name: string } | null>(null);
+  const [complaints, setComplaints] = useState<Complaint[]>([]);
+  const [statsLoading, setStatsLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+
+    getMe().then((profile) => {
+      if (active) setMe(profile);
+    }).catch(() => {});
+
+    getComplaints()
+      .then((items) => {
+        if (active) setComplaints(items as Complaint[]);
+      })
+      .catch(() => {
+        if (active) setComplaints([]);
+      })
+      .finally(() => {
+        if (active) setStatsLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
   }, []);
+
   const first = me?.name?.split(" ")[0] || "Student";
+  const submittedCount = complaints.filter((item) => item.status.toLowerCase() === "submitted").length;
+  const inProgressCount = complaints.filter((item) =>
+    ["assigned", "in_progress"].includes(item.status.toLowerCase()),
+  ).length;
+  const resolvedCount = complaints.filter((item) =>
+    ["resolved", "closed"].includes(item.status.toLowerCase()),
+  ).length;
 
   return (
     <ScrollView contentContainerStyle={s.page} showsVerticalScrollIndicator={false}>
@@ -294,15 +325,15 @@ function Home({ go }: { go: (x: Screen) => void }) {
 
       <Text style={s.section}>Your activity</Text>
       <View style={s.stats}>
-        <Stat label="Submitted" />
-        <Stat label="In progress" />
-        <Stat label="Resolved" />
+        <Stat label="Submitted" value={statsLoading ? "…" : submittedCount} />
+        <Stat label="In progress" value={statsLoading ? "…" : inProgressCount} />
+        <Stat label="Resolved" value={statsLoading ? "…" : resolvedCount} />
       </View>
 
       <Text style={s.section}>Quick actions</Text>
       <View style={s.actions}>
-        <Action title="My complaints" sub="View your reports" icon="▣" onPress={() => go("complaints")} />
-        <Action title="Notifications" sub="Updates and alerts" icon="●" onPress={() => go("notifications")} />
+        <Action title="My complaints" sub="View your reports" icon="📋" onPress={() => go("complaints")} />
+        <Action title="Notifications" sub="Updates and alerts" icon="🔔" onPress={() => go("notifications")} />
       </View>
     </ScrollView>
   );
@@ -613,11 +644,11 @@ function Notifications({ back, openComplaint }: { back: () => void; openComplain
 
 function Nav({ active, go }: { active: Screen; go: (x: Screen) => void }) {
   const items: [Screen, string, string][] = [
-    ["home", "⌂", "Home"],
-    ["complaints", "▤", "Complaints"],
+    ["home", "🏠", "Home"],
+    ["complaints", "📋", "Complaints"],
     ["report", "+", "Report"],
-    ["notifications", "♧", "Alerts"],
-    ["profile", "○", "Profile"],
+    ["notifications", "🔔", "Alerts"],
+    ["profile", "👤", "Profile"],
   ];
 
   return (
@@ -712,10 +743,10 @@ function Status({ status }: { status: string }) {
   );
 }
 
-function Stat({ label }: { label: string }) {
+function Stat({ label, value }: { label: string; value: number | string }) {
   return (
     <View style={s.stat}>
-      <Text style={s.statValue}>—</Text>
+      <Text style={s.statValue}>{value}</Text>
       <Text style={s.helper}>{label}</Text>
     </View>
   );
