@@ -122,6 +122,28 @@ export async function getMe() {
   return data;
 }
 
+export async function updateMyProfileName(name: string) {
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+  if (userError || !userData.user) throw new Error(userError?.message ?? "You are not signed in.");
+  const { data, error } = await supabase.from("profiles")
+    .update({ name, updated_at: new Date().toISOString() })
+    .eq("id", userData.user.id)
+    .select("id,name,email,role")
+    .single();
+  if (error) throw new Error(error.message);
+  return data;
+}
+
+export async function submitAppFeedback(message: string) {
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+  if (userError || !userData.user) throw new Error(userError?.message ?? "You are not signed in.");
+  const { error } = await supabase.from("app_feedback").insert({
+    user_id: userData.user.id,
+    message,
+  });
+  if (error) throw new Error(error.message);
+}
+
 export async function findPossibleDuplicates(input: { title: string; description: string; location: string }) {
   const { data, error } = await supabase.rpc("find_possible_duplicates", {
     p_title: input.title,
