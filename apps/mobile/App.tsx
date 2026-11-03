@@ -129,7 +129,8 @@ function AppContent() {
         <Detail id={id} back={() => setScreen("complaints")} />
       )}
       {screen === "notifications" && <Notifications back={() => setScreen("home")} openComplaint={open} />}
-      {screen === "profile" && <Profile back={() => setScreen("home")} openSettings={() => setScreen("settings")} logout={signOut} />}\n      {screen === "settings" && <Settings back={() => setScreen("profile")} />}
+      {screen === "profile" && <Profile back={() => setScreen("home")} openSettings={() => setScreen("settings")} logout={signOut} />}
+      {screen === "settings" && <Settings back={() => setScreen("profile")} />}
       {screen !== "detail" && <Nav active={screen} go={setScreen} />}
     </SafeAreaView>
   );
