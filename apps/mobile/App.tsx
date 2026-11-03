@@ -24,6 +24,8 @@ import {
   getComplaint,
   getComplaints,
   getMe,
+  updateMyProfileName,
+  submitAppFeedback,
   getNotifications,
   markAllNotificationsRead,
   markNotificationRead,
@@ -132,8 +134,8 @@ function AppContent() {
         <Detail id={id} back={() => setScreen("complaints")} />
       )}
       {screen === "notifications" && <Notifications back={() => setScreen("home")} openComplaint={open} />}
-      {screen === "profile" && <Profile back={() => setScreen("home")} openSettings={() => setScreen("settings")} logout={signOut} />}
-      {screen === "settings" && <Settings back={() => setScreen("profile")} />}
+      {screen === "profile" && <Profile back={() => setScreen("home")} go={setScreen} logout={signOut} />}
+      {screen === "settings" && <Settings back={() => setScreen("profile")} openNotifications={() => setScreen("notifications")} />}
       {screen !== "detail" && <Nav active={screen} go={setScreen} />}
     </SafeAreaView>
   );
@@ -593,41 +595,199 @@ function Detail({ id, back }: { id: string; back: () => void }) {
   );
 }
 
-function Profile({ back, openSettings, logout }: { back: () => void; openSettings: () => void; logout: () => void }) {
-  const [me, setMe] = useState<{ name: string; email?: string } | null>(null);
-  useEffect(() => {
-    getMe().then(setMe).catch(() => {});
-  }, []);
+function Profile({ back, go, logout }: { back: () => void; go: (screen: Screen) => void; logout: () => Promise<void> | void }) {
+  const [me, setMe] = useState<{ id: string; name: string; email?: string; role?: string } | null>(null);
+  const [stats, setStats] = useState({ total: 0, submitted: 0, resolved: 0, rejected: 0 });
+  const [unread, setUnread] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState(false);
+  const [name, setName] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [feedback, setFeedback] = useState("");
+  const [sendingFeedback, setSendingFeedback] = useState(false);
+
+  const loadProfile = async () => {
+    try {
+      const [profile, complaints, notifications] = await Promise.all([getMe(), getComplaints(), getNotifications()]);
+      setMe(profile);
+      setName(profile.name ?? "");
+      setStats({
+        total: complaints.length,
+        submitted: complaints.filter((x: any) => x.status === "submitted").length,
+        resolved: complaints.filter((x: any) => x.status === "resolved").length,
+        rejected: complaints.filter((x: any) => x.status === "rejected").length,
+      });
+      setUnread(notifications.filter((x: any) => !x.read_at).length);
+    } catch (e) {
+      Alert.alert("Profile unavailable", e instanceof Error ? e.message : "Unable to load your profile.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { loadProfile(); }, []);
+
+  const saveProfile = async () => {
+    if (!name.trim()) {
+      Alert.alert("Name required", "Please enter your full name.");
+      return;
+    }
+    try {
+      setSaving(true);
+      await updateMyProfileName(name.trim());
+      setMe((current) => current ? { ...current, name: name.trim() } : current);
+      setEditing(false);
+      Alert.alert("Profile updated", "Your name has been saved.");
+    } catch (e) {
+      Alert.alert("Unable to update profile", e instanceof Error ? e.message : "Please try again.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const changePassword = async () => {
+    if (!me?.email) {
+      Alert.alert("Email unavailable", "We could not find an email address for this account.");
+      return;
+    }
+    try {
+      await resetPassword(me.email);
+      Alert.alert("Password reset email sent", "Check your inbox for the secure password reset link.");
+    } catch (e) {
+      Alert.alert("Unable to send reset email", e instanceof Error ? e.message : "Please try again.");
+    }
+  };
+
+  const sendFeedback = async () => {
+    if (feedback.trim().length < 5) {
+      Alert.alert("More detail needed", "Please enter at least 5 characters.");
+      return;
+    }
+    try {
+      setSendingFeedback(true);
+      await submitAppFeedback(feedback.trim());
+      setFeedback("");
+      setFeedbackOpen(false);
+      Alert.alert("Feedback sent", "Thank you for helping us improve GrievX.");
+    } catch (e) {
+      Alert.alert("Unable to send feedback", e instanceof Error ? e.message : "Please try again.");
+    } finally {
+      setSendingFeedback(false);
+    }
+  };
+
+  const menuRow = (symbol: string, title: string, subtitle: string, onPress: () => void, badgeText?: string) => (
+    <Pressable style={s.profileMenuRow} onPress={onPress}>
+      <View style={s.profileMenuIcon}><Text style={s.profileMenuSymbol}>{symbol}</Text></View>
+      <View style={{ flex: 1, gap: 2 }}>
+        <Text style={s.profileMenuTitle}>{title}</Text>
+        <Text style={s.profileMenuSubtitle}>{subtitle}</Text>
+      </View>
+      {badgeText ? <Text style={s.profileMenuBadge}>{badgeText}</Text> : null}
+      <Text style={s.settingsChevron}>›</Text>
+    </Pressable>
+  );
+
+  const confirmLogout = () => Alert.alert("Sign out?", "You will need to sign in again to access your complaints.", [
+    { text: "Cancel", style: "cancel" },
+    { text: "Sign out", style: "destructive", onPress: () => { void logout(); } },
+  ]);
 
   return (
     <ScrollView contentContainerStyle={s.page}>
       <Header title="Profile" back={back} />
-      <View style={s.profile}>
-        <View style={s.profileAvatar}><Text style={s.profileLetter}>{(me?.name || "S")[0]}</Text></View>
-        <Text style={s.detailTitle}>{me?.name || "Student"}</Text>
-        <Text style={s.muted}>{me?.email || "Student account"}</Text>
-      </View>
-      <Card>
-        <Text style={s.label}>Account</Text>
-        <Text style={s.body}>Student account</Text>
-        <Text style={s.helper}>Authentication and student data are handled by Supabase in the current demo implementation.</Text>
-      </Card>
-      <Pressable style={s.settingsRow} onPress={openSettings}>
-        <View style={s.settingsIcon}><LineIcon name="settings" color={C.blue} size={21} /></View>
-        <View style={{ flex: 1 }}>
-          <Text style={s.label}>Settings</Text>
-          <Text style={s.helper}>App preferences and information</Text>
+      <View style={s.profileHero}>
+        <View style={s.profileAvatar}><Text style={s.profileLetter}>{(me?.name || "S").trim().charAt(0).toUpperCase()}</Text></View>
+        <View style={{ flex: 1, gap: 5 }}>
+          <Text style={s.profileHeroName}>{me?.name || (loading ? "Loading..." : "Student")}</Text>
+          <Text style={s.profileHeroEmail}>{me?.email || "Student account"}</Text>
+          <View style={s.rolePill}><Text style={s.rolePillText}>{(me?.role || "student").replace("_", " ").replace(/\b\w/g, (x) => x.toUpperCase())}</Text></View>
         </View>
-        <Text style={s.settingsChevron}>›</Text>
+        <Pressable style={s.editProfileButton} onPress={() => { setName(me?.name || ""); setEditing(true); }}>
+          <Text style={s.editProfileButtonText}>✎  Edit</Text>
+        </Pressable>
+      </View>
+
+      <View style={s.profileStats}>
+        {[
+          { value: stats.total, label: "Total", symbol: "▤", tone: C.blue },
+          { value: stats.submitted, label: "Submitted", symbol: "➤", tone: "#D97706" },
+          { value: stats.resolved, label: "Resolved", symbol: "✓", tone: C.green },
+          { value: stats.rejected, label: "Rejected", symbol: "×", tone: C.red },
+        ].map((item) => (
+          <View key={item.label} style={s.profileStat}>
+            <View style={[s.profileStatIcon, { backgroundColor: item.tone + "18" }]}><Text style={[s.profileStatSymbol, { color: item.tone }]}>{item.symbol}</Text></View>
+            <Text style={s.profileStatValue}>{loading ? "—" : item.value}</Text>
+            <Text style={s.profileStatLabel}>{item.label}</Text>
+          </View>
+        ))}
+      </View>
+
+      <Card>
+        <Text style={s.profileSectionTitle}>My Activity</Text>
+        {menuRow("☷", "My Complaints", "View and manage your raised complaints", () => go("complaints"))}
+        {menuRow("♧", "Notifications", "Complaint updates and alerts", () => go("notifications"), unread ? String(unread) : undefined)}
+      </Card>
+
+      <Card>
+        <Text style={s.profileSectionTitle}>Account</Text>
+        {menuRow("♙", "Personal Information", "Update your name and view account email", () => { setName(me?.name || ""); setEditing(true); })}
+        {menuRow("⬡", "Security", "Send a secure password reset email", changePassword)}
+      </Card>
+
+      <Card>
+        <Text style={s.profileSectionTitle}>App</Text>
+        {menuRow("⚙", "Settings", "Notification updates and app information", () => go("settings"))}
+        {menuRow("ⓘ", "About GrievX", "About this campus complaint platform", () => Alert.alert("About GrievX", "GrievX Campus helps students report campus issues, track complaint progress and receive updates from campus teams."))}
+      </Card>
+
+      <Card>
+        <Text style={s.profileSectionTitle}>Support</Text>
+        {menuRow("?", "Help & Support", "Quick answers about using GrievX", () => Alert.alert("Help & Support", "• Report an issue: use the Report tab and provide a clear title, description and campus location.\n\n• Track a complaint: open My Complaints to view its latest status.\n\n• Edit or withdraw: available while a complaint is still submitted.\n\n• Updates: check the Alert tab for complaint notifications."))}
+        {menuRow("▤", "Send Feedback", "Share suggestions or report a problem", () => setFeedbackOpen(true))}
+      </Card>
+
+      <Pressable style={s.logout} onPress={confirmLogout}>
+        <Text style={s.logoutText}>⇥  Sign out</Text>
       </Pressable>
-      <Pressable style={s.logout} onPress={logout}>
-        <Text style={{ color: "#B91C1C", fontWeight: "700" }}>Sign out</Text>
-      </Pressable>
+
+      <Modal visible={editing} transparent animationType="slide" onRequestClose={() => !saving && setEditing(false)}>
+        <View style={s.editModalBackdrop}>
+          <View style={s.editModalCard}>
+            <Text style={s.cardTitle}>Personal information</Text>
+            <Text style={s.label}>Full name</Text>
+            <TextInput style={s.editInput} value={name} onChangeText={setName} maxLength={100} placeholder="Your full name" />
+            <Text style={s.label}>Email address</Text>
+            <TextInput style={[s.editInput, { opacity: 0.65 }]} value={me?.email || ""} editable={false} />
+            <Text style={s.helper}>Email is managed by your sign-in account and cannot be changed here.</Text>
+            <View style={s.editModalActions}>
+              <Pressable style={s.cancelEditButton} disabled={saving} onPress={() => setEditing(false)}><Text style={s.cancelEditText}>Cancel</Text></Pressable>
+              <Pressable style={s.saveEditButton} disabled={saving} onPress={saveProfile}><Text style={s.saveEditText}>{saving ? "Saving..." : "Save changes"}</Text></Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={feedbackOpen} transparent animationType="slide" onRequestClose={() => !sendingFeedback && setFeedbackOpen(false)}>
+        <View style={s.editModalBackdrop}>
+          <View style={s.editModalCard}>
+            <Text style={s.cardTitle}>Send feedback</Text>
+            <Text style={s.muted}>Tell us what is working well or what we should improve.</Text>
+            <TextInput style={[s.editInput, s.editMultiline]} value={feedback} onChangeText={setFeedback} multiline textAlignVertical="top" maxLength={2000} placeholder="Write your feedback..." />
+            <Text style={s.helper}>{feedback.length}/2000 characters</Text>
+            <View style={s.editModalActions}>
+              <Pressable style={s.cancelEditButton} disabled={sendingFeedback} onPress={() => setFeedbackOpen(false)}><Text style={s.cancelEditText}>Cancel</Text></Pressable>
+              <Pressable style={s.saveEditButton} disabled={sendingFeedback} onPress={sendFeedback}><Text style={s.saveEditText}>{sendingFeedback ? "Sending..." : "Send feedback"}</Text></Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
 
-function Settings({ back }: { back: () => void }) {
+function Settings({ back, openNotifications }: { back: () => void; openNotifications: () => void }) {
   return (
     <ScrollView contentContainerStyle={s.page}>
       <Header title="Settings" back={back} />
@@ -636,15 +796,20 @@ function Settings({ back }: { back: () => void }) {
           <LineIcon name="settings" color={C.blue} size={22} />
           <Text style={s.cardTitle}>GrievX preferences</Text>
         </View>
-        <Text style={s.muted}>Your app uses the GrievX campus colour theme and your signed-in student account.</Text>
+        <Text style={s.muted}>Manage how you check updates and learn about the app.</Text>
+        <Pressable style={s.settingsRow} onPress={openNotifications}>
+          <View style={s.settingsIcon}><LineIcon name="bell" color={C.blue} size={21} /></View>
+          <View style={{ flex: 1 }}>
+            <Text style={s.label}>Notifications</Text>
+            <Text style={s.helper}>View complaint updates and status alerts</Text>
+          </View>
+          <Text style={s.settingsChevron}>›</Text>
+        </Pressable>
       </Card>
       <Card>
-        <Text style={s.label}>Notifications</Text>
-        <Text style={s.muted}>Complaint updates and status alerts are available in the Alert tab.</Text>
-      </Card>
-      <Card>
-        <Text style={s.label}>About</Text>
+        <Text style={s.label}>About GrievX</Text>
         <Text style={s.muted}>GrievX Campus helps students report campus issues and follow their resolution.</Text>
+        <Text style={s.helper}>Version 1.0 · Student mobile app</Text>
       </Card>
     </ScrollView>
   );
@@ -1242,6 +1407,28 @@ const s = StyleSheet.create({
   evidenceDetailPlaceholderText: { color: C.blue, fontSize: 28 },
   timeline: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 9 },
   activeDot: { backgroundColor: C.blue },
+  profileHero: { backgroundColor: "#EAF0FF", borderWidth: 1, borderColor: "#D8E2FF", borderRadius: 20, padding: 18, flexDirection: "row", alignItems: "center", gap: 13 },
+  profileHeroName: { fontSize: 22, fontWeight: "800", color: C.text },
+  profileHeroEmail: { fontSize: 13, color: C.muted },
+  rolePill: { alignSelf: "flex-start", borderRadius: 20, backgroundColor: "#D8E5FF", paddingHorizontal: 11, paddingVertical: 5, marginTop: 3 },
+  rolePillText: { color: C.blue, fontSize: 11, fontWeight: "700", textTransform: "capitalize" },
+  editProfileButton: { borderWidth: 1.3, borderColor: C.blue, borderRadius: 20, paddingVertical: 8, paddingHorizontal: 10, alignSelf: "flex-start" },
+  editProfileButtonText: { color: C.blue, fontSize: 12, fontWeight: "700" },
+  profileStats: { flexDirection: "row", gap: 7 },
+  profileStat: { flex: 1, backgroundColor: C.white, borderWidth: 1, borderColor: C.border, borderRadius: 14, paddingVertical: 11, paddingHorizontal: 4, alignItems: "center", gap: 3 },
+  profileStatIcon: { width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center", marginBottom: 2 },
+  profileStatSymbol: { fontSize: 18, fontWeight: "800" },
+  profileStatValue: { fontSize: 18, fontWeight: "800", color: C.text },
+  profileStatLabel: { fontSize: 10, color: C.muted, textAlign: "center" },
+  profileSectionTitle: { fontSize: 16, fontWeight: "800", color: C.text, marginBottom: 2 },
+  profileMenuRow: { minHeight: 58, flexDirection: "row", alignItems: "center", gap: 11, paddingVertical: 5 },
+  profileMenuIcon: { width: 36, height: 36, borderRadius: 18, backgroundColor: C.softBlue, alignItems: "center", justifyContent: "center" },
+  profileMenuSymbol: { fontSize: 19, color: C.blue, fontWeight: "700" },
+  profileMenuTitle: { fontSize: 14, fontWeight: "700", color: C.text },
+  profileMenuSubtitle: { fontSize: 11, color: C.muted, lineHeight: 15 },
+  profileMenuBadge: { color: C.white, backgroundColor: C.blue, overflow: "hidden", borderRadius: 10, paddingHorizontal: 7, paddingVertical: 2, fontSize: 10, fontWeight: "700" },
+  logoutText: { color: C.red, fontWeight: "800", fontSize: 15 },
+
   profile: { alignItems: "center", backgroundColor: C.white, borderWidth: 1, borderColor: C.border, borderRadius: 18, padding: 24, gap: 5 },
   profileAvatar: { width: 82, height: 82, borderRadius: 41, backgroundColor: "#DAE2FD", alignItems: "center", justifyContent: "center" },
   profileLetter: { fontSize: 34, fontWeight: "800", color: C.navy },
@@ -1250,5 +1437,6 @@ const s = StyleSheet.create({
   notificationCard: { backgroundColor: C.white, borderWidth: 1, borderColor: C.border, borderRadius: 16, padding: 16, gap: 8 },
   notificationUnread: { borderColor: "#B9C9F7", backgroundColor: "#F6F8FF" },
   notificationDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: C.blue },
-  logout: { height: 48, borderRadius: 12, borderWidth: 1, borderColor: "#F1B4B4", backgroundColor: "#FEF2F2", alignItems: "center", justifyContent: "center" },
+  logout: { height: 52, borderRadius: 14, borderWidth: 1, borderColor: "#F1B4B4", backgroundColor: "#FEF2F2", alignItems: "center", justifyContent: "center" },
+  logoutText: { color: C.red, fontWeight: "800", fontSize: 15 },
 });
