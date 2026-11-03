@@ -655,7 +655,7 @@ function Profile({ back, go, logout }: { back: () => void; go: (screen: Screen) 
       return;
     }
     try {
-      await resetPassword(me.email);
+      await resetPassword();
       Alert.alert("Password reset email sent", "Check your inbox for the secure password reset link.");
     } catch (e) {
       Alert.alert("Unable to send reset email", e instanceof Error ? e.message : "Please try again.");
