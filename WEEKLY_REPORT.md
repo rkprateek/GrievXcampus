@@ -43,59 +43,63 @@ Week 2 intentionally did not implement complaint APIs, complaint lifecycle, noti
 ## Week 3
 
 ### Status
-Implementation added on the `week-3-auth-rbac` branch. Local runtime verification is still required after syncing the branch.
+Implementation added on the week-3-auth-rbac branch.
 
 ### Completed
 - Added users and roles SQLAlchemy models.
 - Added Student, Staff, Department Head, and Admin roles.
 - Added password hashing with Argon2 through pwdlib.
-- Added JWT access-token creation and validation with subject, issued-at, and expiration claims.
-- Added registration and login endpoints.
-- Added authenticated current-user endpoint.
-- Added backend role-based authorization dependency.
-- Added an Admin-only RBAC verification endpoint.
-- Added Alembic migration `0002_auth_rbac` with role seed data.
-- Added authentication and RBAC API tests with an isolated SQLite test database.
-- Verified missing, malformed, expired, and inactive token handling behavior.
-- Kept complaint, ML, notification, analytics, map, deployment, and all Week 4 functionality outside Week 3 scope.
-
-### Explicit scope note
-Week 4 complaint submission and complaint-related functionality were not started in this branch.
+- Added JWT access-token creation and validation.
+- Added registration, login and current-user endpoints.
+- Added backend role-based authorization.
+- Added Admin-only RBAC verification.
+- Added Alembic migration 0002_auth_rbac.
+- Added authentication and RBAC tests.
 
 ### Security boundary
 Public registration always creates a Student account. Privileged roles are not user-selectable during registration.
 
-### Verification
-The connected GitHub environment was used to inspect and modify the repository, but it does not execute the project's local Python/Docker test environment. Run the Week 3 test suite and PostgreSQL migration locally before marking Week 3 complete.
-
-### Next
-Verify Week 3 locally, then proceed to Week 4 complaint submission only after authentication and RBAC are passing.
-
-
 ## Week 4
 
 ### Status
-Student complaint submission implementation added on the week-4-complaint-submission branch.
+Student complaint submission and the student mobile demo were implemented on the Week 4 branches.
 
 ### Completed
-- Added Complaint and ComplaintImage database models.
-- Added Alembic migration 0003_complaints.
-- Added student-only complaint creation.
-- Added authenticated student complaint listing.
-- Added authenticated student complaint detail access with ownership enforcement.
-- New complaints start in SUBMITTED status.
-- Added MinIO/S3-compatible image upload.
-- Added image MIME-type and 5 MB size validation.
-- Added complaint image metadata persistence.
-- Added React Native + Expo student login/register flow using the existing Week 3 authentication API.
-- Added secure JWT storage using Expo SecureStore.
-- Added New Complaint, My Complaints and Complaint Details screens.
-- Added image selection and preview.
-- Added Week 4 backend tests for authentication, authorization, ownership, validation and image handling.
-- Updated API and database documentation.
+- Added complaints and complaint images.
+- Added student-only complaint creation/list/detail access.
+- Added ownership enforcement.
+- Added image selection/upload with MIME and 5 MB validation.
+- Added Supabase Auth, PostgreSQL and private Storage for the current student demo.
+- Added Stitch-inspired student mobile screens.
+- Removed GPS/location detection; complaint location is manual campus text only.
+- Added login, register, report issue, complaint list/detail and profile flows.
+- Added Week 4 security hardening and Supabase RLS.
 
 ### Scope control
-Week 4 intentionally did not implement admin complaint management, staff assignment, department routing, status transitions, notifications, text classification, priority prediction, duplicate detection, analytics, campus map or deployment.
+Week 4 did not implement ML classification, priority prediction, department routing, automated duplicate detection, analytics, campus map or deployment.
+
+## Week 5
+
+### Status
+Admin complaint-management foundation implemented on the week-5-admin-dashboard branch.
+
+### Completed
+- Added a Next.js + TypeScript admin dashboard.
+- Added administrator sign-in using Supabase Auth.
+- Added admin role enforcement before showing complaint management.
+- Added complaint search and lifecycle filters.
+- Added complaint detail panel with student, location, description and submission time.
+- Added lifecycle status updates.
+- Added dashboard counts for total, new, active and resolved/closed complaints.
+- Added departments table and starter campus departments.
+- Added staff assignment data model for the upcoming assignment workflow.
+- Added complaint priority field foundation (normal, high, critical).
+- Added Supabase RLS policies for staff/admin complaint access.
+- Added profile role-escalation protection so normal users cannot change their own role.
+- Added database indexes for department, priority and assignment lookups.
+
+### Scope control
+Week 5 is limited to admin complaint management and its database/security foundation. Automated department routing, ML priority prediction, notifications, analytics, campus map and deployment remain in later roadmap weeks.
 
 ### Verification
-The repository changes were implemented on the week-4-complaint-submission branch. Local pytest, PostgreSQL migration and mobile npm/typecheck commands must be run in the user's VS Code environment before this week is marked fully verified.
+The Supabase migrations were applied successfully to the connected GrievX Campus project. The Next.js admin app has been committed to the GitHub branch; local npm install, npm run typecheck and npm run build should be run in VS Code before marking Week 5 fully verified.
