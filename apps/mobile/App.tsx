@@ -1106,7 +1106,11 @@ const s = StyleSheet.create({
   reportNavItem: { flex: 1, alignItems: "center", justifyContent: "center", marginTop: -18 },
   reportNavCircle: { width: 43, height: 43, borderRadius: 22, backgroundColor: "#0A5CDA", alignItems: "center", justifyContent: "center", borderWidth: 4, borderColor: C.white },
   reportNavCircleActive: { backgroundColor: "#0A5CDA" },
-  reportNavPlus: { color: C.white, fontSize: 28, lineHeight: 30, fontWeight: "300" },\n  settingsRow: { minHeight: 66, backgroundColor: C.white, borderWidth: 1, borderColor: C.border, borderRadius: 14, paddingHorizontal: 14, flexDirection: "row", alignItems: "center", gap: 12 },\n  settingsIcon: { width: 38, height: 38, borderRadius: 12, backgroundColor: C.softBlue, alignItems: "center", justifyContent: "center" },\n  settingsChevron: { color: C.muted, fontSize: 26 },\n  settingsDetailHeader: { flexDirection: "row", alignItems: "center", gap: 10 },
+  reportNavPlus: { color: C.white, fontSize: 28, lineHeight: 30, fontWeight: "300" },
+  settingsRow: { minHeight: 66, backgroundColor: C.white, borderWidth: 1, borderColor: C.border, borderRadius: 14, paddingHorizontal: 14, flexDirection: "row", alignItems: "center", gap: 12 },
+  settingsIcon: { width: 38, height: 38, borderRadius: 12, backgroundColor: C.softBlue, alignItems: "center", justifyContent: "center" },
+  settingsChevron: { color: C.muted, fontSize: 26 },
+  settingsDetailHeader: { flexDirection: "row", alignItems: "center", gap: 10 },
 
   row: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   status: { flexDirection: "row", alignItems: "center", alignSelf: "flex-start", borderRadius: 999, paddingVertical: 5, paddingHorizontal: 10, gap: 6 },
