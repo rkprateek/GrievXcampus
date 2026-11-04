@@ -32,3 +32,32 @@ Keep the official test split untouched for a final external evaluation.
 Dataset: *University Students Complaints*, by alaminxpro, Hugging Face Datasets,
 https://huggingface.co/datasets/alaminxpro/university-students-complaints
 License: CC BY 4.0.
+
+
+## Conservative mapping preparation
+
+After downloading and inspecting the source data, run:
+
+```powershell
+python -m ml.scripts.prepare_university_dataset
+```
+
+The script writes separate files under `mapped/`:
+
+- `train_mapped.csv`
+- `test_mapped.csv`
+
+It preserves every source column and adds `source_split`,
+`grievx_candidate_category`, `mapping_reason`, `mapping_status`, and
+`grievx_priority_candidate`.
+
+Mapping is based on complaint-description keyword rules. Clear single-category
+matches are marked `candidate`; descriptions matching multiple GrievX
+categories are marked `review`; descriptions without a clear match are marked
+`excluded`. The source `Aspects` field is deliberately not used because the
+audit found it can conflict with complaint meaning.
+
+The script does not assign a GrievX priority, does not alter source labels, does
+not merge train and test, and does not modify `ml/data/complaints_seed.csv`.
+Candidate labels are proposals for review, not verified ground truth. Review
+the generated CSVs and counts before any training integration.
