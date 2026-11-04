@@ -377,3 +377,36 @@ html,body { background:#f4f7fd; color:#101a38; font-family:Arial,Helvetica,sans-
   .tableHead,.tableRow { grid-template-columns:1.5fr .8fr .8fr .6fr .8fr .9fr .8fr; }
   .complaintTable { min-width:740px; }
 }
+
+
+/* ML monitoring workspace */
+.mlInsights { display:grid; gap:18px; min-width:0; }
+.mlInsightsToolbar { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; padding:21px; border:1px solid #dce4f1; border-radius:14px; background:#fff; box-shadow:0 5px 17px rgba(24,49,89,.035); }
+.mlInsightsToolbar h2 { margin:6px 0; color:#101b39; font-size:21px; }
+.mlInsightsToolbar p { margin:0; color:#68758d; font-size:12px; }
+.mlInsightsGrid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; }
+.mlInsightCard { min-width:0; overflow:hidden; border:1px solid #dce4f1; border-radius:14px; background:#fff; box-shadow:0 5px 17px rgba(24,49,89,.035); }
+.mlInsightCard .panelHeading { min-height:54px; }
+.mlModelList { display:grid; gap:0; padding:10px 18px 16px; }
+.mlModelList > div { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:10px 0; border-bottom:1px solid #edf0f5; }
+.mlModelList > div:last-child { border-bottom:0; }
+.mlModelList span,.mlMetricGrid span { color:#6d7890; font-size:11px; }
+.mlModelList b { color:#17213b; font-size:11px; text-align:right; overflow-wrap:anywhere; }
+.mlMetricGrid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; padding:17px; }
+.mlMetricGrid > div { display:grid; gap:7px; padding:13px; border:1px solid #e4eaf4; border-radius:11px; background:#f8faff; }
+.mlMetricGrid b { color:#0b1c49; font-size:27px; }
+.mlMetricGrid small { color:#53617e; font-size:11px; }
+.mlCaveat { margin:0; padding:0 17px 16px; color:#788399; font-size:10px; line-height:1.5; }
+.mlHistoryCard { grid-column:1/-1; }
+.mlHistoryTable { overflow-x:auto; }
+.mlHistoryHead,.mlHistoryRow { min-width:740px; display:grid; grid-template-columns:1.4fr .9fr .65fr 1fr .65fr .8fr; gap:10px; align-items:center; padding:11px 16px; }
+.mlHistoryHead { background:#f5f7fb; color:#1b2945; font-size:10px; font-weight:800; }
+.mlHistoryRow { border-top:1px solid #edf0f5; color:#33415d; font-size:11px; }
+.mlHistoryRow b { color:#14203d; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.mlHistoryRow > span { min-width:0; overflow-wrap:anywhere; }
+.mlInsights .stats { margin:0; }
+@media (max-width:850px) { .mlInsightsGrid { grid-template-columns:1fr; } }
+@media (max-width:650px) {
+ .mlInsightsToolbar { display:grid; }
+ .mlMetricGrid { grid-template-columns:1fr 1fr; }
+}
