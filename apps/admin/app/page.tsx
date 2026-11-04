@@ -144,7 +144,7 @@ export default function AdminPage() {
     })) as Complaint[];
 
     setComplaints(mapped);
-    setSelected((current) => current ? mapped.find((x) => x.id === current.id) ?? null : null);
+    setSelected((current) => current ? mapped.find((x) => x.id === current.id) ?? mapped[0] ?? null : mapped[0] ?? null);
     setLoading(false);
   };
 
@@ -350,51 +350,51 @@ export default function AdminPage() {
     resolved: complaints.filter((x) => x.status === "resolved" || x.status === "closed").length,
   };
 
+  const workload = departments.map((department) => {
+    const total = complaints.filter((item) => item.department_id === department.id).length;
+    const active = complaints.filter((item) => item.department_id === department.id && (item.status === "assigned" || item.status === "in_progress")).length;
+    return { ...department, total, active, share: complaints.length ? Math.round((total / complaints.length) * 100) : 0 };
+  }).sort((a, b) => b.total - a.total).slice(0, 4);
+
   return (
     <main className="shell">
       <aside className="sidebar">
         <div className="brand"><span className="brandMark">✓</span><span>GrievX</span></div>
-        <div className="brandSub">CAMPUS ADMIN</div>
+        <div className="brandSub">CAMPUS</div>
         <nav>
-          <button className="navActive">Overview</button>
-          <button onClick={() => setFilter("all")}>Complaints</button>
-          <button onClick={() => setShowStaffManager((value) => !value)}>Departments & Staff</button>
-          <button onClick={() => setMessage("ML uses TF-IDF and Logistic Regression for category and priority; department routing uses category mapping.")}>ML Insights</button>
-          <button onClick={() => setMessage("Analytics are calculated from live complaints. Dedicated charts are planned next.")}>Analytics</button>
-          <button onClick={() => setMessage("Admin settings are managed through project configuration.")}>Settings</button>
+          <button className={!showStaffManager ? "navActive" : ""} onClick={() => setShowStaffManager(false)}><span>⌂</span>Overview</button>
+          <button onClick={() => { setShowStaffManager(false); setFilter("all"); }}><span>▤</span>Complaints</button>
+          <button className={showStaffManager ? "navActive" : ""} onClick={() => setShowStaffManager(true)}><span>♧</span>Departments &amp; Staff</button>
+          <button onClick={() => { setShowStaffManager(false); setMessage("ML uses TF-IDF and Logistic Regression for category and priority. Department routing uses category mapping."); }}><span>✧</span>ML Insights</button>
+          <button onClick={() => { setShowStaffManager(false); setMessage("Analytics are calculated from live complaint records."); }}><span>▥</span>Analytics</button>
+          <button onClick={() => { setShowStaffManager(false); setMessage("Admin settings are managed through project configuration."); }}><span>⚙</span>Settings</button>
         </nav>
+        <div className="sidebarArtwork" aria-hidden="true"><div className="campusBuilding"><span>⚑</span><b>▱</b><i>▥</i></div></div>
         <div className="sideBottom">
-          <div className="adminMini"><span className="avatar">A</span><span><b>Administrator</b><small>{userEmail}</small></span></div>
+          <div className="adminMini"><span className="avatar">A</span><span><b>Admin</b><small>{userEmail}</small></span></div>
           <button className="logout" onClick={logout}>Sign out</button>
         </div>
       </aside>
 
       <section className="content">
         <header className="topbar">
-          <div>
-            <span className="eyebrow">GRIEVX CAMPUS</span>
-            <h1>Complaint Management</h1>
-            <p>Review complaints and manage automatic campus issue routing.</p>
+          <div className="pageHeading">
+            <h1>{showStaffManager ? "Departments & Staff" : "Complaint Management"}</h1>
+            <p>{showStaffManager ? "Manage staff profiles and automatic assignment rules." : "Review, assign and update student complaints from one place."}</p>
           </div>
           <div className="topActions">
-            <span className="secure">● Admin access</span>
-            <button className="refresh" onClick={loadComplaints}>Refresh</button>
+            <div className="globalSearch"><span>⌕</span><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search complaints, students, departments..." /></div>
+            <button className="iconButton" aria-label="Notifications" onClick={() => setMessage("You are viewing the latest complaint records.")}>♧<i /></button>
+            <div className="adminTop"><span className="avatar">A</span><b>Admin</b><button onClick={logout} aria-label="Sign out">⌄</button></div>
           </div>
         </header>
 
-        {message && <div className="notice">{message}</div>}
+        {message && <div className="notice">{message}<button onClick={() => setMessage("")}>×</button></div>}
 
-        <div className="stats">
-          <Stat label="Total complaints" value={counts.total} />
-          <Stat label="New submissions" value={counts.submitted} />
-          <Stat label="Active" value={counts.active} />
-          <Stat label="Resolved / closed" value={counts.resolved} />
-        </div>
-
-        {showStaffManager && (
+        {showStaffManager ? (
           <section className="staffManager">
             <div className="staffManagerHeading">
-              <div><span className="eyebrow">ROUTING CONFIGURATION</span><h2>Departments & Staff</h2><p>Configure which staff members can receive automatic complaint assignments.</p></div>
+              <div><span className="eyebrow">ROUTING CONFIGURATION</span><h2>Departments &amp; Staff</h2><p>Configure which staff members can receive automatic complaint assignments.</p></div>
               <span className="secure">{staffDirectory.length} configured</span>
             </div>
             <div className="staffForm">
@@ -427,202 +427,98 @@ export default function AdminPage() {
               })}
             </div>
           </section>
-        )}
-
-        <div className="workspace">
-          <section className="listPanel">
-            <div className="listToolbar">
-              <div className="filters">
-                {statuses.map((status) => (
-                  <button key={status} className={filter === status ? "filter active" : "filter"} onClick={() => setFilter(status)}>
-                    {status === "all" ? "All" : status.replace("_", " ")}
-                  </button>
-                ))}
-              </div>
-              <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search complaints..." />
+        ) : (
+          <>
+            <div className="stats">
+              <Stat icon="▤" tone="blue" label="Total complaints" value={counts.total} />
+              <Stat icon="＋" tone="green" label="New submissions" value={counts.submitted} />
+              <Stat icon="↻" tone="blue" label="Active" value={counts.active} />
+              <Stat icon="✓" tone="green" label="Resolved" value={counts.resolved} />
             </div>
 
-            {loading ? <div className="empty">Loading complaints...</div> : filtered.length === 0 ? (
-              <div className="empty">No complaints match the current filter.</div>
-            ) : (
-              <div className="table">
-                {filtered.map((item) => (
-                  <button key={item.id} className={selected?.id === item.id ? "complaintRow selected" : "complaintRow"} onClick={() => setSelected(item)}>
-                    <div className="rowMain">
-                      <Status status={item.status} />
-                      <strong>{item.title}</strong>
-                      <span>{item.location}</span>
-                      <div className="rowTags"><span>{item.category ?? "Unclassified"}</span><span>{item.priority ?? "normal"} priority</span><span>{departments.find((department) => department.id === item.department_id)?.name ?? "Department pending"}</span></div>
+            <div className="dashboardGrid">
+              <div className="leftColumn">
+                <section className="listPanel">
+                  <div className="panelHeading"><h2>Recent Complaints</h2><button onClick={() => setFilter("all")}>View All Complaints <span>→</span></button></div>
+                  <div className="tableScroll">
+                    <div className="complaintTable">
+                      <div className="tableHead"><span>Complaint</span><span>Category</span><span>Department</span><span>Priority</span><span>Status</span><span>Assigned staff</span><span>Submitted</span></div>
+                      {loading ? <div className="empty">Loading complaints...</div> : filtered.length === 0 ? <div className="empty">No complaints match your search.</div> : filtered.slice(0, 6).map((item) => {
+                        const department = departments.find((d) => d.id === item.department_id);
+                        const assigned = staff.find((person) => person.id === item.assigned_staff_id);
+                        return <button key={item.id} className={selected?.id === item.id ? "tableRow selected" : "tableRow"} onClick={() => setSelected(item)}>
+                          <span className="complaintTitle"><i>{item.category?.toLowerCase().includes("network") ? "⌁" : item.category?.toLowerCase().includes("plumb") ? "♨" : "▣"}</i><b>{item.title}</b></span>
+                          <span>{item.category ?? "Unclassified"}</span>
+                          <span>{department?.name ?? "Pending"}</span>
+                          <span><em className={`priorityPill priority-${item.priority ?? "normal"}`}>{item.priority ?? "normal"}</em></span>
+                          <span><Status status={item.status} /></span>
+                          <span>{assigned?.name ?? (item.assigned_staff_id ? "Assigned staff" : "Unassigned")}</span>
+                          <span>{formatDate(item.created_at)}</span>
+                        </button>;
+                      })}
                     </div>
-                    <div className="rowMeta">
-                      <span>{item.student?.name ?? "Student"}</span>
-                      <span>{formatDate(item.created_at)}</span>
+                  </div>
+                </section>
+
+                <section className="workloadPanel">
+                  <div className="panelHeading"><h2>Department Workload</h2></div>
+                  {workload.length === 0 ? <p className="mutedText">Department workload will appear when departments and complaints are available.</p> : workload.map((department) => (
+                    <div className="workloadRow" key={department.id}>
+                      <b>{department.name}</b>
+                      <div className="workloadTrack"><span style={{ width: `${department.share}%` }} /></div>
+                      <strong>{department.share}% <small>({department.total} total · {department.active} active)</small></strong>
                     </div>
-                  </button>
-                ))}
+                  ))}
+                </section>
               </div>
-            )}
-          </section>
 
-          <aside className="detailPanel">
-            {selected ? (
-              <>
-                <div className="detailHeader">
-                  <div>
-                    <span className="eyebrow">COMPLAINT DETAILS</span>
-                    <h2>{selected.title}</h2>
-                  </div>
-                  <Status status={selected.status} />
-                </div>
-
-                <div className="detailSection">
-                  <label>Student</label>
-                  <strong>{selected.student?.name ?? "Student"}</strong>
-                  <span>{selected.student?.email ?? selected.student_id}</span>
-                </div>
-                <div className="detailSection">
-                  <label>Campus location</label>
-                  <strong>{selected.location}</strong>
-                </div>
-                <div className="detailSection">
-                  <label>Description</label>
-                  <p>{selected.description}</p>
-                </div>
-                <div className="detailSection">
-                  <label>Submitted</label>
-                  <span>{formatDate(selected.created_at)}</span>
-                </div>
-
-                <div className="detailSection">
-                  <label>Evidence</label>
-                  {selected.images?.length ? (
-                    <div className="evidenceGrid">
-                      {selected.images.map((image) => image.signed_url ? (
-                        <a key={image.id} href={image.signed_url} target="_blank" rel="noreferrer">
-                          <img className="evidenceImage" src={image.signed_url} alt="Complaint evidence" />
-                        </a>
-                      ) : <span key={image.id}>Evidence file is unavailable.</span>)}
+              <aside className="detailPanel">
+                <div className="detailPanelTitle"><span>▤</span><h2>Complaint Details</h2></div>
+                {selected ? (
+                  <>
+                    <div className="selectedComplaint">
+                      <div className="selectedTitle"><h3>{selected.title}</h3><Status status={selected.status} /></div>
+                      <div className="metaLine"><span>♙</span><b>Student:</b> {selected.student?.name ?? "Student"} <small>{selected.student?.email ?? ""}</small></div>
+                      <div className="metaLine"><span>⌖</span><b>Location:</b> {selected.location}</div>
+                      <div className="metaLine"><span>▦</span><b>Submitted:</b> {formatDate(selected.created_at)}</div>
                     </div>
-                  ) : <span>No evidence photo attached.</span>}
-                </div>
-
-                <div className="detailSection">
-                  <label>Status history</label>
-                  {selected.status_history?.length ? (
-                    <div className="historyList">
-                      {selected.status_history.map((entry, index) => (
-                        <div className="historyItem" key={entry.id}>
-                          <span className="historyDot" />
-                          <div>
-                            <strong>{formatStatusLabel(entry.to_status)}</strong>
-                            <small>
-                              {entry.from_status ? formatStatusLabel(entry.from_status) + " → " + formatStatusLabel(entry.to_status) : "Complaint submitted"}
-                              {" · "}
-                              {formatDate(entry.created_at)}
-                            </small>
-                          </div>
-                        </div>
-                      ))}
+                    <div className="detailDescription"><b>Description</b><p>{selected.description}</p></div>
+                    <div className="evidenceBlock"><b>Evidence</b>
+                      {selected.images?.length ? <div className="evidenceGrid">{selected.images.map((image) => image.signed_url ? <a key={image.id} href={image.signed_url} target="_blank" rel="noreferrer"><img className="evidenceImage" src={image.signed_url} alt="Complaint evidence" /></a> : <span key={image.id}>Evidence unavailable.</span>)}</div> : <span className="mutedText">No evidence photo attached.</span>}
                     </div>
-                  ) : <span>No status history available.</span>}
-                </div>
 
-                <div className="detailSection">
-                  <label>ML triage</label>
-                  {selected.category ? (
-                    <div className="mlCard">
-                      <div className="mlHeader">
-                        <strong>{selected.category}</strong>
-                        <span className={selected.department_source === "manual_review" || (selected.category_confidence ?? 1) < 0.55 ? "reviewBadge" : "readyBadge"}>
-                          {selected.department_source === "manual_review" || (selected.category_confidence ?? 1) < 0.55 ? "Manual review" : "Auto triage"}
-                        </span>
+                    <section className="automaticCard">
+                      <div className="automaticHeading"><h3><span>⚙</span>Automatic assignment</h3><span className={selected.category && selected.department_source !== "manual_review" ? "readyBadge" : "reviewBadge"}>{selected.category && selected.department_source !== "manual_review" ? "ML result saved" : "Review needed"}</span></div>
+                      <div className="assignmentSteps">
+                        <div><span>◎ &nbsp; Predicted category:</span><b>{selected.category ?? "Pending"}</b><i>{selected.category_confidence != null ? Math.round(selected.category_confidence * 100) + "%" : "—"}</i></div>
+                        <div><span>♜ &nbsp; Department:</span><b>{departments.find((d) => d.id === selected.department_id)?.name ?? "Needs review"}</b><i>{selected.department_confidence != null ? Math.round(selected.department_confidence * 100) + "%" : "—"}</i></div>
+                        <div><span>⚑ &nbsp; Priority:</span><b><em className={`priorityPill priority-${selected.priority ?? "normal"}`}>{selected.priority ?? "normal"}</em></b><i>{selected.priority_confidence != null ? Math.round(selected.priority_confidence * 100) + "%" : "—"}</i></div>
+                        <div><span>♧ &nbsp; Assigned staff:</span><b>{staff.find((member) => member.id === selected.assigned_staff_id)?.name ?? (selected.assigned_staff_id ? "Assigned staff" : "Not assigned")}</b><i>{selected.assigned_staff_id ? "Assigned" : "Pending"}</i></div>
                       </div>
-                      <div className="mlGrid">
-                        <div><span>Category confidence</span><b>{selected.category_confidence != null ? Math.round(selected.category_confidence * 100) + "%" : "—"}</b></div>
-                        <div><span>Priority confidence</span><b>{selected.priority_confidence != null ? Math.round(selected.priority_confidence * 100) + "%" : "—"}</b></div>
-                        <div><span>Department confidence</span><b>{selected.department_confidence != null ? Math.round(selected.department_confidence * 100) + "%" : "—"}</b></div>
-                        <div><span>Community support</span><b>{selected.upvote_count ?? 0}</b></div>
+                      <p className="mlReason">ⓘ &nbsp; Matched using complaint text, department rules, staff skills and availability. Evidence is displayed only; ML does not analyse images.</p>
+                    </section>
+
+                    <div className="overrideArea">
+                      <label>Override assignment</label>
+                      <div className="overrideControls">
+                        <select className="departmentSelect" value={selected.department_id ?? ""} onChange={(e) => updateRouting({ department_id: e.target.value || null })}>
+                          <option value="">Select department</option>
+                          {departments.map((department) => <option key={department.id} value={department.id}>{department.name}</option>)}
+                        </select>
+                        <select className="departmentSelect" value={selected.assigned_staff_id ?? ""} onChange={(e) => assignStaff(e.target.value || null)}>
+                          <option value="">Unassigned</option>
+                          {staff.map((member) => <option key={member.id} value={member.id}>{member.name || member.email}</option>)}
+                        </select>
                       </div>
-                      {selected.department_source === "manual_review" && (
-                        <p className="mlReason">Department routing was flagged for manual review because the classifier confidence was low.</p>
-                      )}
+                      <div className="priorityControls">{priorities.map((priority) => <button key={priority} className={selected.priority === priority ? "statusButton current" : "statusButton"} onClick={() => updateRouting({ priority })}>{priority}</button>)}</div>
                     </div>
-                  ) : (
-                    <span>No ML triage result is stored for this complaint. Review manually.</span>
-                  )}
-                </div>
-
-                <div className="detailSection">
-                  <label>Automatic assignment</label>
-                  <div className="mlCard">
-                    <div className="mlHeader">
-                      <strong>{selected.assigned_staff_id ? "Staff assigned" : "Awaiting staff match"}</strong>
-                      <span className={selected.department_source === "manual_review" || !selected.category ? "reviewBadge" : "readyBadge"}>
-                        {selected.department_source === "manual_review" || !selected.category ? "Admin review" : "ML triage saved"}
-                      </span>
-                    </div>
-                    <div className="assignmentSteps">
-                      <div><span>Predicted category</span><b>{selected.category ?? "Pending prediction"}</b></div>
-                      <div><span>Department</span><b>{departments.find((d) => d.id === selected.department_id)?.name ?? "Needs review"}</b></div>
-                      <div><span>Priority</span><b>{selected.priority ?? "normal"}</b></div>
-                      <div><span>Assigned staff</span><b>{staff.find((member) => member.id === selected.assigned_staff_id)?.name ?? (selected.assigned_staff_id ? "Assigned staff" : "No eligible staff configured")}</b></div>
-                    </div>
-                    <p className="mlReason">Staff matching uses department, configured skills, availability and active workload. Evidence remains visible to admins and is not analyzed by ML.</p>
-                  </div>
-                </div>
-
-                <div className="detailSection">
-                  <label>Priority</label>
-                  <div className="statusButtons">
-                    {priorities.map((priority) => (
-                      <button key={priority} className={selected.priority === priority ? "statusButton current" : "statusButton"} onClick={() => updateRouting({ priority })}>
-                        {priority}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="detailSection">
-                  <label>Department</label>
-                  <select className="departmentSelect" value={selected.department_id ?? ""} onChange={(e) => updateRouting({ department_id: e.target.value || null })}>
-                    <option value="">Unassigned</option>
-                    {departments.map((department) => <option key={department.id} value={department.id}>{department.name}</option>)}
-                  </select>
-                </div>
-
-                <div className="detailSection">
-                  <label>Assigned staff</label>
-                  <select className="departmentSelect" value={selected.assigned_staff_id ?? ""} onChange={(e) => assignStaff(e.target.value || null)}>
-                    <option value="">Unassigned</option>
-                    {staff.map((member) => <option key={member.id} value={member.id}>{member.name || member.email} ({member.role.replace("_", " ")})</option>)}
-                  </select>
-                  {staff.length === 0 && <span>No staff accounts are available yet.</span>}
-                </div>
-
-                <div className="statusEditor">
-                  <label>Update lifecycle status</label>
-                  <div className="statusButtons">
-                    {statuses.filter((x) => x !== "all").map((status) => (
-                      <button
-                        key={status}
-                        className={selected.status === status ? "statusButton current" : "statusButton"}
-                        onClick={() => updateStatus(status)}
-                      >
-                        {status.replace("_", " ")}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </>
-            ) : (
-              <div className="detailEmpty">
-                <div className="detailIcon">▤</div>
-                <h2>Select a complaint</h2>
-                <p>Choose a complaint from the list to inspect it and manage its lifecycle status.</p>
-              </div>
-            )}
-          </aside>
-        </div>
+                    <div className="statusEditor compactStatus"><label>Update complaint status</label><div className="statusButtons">{statuses.filter((x) => x !== "all").map((status) => <button key={status} className={selected.status === status ? "statusButton current" : "statusButton"} onClick={() => updateStatus(status)}>{status.replace("_", " ")}</button>)}</div></div>
+                  </>
+                ) : <div className="detailEmpty"><div className="detailIcon">▤</div><h2>Select a complaint</h2><p>Choose a complaint from the table to inspect and manage it.</p></div>}
+              </aside>
+            </div>
+          </>
+        )}
       </section>
     </main>
   );
