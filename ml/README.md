@@ -86,11 +86,14 @@ The API call sends only the title and description. Evidence images are uploaded 
 
 ## Evaluate and test
 
-From `services/api`:
+Install the API package from `services/api`, then run the training report from the repository root:
 
 ```powershell
-python -m app.ml.train_models
-pytest
+cd services/api
+python -m pip install -e ".[test]"
+cd ../..
+python -m ml.train_models
+python -m pytest services/api/tests
 ```
 
 Evaluation reports accuracy and macro-F1, plus train/test sample counts and model versions. Review per-class errors before changing thresholds or presenting metrics.
