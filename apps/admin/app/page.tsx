@@ -359,15 +359,15 @@ export default function AdminPage() {
   return (
     <main className="shell">
       <aside className="sidebar">
-        <div className="brand"><span className="brandMark">✓</span><span>GrievX</span></div>
+        <div className="brand"><span className="brandMark"><Icon name="check" size={25} /></span><span>GrievX</span></div>
         <div className="brandSub">CAMPUS</div>
         <nav>
-          <button className={!showStaffManager ? "navActive" : ""} onClick={() => setShowStaffManager(false)}><span>⌂</span>Overview</button>
-          <button onClick={() => { setShowStaffManager(false); setFilter("all"); }}><span>▤</span>Complaints</button>
-          <button className={showStaffManager ? "navActive" : ""} onClick={() => setShowStaffManager(true)}><span>♧</span>Departments &amp; Staff</button>
-          <button onClick={() => { setShowStaffManager(false); setMessage("ML uses TF-IDF and Logistic Regression for category and priority. Department routing uses category mapping."); }}><span>✧</span>ML Insights</button>
-          <button onClick={() => { setShowStaffManager(false); setMessage("Analytics are calculated from live complaint records."); }}><span>▥</span>Analytics</button>
-          <button onClick={() => { setShowStaffManager(false); setMessage("Admin settings are managed through project configuration."); }}><span>⚙</span>Settings</button>
+          <button className={!showStaffManager ? "navActive" : ""} onClick={() => setShowStaffManager(false)}><Icon name="home" size={20} />Overview</button>
+          <button onClick={() => { setShowStaffManager(false); setFilter("all"); }}><Icon name="clipboard" size={20} />Complaints</button>
+          <button className={showStaffManager ? "navActive" : ""} onClick={() => setShowStaffManager(true)}><Icon name="users" size={20} />Departments &amp; Staff</button>
+          <button onClick={() => { setShowStaffManager(false); setMessage("ML uses TF-IDF and Logistic Regression for category and priority. Department routing uses category mapping."); }}><Icon name="sparkles" size={20} />ML Insights</button>
+          <button onClick={() => { setShowStaffManager(false); setMessage("Analytics are calculated from live complaint records."); }}><Icon name="chart" size={20} />Analytics</button>
+          <button onClick={() => { setShowStaffManager(false); setMessage("Admin settings are managed through project configuration."); }}><Icon name="settings" size={20} />Settings</button>
         </nav>
         <div className="sidebarArtwork" aria-hidden="true"><div className="campusBuilding"><span>⚑</span><b>▱</b><i>▥</i></div></div>
         <div className="sideBottom">
@@ -383,8 +383,8 @@ export default function AdminPage() {
             <p>{showStaffManager ? "Manage staff profiles and automatic assignment rules." : "Review, assign and update student complaints from one place."}</p>
           </div>
           <div className="topActions">
-            <div className="globalSearch"><span>⌕</span><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search complaints, students, departments..." /></div>
-            <button className="iconButton" aria-label="Notifications" onClick={() => setMessage("You are viewing the latest complaint records.")}>♧<i /></button>
+            <div className="globalSearch"><Icon name="search" size={19} /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search complaints, students, departments..." /></div>
+            <button className="iconButton" aria-label="Notifications" onClick={() => setMessage("You are viewing the latest complaint records.")}><Icon name="bell" size={22} /><i /></button>
             <div className="adminTop"><span className="avatar">A</span><b>Admin</b><button onClick={logout} aria-label="Sign out">⌄</button></div>
           </div>
         </header>
@@ -430,10 +430,10 @@ export default function AdminPage() {
         ) : (
           <>
             <div className="stats">
-              <Stat icon="▤" tone="blue" label="Total complaints" value={counts.total} />
-              <Stat icon="＋" tone="green" label="New submissions" value={counts.submitted} />
-              <Stat icon="↻" tone="blue" label="Active" value={counts.active} />
-              <Stat icon="✓" tone="green" label="Resolved" value={counts.resolved} />
+              <Stat icon="clipboard" tone="blue" label="Total complaints" value={counts.total} />
+              <Stat icon="plus" tone="green" label="New submissions" value={counts.submitted} />
+              <Stat icon="refresh" tone="blue" label="Active" value={counts.active} />
+              <Stat icon="check" tone="green" label="Resolved" value={counts.resolved} />
             </div>
 
             <div className="dashboardGrid">
@@ -447,7 +447,7 @@ export default function AdminPage() {
                         const department = departments.find((d) => d.id === item.department_id);
                         const assigned = staff.find((person) => person.id === item.assigned_staff_id);
                         return <button key={item.id} className={selected?.id === item.id ? "tableRow selected" : "tableRow"} onClick={() => setSelected(item)}>
-                          <span className="complaintTitle"><i>{item.category?.toLowerCase().includes("network") ? "⌁" : item.category?.toLowerCase().includes("plumb") ? "♨" : "▣"}</i><b>{item.title}</b></span>
+                          <span className="complaintTitle"><i><Icon name={item.category?.toLowerCase().includes("network") ? "wifi" : item.category?.toLowerCase().includes("plumb") ? "droplet" : "file"} size={18} /></i><b>{item.title}</b></span>
                           <span>{item.category ?? "Unclassified"}</span>
                           <span>{department?.name ?? "Pending"}</span>
                           <span><em className={`priorityPill priority-${item.priority ?? "normal"}`}>{item.priority ?? "normal"}</em></span>
@@ -473,7 +473,7 @@ export default function AdminPage() {
               </div>
 
               <aside className="detailPanel">
-                <div className="detailPanelTitle"><span>▤</span><h2>Complaint Details</h2></div>
+                <div className="detailPanelTitle"><span><Icon name="file" size={22} /></span><h2>Complaint Details</h2></div>
                 {selected ? (
                   <>
                     <div className="selectedComplaint">
@@ -488,7 +488,7 @@ export default function AdminPage() {
                     </div>
 
                     <section className="automaticCard">
-                      <div className="automaticHeading"><h3><span>⚙</span>Automatic assignment</h3><span className={selected.category && selected.department_source !== "manual_review" ? "readyBadge" : "reviewBadge"}>{selected.category && selected.department_source !== "manual_review" ? "ML result saved" : "Review needed"}</span></div>
+                      <div className="automaticHeading"><h3><span><Icon name="settings" size={21} /></span>Automatic assignment</h3><span className={selected.category && selected.department_source !== "manual_review" ? "readyBadge" : "reviewBadge"}>{selected.category && selected.department_source !== "manual_review" ? "ML result saved" : "Review needed"}</span></div>
                       <div className="assignmentSteps">
                         <div><span>◎ &nbsp; Predicted category:</span><b>{selected.category ?? "Pending"}</b><i>{selected.category_confidence != null ? Math.round(selected.category_confidence * 100) + "%" : "—"}</i></div>
                         <div><span>♜ &nbsp; Department:</span><b>{departments.find((d) => d.id === selected.department_id)?.name ?? "Needs review"}</b><i>{selected.department_confidence != null ? Math.round(selected.department_confidence * 100) + "%" : "—"}</i></div>
@@ -514,7 +514,7 @@ export default function AdminPage() {
                     </div>
                     <div className="statusEditor compactStatus"><label>Update complaint status</label><div className="statusButtons">{statuses.filter((x) => x !== "all").map((status) => <button key={status} className={selected.status === status ? "statusButton current" : "statusButton"} onClick={() => updateStatus(status)}>{status.replace("_", " ")}</button>)}</div></div>
                   </>
-                ) : <div className="detailEmpty"><div className="detailIcon">▤</div><h2>Select a complaint</h2><p>Choose a complaint from the table to inspect and manage it.</p></div>}
+                ) : <div className="detailEmpty"><div className="detailIcon"><Icon name="file" size={25} /></div><h2>Select a complaint</h2><p>Choose a complaint from the table to inspect and manage it.</p></div>}
               </aside>
             </div>
           </>
@@ -563,8 +563,38 @@ function Login({ email, onSignedIn }: { email: string; onSignedIn: () => void })
   );
 }
 
+
+function Icon({ name, size = 20 }: { name: string; size?: number }) {
+  const paths: Record<string, string> = {
+    check: "M5 12.5 9.5 17 19 7",
+    home: "M3 10.5 12 3l9 7.5M5.5 9.5V21h13V9.5M9 21v-7h6v7",
+    clipboard: "M8 4.5h8M9 3h6v3H9zM6 5H4v16h16V5h-2M8 10h8M8 14h8M8 18h5",
+    users: "M16 20v-1.5a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4V20M9.5 10.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7ZM17 4a3.5 3.5 0 0 1 0 6.8M17 14.5a4 4 0 0 1 4 4V20",
+    sparkles: "m12 3 1.5 5.5L19 10l-5.5 1.5L12 17l-1.5-5.5L5 10l5.5-1.5L12 3ZM19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8L19 16ZM5 2l.7 2.3L8 5l-2.3.7L5 8l-.7-2.3L2 5l2.3-.7L5 2Z",
+    chart: "M4 20V12M10 20V4M16 20v-9M22 20H2",
+    settings: "M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7ZM19.4 13.5l1.2 1-.0 2-1.7 1-1.6-.5-1.3.8-.3 1.7h-3.4l-.3-1.7-1.3-.8-1.6.5-1.7-1v-2l1.2-1v-1.5l-1.2-1v-2l1.7-1 1.6.5 1.3-.8.3-1.7h3.4l.3 1.7 1.3.8 1.6-.5 1.7 1v2l-1.2 1v1.5Z",
+    search: "m20 20-4.5-4.5M17 10.5a6.5 6.5 0 1 1-13 0 6.5 6.5 0 0 1 13 0Z",
+    bell: "M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9ZM10 21h4",
+    plus: "M12 5v14M5 12h14",
+    refresh: "M20 7v5h-5M4 17v-5h5M5.5 9a7 7 0 0 1 12-2L20 12M4 12l2.5 5a7 7 0 0 0 12-2",
+    file: "M6 3h8l5 5v13H6zM14 3v5h5M9 12h7M9 16h7",
+    wifi: "M3 9a14 14 0 0 1 18 0M6 12a9 9 0 0 1 12 0M9 15a4 4 0 0 1 6 0M12 19h.01",
+    droplet: "M12 3C9 7 6 10 6 14a6 6 0 0 0 12 0c0-4-3-7-6-11Z",
+    layers: "m12 3 9 5-9 5-9-5 9-5ZM3 13l9 5 9-5M3 18l9 5 9-5",
+    target: "M12 3v3M12 18v3M3 12h3M18 12h3M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10ZM12 10v4M10 12h4",
+    building: "M4 21V8l8-5 8 5v13M2 21h20M8 11h2M14 11h2M8 15h2M14 15h2M10 21v-3h4v3",
+    flag: "M5 21V4m0 1c5-4 9 4 14 0v10c-5 4-9-4-14 0",
+    edit: "m4 16-.8 4.8L8 20l11-11-4-4L4 16ZM13.5 6.5l4 4",
+    user: "M20 21a8 8 0 0 0-16 0M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z",
+    pin: "M19 10c0 5-7 11-7 11S5 15 5 10a7 7 0 1 1 14 0ZM12 10h.01",
+    calendar: "M5 4v3M19 4v3M4 8h16M5 5h14a1 1 0 0 1 1 1v14H4V6a1 1 0 0 1 1-1ZM8 12h2M14 12h2M8 16h2",
+    projector: "M3 5h18v12H3zM8 21l4-4 4 4M9 9h6M9 13h3"
+  };
+  return <svg className="lineIcon" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={paths[name] ?? paths.file} /></svg>;
+}
+
 function Stat({ icon, tone, label, value }: { icon: string; tone: "blue" | "green"; label: string; value: number }) {
-  return <div className="statCard"><span className={`statIcon ${tone}`}>{icon}</span><div><span className="statLabel">{label}</span><strong>{value}</strong></div></div>;
+  return <div className="statCard"><span className={`statIcon ${tone}`}><Icon name={icon} size={34} /></span><div><span className="statLabel">{label}</span><strong>{value}</strong></div></div>;
 }
 
 function Status({ status }: { status: Complaint["status"] }) {
