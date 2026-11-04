@@ -42,6 +42,16 @@ def ml_health() -> dict:
     }
 
 
+@router.get("/metrics")
+def ml_metrics() -> dict:
+    return {
+        "dataset": DATASET_VERSION,
+        "category": get_text_classifier().evaluate(),
+        "priority": get_priority_predictor().evaluate(),
+        "note": "Metrics use the small curated demo dataset and are not production accuracy guarantees.",
+    }
+
+
 @router.post("/classify")
 def classify_complaint(payload: ComplaintTextRequest) -> dict:
     result = get_text_classifier().predict(payload.title, payload.description)
