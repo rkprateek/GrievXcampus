@@ -336,3 +336,44 @@ html,body { background:#f4f7fd; color:#101a38; font-family:Arial,Helvetica,sans-
   .workloadRow > strong { text-align:left; }
   .overrideControls { grid-template-columns:1fr; }
 }
+
+
+/* Refined outline iconography and precise responsive alignment */
+.lineIcon { display:block; flex:0 0 auto; color:currentColor; }
+.sidebar nav button { gap:15px; }
+.sidebar nav button .lineIcon { width:21px; min-width:21px; opacity:.96; }
+.brandMark .lineIcon { stroke-width:2.5; }
+.globalSearch { flex:0 1 395px; min-width:220px; }
+.globalSearch .lineIcon { color:#344769; }
+.iconButton { display:grid; place-items:center; width:34px; height:38px; padding:0; }
+.statIcon { display:grid; place-items:center; }
+.statIcon .lineIcon { width:34px; height:34px; stroke-width:1.8; }
+.complaintTable { min-width:0; width:100%; }
+.tableHead,.tableRow { grid-template-columns:minmax(145px,1.55fr) minmax(74px,.78fr) minmax(78px,.82fr) minmax(58px,.58fr) minmax(76px,.78fr) minmax(84px,.9fr) minmax(78px,.76fr); gap:7px; }
+.tableHead { padding-left:13px; padding-right:13px; font-size:10px; }
+.tableRow { padding-left:13px; padding-right:13px; font-size:10px; }
+.tableRow > span { min-width:0; overflow-wrap:anywhere; }
+.complaintTitle { gap:8px; }
+.complaintTitle i { display:grid; place-items:center; width:20px; flex:0 0 20px; }
+.dashboardGrid { grid-template-columns:minmax(0,1.42fr) minmax(390px,.95fr); align-items:stretch; }
+.leftColumn { min-width:0; }
+.detailPanel { min-width:0; }
+.workloadRow { grid-template-columns:minmax(115px,165px) minmax(80px,1fr) minmax(104px,120px); }
+.assignmentSteps > div { grid-template-columns:minmax(125px,1.05fr) minmax(90px,1fr) 38px; }
+.metaLine { flex-wrap:wrap; }
+@media (max-width:1450px) {
+  .dashboardGrid { grid-template-columns:minmax(0,1.3fr) minmax(365px,.95fr); }
+  .tableHead,.tableRow { grid-template-columns:minmax(130px,1.4fr) minmax(66px,.72fr) minmax(70px,.76fr) minmax(54px,.55fr) minmax(70px,.72fr) minmax(76px,.82fr) minmax(74px,.72fr); gap:5px; }
+  .tableHead { font-size:9px; }
+  .tableRow { font-size:9px; }
+  .workloadRow { grid-template-columns:115px minmax(60px,1fr) 105px; gap:9px; }
+}
+@media (max-width:1120px) {
+  .dashboardGrid { grid-template-columns:1fr; }
+  .tableScroll { overflow-x:auto; }
+  .complaintTable { min-width:740px; }
+}
+@media (max-width:700px) {
+  .tableHead,.tableRow { grid-template-columns:1.5fr .8fr .8fr .6fr .8fr .9fr .8fr; }
+  .complaintTable { min-width:740px; }
+}
