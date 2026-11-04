@@ -58,21 +58,58 @@ export type MLWorkflowResult = {
   };
 };
 
-async function runMLWorkflow(title: string, description: string): Promise<MLWorkflowResult | null> {
-  const baseUrl = process.env.EXPO_PUBLIC_GRIEVX_API_URL?.trim().replace(/\/$/, "");
-  if (!baseUrl) return null;
+type MLWorkflowOutcome = {
+  result: MLWorkflowResult | null;
+  message: string;
+};
 
+function isMLWorkflowResult(value: unknown): value is MLWorkflowResult {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Partial<MLWorkflowResult>;
+  return !!candidate.category
+    && typeof candidate.category.category === "string"
+    && typeof candidate.category.confidence === "number"
+    && typeof candidate.category.model_version === "string"
+    && !!candidate.priority
+    && ["normal", "high", "critical"].includes(candidate.priority.priority)
+    && typeof candidate.priority.confidence === "number"
+    && typeof candidate.priority.model_version === "string"
+    && !!candidate.routing
+    && typeof candidate.routing.department_code === "string"
+    && typeof candidate.routing.routing_confidence === "number"
+    && typeof candidate.routing.requires_manual_review === "boolean";
+}
+
+async function runMLWorkflow(title: string, description: string): Promise<MLWorkflowOutcome> {
+  const baseUrl = process.env.EXPO_PUBLIC_GRIEVX_API_URL?.trim().replace(/\/$/, "");
+  if (!baseUrl) {
+    return { result: null, message: "ML service URL is not configured. The complaint was saved for manual review." };
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 12000);
   try {
     const response = await fetch(`${baseUrl}/ml/predict`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ title, description }),
+      signal: controller.signal,
     });
-    if (!response.ok) return null;
-    return await response.json() as MLWorkflowResult;
-  } catch {
-    // Complaint submission must remain usable when the optional ML service is offline.
-    return null;
+    if (!response.ok) {
+      return { result: null, message: `ML service returned HTTP ${response.status}. The complaint was saved for manual review.` };
+    }
+    const payload: unknown = await response.json();
+    if (!isMLWorkflowResult(payload)) {
+      return { result: null, message: "ML service returned an unexpected response. The complaint was saved for manual review." };
+    }
+    return { result: payload, message: "ML predictions completed." };
+  } catch (error) {
+    const reason = error instanceof Error && error.name === "AbortError"
+      ? "ML service timed out"
+      : "ML service could not be reached";
+    return { result: null, message: `${reason}. The complaint was saved for manual review.` };
+  } finally {
+    clearTimeout(timeout);
   }
 }
 
@@ -188,38 +225,81 @@ export async function createComplaint(input: {
 
   if (error) throw new Error(error.message);
 
-  const ml = await runMLWorkflow(input.title, input.description);
-  if (ml) {
-    const { error: workflowError } = await supabase.rpc("apply_complaint_ml_predictions", {
-      p_complaint_id: data.id,
-      p_category: ml.category.category,
-      p_category_confidence: ml.category.confidence,
-      p_category_model_version: ml.category.model_version,
-      p_priority: ml.priority.priority,
-      p_priority_confidence: ml.priority.confidence,
-      p_priority_model_version: ml.priority.model_version,
-      p_priority_source: ml.priority.method,
-      p_department_code: ml.routing.department_code,
-      p_department_confidence: ml.routing.routing_confidence,
-      p_department_source: ml.routing.requires_manual_review
-        ? "manual_review"
-        : "department_routing",
-    });
-
-    if (!workflowError) {
-      return {
-        ...data,
-        category: ml.category.category,
-        category_confidence: ml.category.confidence,
-        priority: ml.priority.priority,
-        priority_confidence: ml.priority.confidence,
-      };
-    }
-
-    return data;
+  // Save the complaint first so an ML outage never loses a student's report.
+  const workflow = await runMLWorkflow(input.title, input.description);
+  const ml = workflow.result;
+  if (!ml) {
+    return { ...data, ml_status: "unavailable" as const, ml_message: workflow.message };
   }
 
-  return data;
+  const { error: workflowError } = await supabase.rpc("apply_complaint_ml_predictions", {
+    p_complaint_id: data.id,
+    p_category: ml.category.category,
+    p_category_confidence: ml.category.confidence,
+    p_category_model_version: ml.category.model_version,
+    p_priority: ml.priority.priority,
+    p_priority_confidence: ml.priority.confidence,
+    p_priority_model_version: ml.priority.model_version,
+    p_priority_source: ml.priority.method,
+    p_department_code: ml.routing.department_code,
+    p_department_confidence: ml.routing.routing_confidence,
+    p_department_source: ml.routing.requires_manual_review ? "manual_review" : "department_routing",
+  });
+
+  if (workflowError) {
+    return {
+      ...data,
+      category: ml.category.category,
+      category_confidence: ml.category.confidence,
+      priority: ml.priority.priority,
+      priority_confidence: ml.priority.confidence,
+      ml_status: "save_failed" as const,
+      ml_message: `Predictions were generated but could not be applied: ${workflowError.message}`,
+    };
+  }
+
+  const { data: department } = await supabase.from("departments")
+    .select("id, name")
+    .eq("code", ml.routing.department_code)
+    .maybeSingle();
+
+  const { error: historyError } = await supabase.from("complaint_ml_predictions").upsert({
+    complaint_id: data.id,
+    prediction_state: ml.routing.requires_manual_review ? "manual_review" : "completed",
+    category: ml.category.category,
+    category_confidence: ml.category.confidence,
+    priority: ml.priority.priority,
+    priority_confidence: ml.priority.confidence,
+    priority_method: ml.priority.method,
+    priority_explanation: ml.priority.explanation,
+    matched_rules: ml.priority.matched_rules,
+    department_id: department?.id ?? null,
+    department_name: ml.routing.department,
+    department_code: ml.routing.department_code,
+    routing_confidence: ml.routing.routing_confidence,
+    requires_manual_review: ml.routing.requires_manual_review,
+    review_reason: ml.routing.requires_manual_review ? ml.routing.reason : null,
+    category_model_version: ml.category.model_version,
+    priority_model_version: ml.priority.model_version,
+    routing_model_version: ml.routing.model_version,
+    prediction_source: "fastapi",
+    updated_at: new Date().toISOString(),
+  }, { onConflict: "complaint_id" });
+
+  const { data: updatedComplaint } = await supabase.from("complaints")
+    .select("id, student_id, title, description, location, status, category, category_confidence, priority, priority_confidence, department_id, assigned_staff_id, created_at, updated_at")
+    .eq("id", data.id)
+    .maybeSingle();
+
+  return {
+    ...(updatedComplaint ?? data),
+    ml_status: historyError ? "history_failed" as const : "applied" as const,
+    ml_message: historyError
+      ? `Predictions were applied, but prediction history could not be saved: ${historyError.message}`
+      : ml.routing.requires_manual_review
+        ? "Category and priority predicted. Department needs admin review because model confidence is low."
+        : "Category, priority and department predicted successfully. Staff assignment depends on configured staff availability.",
+  };
 }
 
 export async function getComplaints() {
