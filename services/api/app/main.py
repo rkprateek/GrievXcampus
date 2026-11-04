@@ -16,7 +16,15 @@ app = FastAPI(
     description="GrievX Campus backend API.",
 )
 
-app.add_middleware(\n    CORSMiddleware,\n    allow_origins=settings.cors_origins,\n    allow_credentials=False,\n    allow_methods=["GET", "POST", "OPTIONS"],\n    allow_headers=["Content-Type"],\n)\n\nregister_exception_handlers(app)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.cors_origins,
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Content-Type"],
+)
+
+register_exception_handlers(app)
 app.include_router(health_router)
 app.include_router(auth_router)
 app.include_router(complaints_router)
