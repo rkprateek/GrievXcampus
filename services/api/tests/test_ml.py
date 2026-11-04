@@ -16,6 +16,16 @@ def test_ml_health_reports_loaded_models_and_dataset() -> None:
     assert "priority" in payload["models"]
 
 
+def test_ml_metrics_endpoint_reports_seed_evaluation() -> None:
+    response = TestClient(app).get("/ml/metrics")
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["dataset"] == "complaints-seed-v1"
+    assert 0 <= payload["category"]["accuracy"] <= 1
+    assert 0 <= payload["priority"]["macro_f1"] <= 1
+    assert "not production" in payload["note"]
+
+
 def test_text_classification_endpoint() -> None:
     response = TestClient(app).post(
         "/ml/classify",
