@@ -352,7 +352,7 @@ function Report({back,done}:{back:()=>void;done:()=>void}){const [title,setTitle
    const input={title:title.trim(),description:description.trim(),location:location.trim()};
    let duplicates: Awaited<ReturnType<typeof findPossibleDuplicates>> = [];
    try { duplicates = await findPossibleDuplicates(input); } catch {}
-   const proceed=async()=>{const c=await createComplaint(input);if(image)await uploadComplaintImage(c.id,image.uri,image.fileName??"evidence.jpg",image.mimeType??"image/jpeg");Alert.alert("Complaint submitted","Your complaint was submitted successfully.",[{text:"View complaints",onPress:done}])};
+   const proceed=async()=>{const c=await createComplaint(input);if(image)await uploadComplaintImage(c.id,image.uri,image.fileName??"evidence.jpg",image.mimeType??"image/jpeg");const detail=c.ml_status==="applied"?"ML category, priority and department predictions were saved.":c.ml_status==="history_failed"?"Predictions were applied, but prediction history could not be saved.":c.ml_status==="save_failed"?"The complaint was saved, but ML predictions could not be applied.": "The complaint was saved. ML is unavailable, so it needs manual review.";Alert.alert("Complaint submitted",detail+"\n\n"+(c.ml_message??""),[{text:"View complaints",onPress:done}])};
    if(duplicates.length){
      const top=duplicates.slice(0,3).map((d,i)=>`${i+1}. ${d.title} · ${d.location} · ${Math.round(d.similarity_score*100)}% similar`).join("\n");
      Alert.alert("Possible duplicate found","A recent complaint may describe the same issue:\n\n"+top+"\n\nReview it before submitting another report.",[
