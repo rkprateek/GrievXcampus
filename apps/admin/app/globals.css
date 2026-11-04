@@ -120,3 +120,53 @@ h1 { margin: 6px 0 6px; font-size: 30px; }
 .mlGrid span { color: #7a8291; font-size: 9px; text-transform: uppercase; letter-spacing: .5px; }
 .mlGrid b { color: #2f3749; font-size: 11px; }
 .mlReason { margin: 0; color: #6f7381; font-size: 11px; line-height: 17px; }
+
+
+/* GrievX Campus refreshed admin workspace */
+.sidebar { width: 258px; padding: 28px 16px; background: linear-gradient(180deg,#071943 0%,#0a2055 100%); }
+.brand { font-size: 27px; letter-spacing: -.5px; }
+.brandSub { margin-bottom: 34px; }
+.sidebar nav button { min-height: 46px; font-size: 14px; }
+.sidebar nav button.navActive { background: linear-gradient(100deg,#1557c9,#0e45a6); box-shadow: 0 7px 18px rgba(0,0,0,.12); }
+.content { padding: 30px 30px 40px; background: #f5f7fc; }
+.topbar { align-items: center; }
+.topbar h1 { font-size: clamp(25px,3vw,34px); letter-spacing: -.7px; }
+.stats { gap: 15px; }
+.statCard { min-height: 104px; border-radius: 14px; box-shadow: 0 2px 9px rgba(17,34,68,.025); }
+.statCard strong { color: #0b1c49; font-size: 32px; }
+.workspace { grid-template-columns: minmax(0,1.25fr) minmax(350px,.85fr); gap: 18px; }
+.listPanel,.detailPanel { border-color: #dfe5f1; border-radius: 15px; box-shadow: 0 5px 18px rgba(20,40,80,.035); }
+.listToolbar { padding: 16px; background: #fff; }
+.filters { gap: 7px; }
+.filter { padding: 8px 12px; font-size: 11px; }
+.complaintRow { padding: 17px 16px; align-items: center; }
+.complaintRow.selected { background: #edf4ff; box-shadow: inset 3px 0 #1764df; }
+.rowMain { gap: 8px; }
+.rowMain strong { font-size: 14px; color: #111c38; }
+.detailPanel { padding: 21px 22px; }
+.detailHeader { align-items: center; }
+.detailHeader h2 { line-height: 1.25; }
+.detailSection { padding: 13px 0; }
+.detailSection label,.statusEditor label { color: #67738a; font-size: 10px; }
+.mlCard { background: linear-gradient(145deg,#f7faff,#fff); border-color: #cbdaf7; padding: 14px; }
+.assignmentSteps { display: grid; gap: 0; }
+.assignmentSteps > div { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 9px 0; border-bottom: 1px solid #e7edf7; }
+.assignmentSteps > div:last-child { border-bottom: 0; }
+.assignmentSteps span { color: #66738b; font-size: 11px; }
+.assignmentSteps b { color: #15213b; font-size: 12px; text-align: right; }
+.mlReason { line-height: 1.55; padding-top: 7px; }
+.departmentSelect:focus,.listToolbar input:focus { border-color: #4d83e8; box-shadow: 0 0 0 3px rgba(28,99,220,.1); }
+.statusButton:hover,.filter:hover { border-color: #7ba5ef; }
+@media (max-width: 1100px) {
+  .workspace { grid-template-columns: 1fr; }
+  .detailPanel { min-height: 0; }
+}
+@media (max-width: 700px) {
+  .sidebar { width: 100%; padding: 15px 12px; }
+  .sidebar nav { gap: 4px; }
+  .sidebar nav button { padding: 10px 12px; min-height: 40px; }
+  .content { padding: 18px 12px 28px; }
+  .stats { gap: 9px; }
+  .statCard { padding: 13px; min-height: 86px; }
+  .topActions { flex-wrap: wrap; }
+}
