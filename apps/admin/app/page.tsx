@@ -31,6 +31,7 @@ const statuses = ["all", "submitted", "assigned", "in_progress", "resolved", "cl
 const priorities = ["normal", "high", "critical"] as const;
 type Department = { id: string; name: string; code: string };
 type StaffMember = { id: string; name: string | null; email: string; role: string };
+type StaffDirectoryEntry = { staff_id: string; department_id: string; skills: string[]; is_available: boolean; max_active_assignments: number };
 
 export default function AdminPage() {
   const [sessionReady, setSessionReady] = useState(false);
@@ -44,6 +45,7 @@ export default function AdminPage() {
   const [message, setMessage] = useState("");
   const [departments, setDepartments] = useState<Department[]>([]);
   const [staff, setStaff] = useState<StaffMember[]>([]);
+  const [staffDirectory, setStaffDirectory] = useState<StaffDirectoryEntry[]>([]);
 
   useEffect(() => {
     const boot = async () => {
@@ -93,6 +95,9 @@ export default function AdminPage() {
       return;
     }
     setStaff(data ?? []);
+    const { data: directory, error: directoryError } = await supabase.from("staff_directory").select("staff_id, department_id, skills, is_available, max_active_assignments");
+    if (directoryError) { setMessage(directoryError.message); return; }
+    setStaffDirectory(directory ?? []);
   };
 
   const loadDepartments = async () => {
@@ -310,10 +315,12 @@ export default function AdminPage() {
         <div className="brand"><span className="brandMark">✓</span><span>GrievX</span></div>
         <div className="brandSub">CAMPUS ADMIN</div>
         <nav>
-          <button className="navActive">Dashboard</button>
+          <button className="navActive">Overview</button>
           <button onClick={() => setFilter("all")}>Complaints</button>
-          <button onClick={() => setMessage("Analytics is not available in this build yet. Complaint totals are shown above.")}>Analytics · Coming soon</button>
-          <button onClick={() => setMessage(departments.length ? `${departments.length} departments are available for assignment in complaint details.` : "No departments are configured yet. Add department records in Supabase before assigning complaints.")}>Departments</button>
+          <button onClick={() => setMessage("Configure staff department, skills and availability in the Staff Directory before enabling automatic assignment.")}>Departments & Staff</button>
+          <button onClick={() => setMessage("ML uses TF-IDF and Logistic Regression for category and priority; department routing uses category mapping.")}>ML Insights</button>
+          <button onClick={() => setMessage("Analytics are calculated from live complaints. Dedicated charts are planned next.")}>Analytics</button>
+          <button onClick={() => setMessage("Admin settings are managed through project configuration.")}>Settings</button>
         </nav>
         <div className="sideBottom">
           <div className="adminMini"><span className="avatar">A</span><span><b>Administrator</b><small>{userEmail}</small></span></div>
@@ -326,7 +333,7 @@ export default function AdminPage() {
           <div>
             <span className="eyebrow">GRIEVX CAMPUS</span>
             <h1>Complaint Management</h1>
-            <p>Review, assign and update student complaints from one place.</p>
+            <p>Review complaints and manage automatic campus issue routing.</p>
           </div>
           <div className="topActions">
             <span className="secure">● Admin access</span>
@@ -463,6 +470,25 @@ export default function AdminPage() {
                   ) : (
                     <span>No ML triage result is stored for this complaint. Review manually.</span>
                   )}
+                </div>
+
+                <div className="detailSection">
+                  <label>Automatic assignment</label>
+                  <div className="mlCard">
+                    <div className="mlHeader">
+                      <strong>{selected.assigned_staff_id ? "Staff assigned" : "Awaiting staff match"}</strong>
+                      <span className={selected.department_source === "manual_review" || !selected.category ? "reviewBadge" : "readyBadge"}>
+                        {selected.department_source === "manual_review" || !selected.category ? "Admin review" : "ML triage saved"}
+                      </span>
+                    </div>
+                    <div className="assignmentSteps">
+                      <div><span>Predicted category</span><b>{selected.category ?? "Pending prediction"}</b></div>
+                      <div><span>Department</span><b>{departments.find((d) => d.id === selected.department_id)?.name ?? "Needs review"}</b></div>
+                      <div><span>Priority</span><b>{selected.priority ?? "normal"}</b></div>
+                      <div><span>Assigned staff</span><b>{staff.find((member) => member.id === selected.assigned_staff_id)?.name ?? (selected.assigned_staff_id ? "Assigned staff" : "No eligible staff configured")}</b></div>
+                    </div>
+                    <p className="mlReason">Staff matching uses department, configured skills, availability and active workload. Evidence remains visible to admins and is not analyzed by ML.</p>
+                  </div>
                 </div>
 
                 <div className="detailSection">
