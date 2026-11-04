@@ -183,5 +183,5 @@ $$;
 
 revoke all on function public.apply_complaint_ml_predictions(uuid,text,numeric,text,text,numeric,text,text,text,numeric,text)
   from public, anon;
-grant execute on function public.apply_complaint_ml_predictions(uuid,text,numeric,text,text,text,numeric,text,text,numeric,text)
+grant execute on function public.apply_complaint_ml_predictions(uuid,text,numeric,text,text,numeric,text,text,text,numeric,text)
   to authenticated;
