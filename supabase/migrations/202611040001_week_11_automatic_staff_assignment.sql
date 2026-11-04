@@ -139,8 +139,9 @@ begin
     case when exists (
       select 1
       from unnest(sd.skills) skill
-      where lower(trim(skill)) = lower(trim(coalesce(p_category, '')))
-         or lower(trim(skill)) = lower(trim(coalesce(p_department_code, '')))
+      where position(lower(trim(skill)) in lower(coalesce(p_category, ''))) > 0
+         or position(lower(trim(skill)) in lower(coalesce(p_department_code, ''))) > 0
+         or position(lower(trim(p_category)) in lower(trim(skill))) > 0
     ) then 0 else 1 end,
     coalesce((
       select count(*)::integer
