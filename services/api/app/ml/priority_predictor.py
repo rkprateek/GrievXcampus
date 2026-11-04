@@ -23,7 +23,7 @@ CRITICAL_RULES: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("transport_safety", ("brake problem", "brake failure", "serious brake", "transport safety")),
     ("structural_hazard", ("collapsed", "shattered", "emergency evacuation", "dangerous obstacle")),
 )
-_NEGATION = re.compile(r"\\b(?:no|not|never|without|isn't|aren't|wasn't|weren't|doesn't|don't|didn't)\\b(?:\\W+\\w+){0,3}\\W*$", re.IGNORECASE)
+_NEGATION = re.compile(r"\b(?:no|not|never|without|isn't|aren't|wasn't|weren't|doesn't|don't|didn't)\b(?:\W+\w+){0,3}\W*$", re.IGNORECASE)
 
 
 def _dataset_path() -> Path:
@@ -87,7 +87,7 @@ class PriorityPredictor:
         matched: list[str] = []
         for rule_name, phrases in CRITICAL_RULES:
             for phrase in phrases:
-                for match in re.finditer(r"(?<!\\w)" + re.escape(phrase) + r"(?!\\w)", normalized):
+                for match in re.finditer(r"(?<!\w)" + re.escape(phrase) + r"(?!\w)", normalized):
                     prefix = normalized[max(0, match.start() - 48):match.start()]
                     if _NEGATION.search(prefix):
                         continue
