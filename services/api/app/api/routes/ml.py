@@ -1,7 +1,6 @@
 from fastapi import APIRouter
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from app.ml.priority_predictor import DATASET_VERSION as PRIORITY_DATASET_VERSION
 from app.ml.priority_predictor import MODEL_VERSION as PRIORITY_MODEL_VERSION
 from app.ml.priority_predictor import get_priority_predictor
 from app.ml.department_router import ROUTER_VERSION, get_department_router
