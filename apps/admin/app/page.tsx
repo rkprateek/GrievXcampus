@@ -417,8 +417,8 @@ export default function AdminPage() {
           <button onClick={() => { setShowStaffManager(false); setShowMLInsights(false); setFilter("all"); }}><Icon name="clipboard" size={20} />Complaints</button>
           <button className={showStaffManager ? "navActive" : ""} onClick={() => { setShowStaffManager(true); setShowMLInsights(false); }}><Icon name="users" size={20} />Departments &amp; Staff</button>
           <button className={showMLInsights ? "navActive" : ""} onClick={() => { setShowStaffManager(false); setShowMLInsights(true); void refreshMLInsights(); }}><Icon name="sparkles" size={20} />ML Insights</button>
-          <button onClick={() => { setShowStaffManager(false); setMessage("Analytics are calculated from live complaint records."); }}><Icon name="chart" size={20} />Analytics</button>
-          <button onClick={() => { setShowStaffManager(false); setMessage("Admin settings are managed through project configuration."); }}><Icon name="settings" size={20} />Settings</button>
+          <button onClick={() => { setShowStaffManager(false); setShowMLInsights(false); setMessage("Analytics are calculated from live complaint records."); }}><Icon name="chart" size={20} />Analytics</button>
+          <button onClick={() => { setShowStaffManager(false); setShowMLInsights(false); setMessage("Admin settings are managed through project configuration."); }}><Icon name="settings" size={20} />Settings</button>
         </nav>
         <div className="sidebarArtwork" aria-hidden="true"><div className="campusBuilding"><span>⚑</span><b>▱</b><i>▥</i></div></div>
         <div className="sideBottom">
