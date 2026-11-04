@@ -195,3 +195,6 @@ h1 { margin: 6px 0 6px; font-size: 30px; }
  .staffManagerHeading { display:grid; }
  .staffDirectoryRow { flex-wrap:wrap; }
 }
+
+.rowTags { display:flex; flex-wrap:wrap; gap:6px; margin-top:2px; }
+.rowTags span { display:inline-flex; align-items:center; border-radius:999px; padding:4px 8px; background:#f0f4fb; color:#50617d; font-size:10px; }
