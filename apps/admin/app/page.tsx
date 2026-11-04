@@ -32,6 +32,16 @@ const priorities = ["normal", "high", "critical"] as const;
 type Department = { id: string; name: string; code: string };
 type StaffMember = { id: string; name: string | null; email: string; role: string };
 type StaffDirectoryEntry = { staff_id: string; department_id: string; skills: string[]; is_available: boolean; max_active_assignments: number };
+type MLPredictionRecord = {
+  id: string; complaint_id: string; prediction_state: string;
+  category: string | null; category_confidence: number | null;
+  priority: string | null; priority_confidence: number | null;
+  department_name: string | null; requires_manual_review: boolean;
+  created_at: string;
+};
+type MLHealth = { status: string; training_samples?: number; dataset?: string; models?: Record<string, string>; error?: string };
+type MLMetrics = { category?: { accuracy: number; macro_f1: number }; priority?: { accuracy: number; macro_f1: number }; note?: string };
+
 
 export default function AdminPage() {
   const [sessionReady, setSessionReady] = useState(false);
@@ -47,6 +57,12 @@ export default function AdminPage() {
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [staffDirectory, setStaffDirectory] = useState<StaffDirectoryEntry[]>([]);
   const [showStaffManager, setShowStaffManager] = useState(false);
+  const [showMLInsights, setShowMLInsights] = useState(false);
+  const [mlPredictions, setMlPredictions] = useState<MLPredictionRecord[]>([]);
+  const [mlHealth, setMlHealth] = useState<MLHealth | null>(null);
+  const [mlMetrics, setMlMetrics] = useState<MLMetrics | null>(null);
+  const [mlLoading, setMlLoading] = useState(false);
+  const [mlError, setMlError] = useState("");
   const [staffUserId, setStaffUserId] = useState("");
   const [staffDepartmentId, setStaffDepartmentId] = useState("");
   const [staffSkills, setStaffSkills] = useState("");
@@ -105,6 +121,41 @@ export default function AdminPage() {
     const { data: directory, error: directoryError } = await supabase.from("staff_directory").select("staff_id, department_id, skills, is_available, max_active_assignments");
     if (directoryError) { setMessage(directoryError.message); return; }
     setStaffDirectory(directory ?? []);
+  };
+
+
+  const refreshMLInsights = async () => {
+    setMlLoading(true);
+    setMlError("");
+    const { data, error } = await supabase
+      .from("complaint_ml_predictions")
+      .select("id, complaint_id, prediction_state, category, category_confidence, priority, priority_confidence, department_name, requires_manual_review, created_at")
+      .order("created_at", { ascending: false })
+      .limit(100);
+    if (error) setMlError(`Could not load prediction history: ${error.message}`);
+    else setMlPredictions((data ?? []) as MLPredictionRecord[]);
+
+    const baseUrl = process.env.NEXT_PUBLIC_GRIEVX_API_URL?.trim().replace(/\/$/, "");
+    if (!baseUrl) {
+      setMlHealth({ status: "not_configured", error: "Set NEXT_PUBLIC_GRIEVX_API_URL in apps/admin/.env.local to check the live API." });
+      setMlMetrics(null);
+      setMlLoading(false);
+      return;
+    }
+    try {
+      const [healthResponse, metricsResponse] = await Promise.all([
+        fetch(`${baseUrl}/ml/health`), fetch(`${baseUrl}/ml/metrics`)
+      ]);
+      if (!healthResponse.ok || !metricsResponse.ok) throw new Error("ML API health or metrics request failed.");
+      const [health, metrics] = await Promise.all([healthResponse.json(), metricsResponse.json()]);
+      setMlHealth(health as MLHealth);
+      setMlMetrics(metrics as MLMetrics);
+    } catch (error) {
+      setMlHealth({ status: "unavailable", error: error instanceof Error ? error.message : "Unable to reach ML API." });
+      setMlMetrics(null);
+    } finally {
+      setMlLoading(false);
+    }
   };
 
   const loadDepartments = async () => {
@@ -362,10 +413,10 @@ export default function AdminPage() {
         <div className="brand"><span className="brandMark"><Icon name="check" size={25} /></span><span>GrievX</span></div>
         <div className="brandSub">CAMPUS</div>
         <nav>
-          <button className={!showStaffManager ? "navActive" : ""} onClick={() => setShowStaffManager(false)}><Icon name="home" size={20} />Overview</button>
-          <button onClick={() => { setShowStaffManager(false); setFilter("all"); }}><Icon name="clipboard" size={20} />Complaints</button>
-          <button className={showStaffManager ? "navActive" : ""} onClick={() => setShowStaffManager(true)}><Icon name="users" size={20} />Departments &amp; Staff</button>
-          <button onClick={() => { setShowStaffManager(false); setMessage("ML uses TF-IDF and Logistic Regression for category and priority. Department routing uses category mapping."); }}><Icon name="sparkles" size={20} />ML Insights</button>
+          <button className={!showStaffManager && !showMLInsights ? "navActive" : ""} onClick={() => { setShowStaffManager(false); setShowMLInsights(false); }}><Icon name="home" size={20} />Overview</button>
+          <button onClick={() => { setShowStaffManager(false); setShowMLInsights(false); setFilter("all"); }}><Icon name="clipboard" size={20} />Complaints</button>
+          <button className={showStaffManager ? "navActive" : ""} onClick={() => { setShowStaffManager(true); setShowMLInsights(false); }}><Icon name="users" size={20} />Departments &amp; Staff</button>
+          <button className={showMLInsights ? "navActive" : ""} onClick={() => { setShowStaffManager(false); setShowMLInsights(true); void refreshMLInsights(); }}><Icon name="sparkles" size={20} />ML Insights</button>
           <button onClick={() => { setShowStaffManager(false); setMessage("Analytics are calculated from live complaint records."); }}><Icon name="chart" size={20} />Analytics</button>
           <button onClick={() => { setShowStaffManager(false); setMessage("Admin settings are managed through project configuration."); }}><Icon name="settings" size={20} />Settings</button>
         </nav>
@@ -379,8 +430,8 @@ export default function AdminPage() {
       <section className="content">
         <header className="topbar">
           <div className="pageHeading">
-            <h1>{showStaffManager ? "Departments & Staff" : "Complaint Management"}</h1>
-            <p>{showStaffManager ? "Manage staff profiles and automatic assignment rules." : "Review, assign and update student complaints from one place."}</p>
+            <h1>{showStaffManager ? "Departments & Staff" : showMLInsights ? "ML Insights" : "Complaint Management"}</h1>
+            <p>{showStaffManager ? "Manage staff profiles and automatic assignment rules." : showMLInsights ? "Monitor model availability, prediction history and evaluation results." : "Review, assign and update student complaints from one place."}</p>
           </div>
           <div className="topActions">
             <div className="globalSearch"><Icon name="search" size={19} /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search complaints, students, departments..." /></div>
@@ -426,6 +477,51 @@ export default function AdminPage() {
                 return <div className="staffDirectoryRow" key={entry.staff_id}><div><strong>{member?.name || member?.email || "Staff account"}</strong><span>{department?.name ?? "Department unavailable"} · {(entry.skills ?? []).join(", ") || "No skills added"} · max {entry.max_active_assignments}</span></div><span className={entry.is_available ? "readyBadge" : "reviewBadge"}>{entry.is_available ? "Available" : "Unavailable"}</span><button className="removeStaffButton" onClick={() => removeStaffDirectory(entry.staff_id)}>Remove</button></div>;
               })}
             </div>
+          </section>
+        ) : showMLInsights ? (
+          <section className="mlInsights">
+            <div className="mlInsightsToolbar">
+              <div><span className="eyebrow">MODEL MONITORING</span><h2>ML service and prediction history</h2><p>Predictions use complaint title and description only. Evidence images are not analysed.</p></div>
+              <button className="refresh" onClick={() => void refreshMLInsights()} disabled={mlLoading}>{mlLoading ? "Refreshing..." : "Refresh ML status"}</button>
+            </div>
+            {mlError && <div className="error">{mlError}</div>}
+            <div className="stats">
+              <Stat icon="sparkles" tone="blue" label="Saved predictions" value={mlPredictions.length} />
+              <Stat icon="target" tone="green" label="Manual reviews" value={mlPredictions.filter((x) => x.requires_manual_review || x.prediction_state === "manual_review").length} />
+              <Stat icon="flag" tone="blue" label="Critical predictions" value={mlPredictions.filter((x) => x.priority === "critical").length} />
+              <Stat icon="check" tone="green" label="API online" value={mlHealth?.status === "ok" ? 1 : 0} />
+            </div>
+            <div className="mlInsightsGrid">
+              <section className="mlInsightCard">
+                <div className="panelHeading"><h2>ML service health</h2><span className={mlHealth?.status === "ok" ? "readyBadge" : "reviewBadge"}>{mlHealth?.status ?? "Not checked"}</span></div>
+                {mlHealth?.models ? <div className="mlModelList">
+                  <div><span>Category model</span><b>{mlHealth.models.category}</b></div>
+                  <div><span>Priority model</span><b>{mlHealth.models.priority}</b></div>
+                  <div><span>Department router</span><b>{mlHealth.models.department_router}</b></div>
+                  <div><span>Training examples</span><b>{mlHealth.training_samples ?? "—"} · {mlHealth.dataset}</b></div>
+                </div> : <p className="mutedText">{mlHealth?.error ?? "Refresh ML status to check the FastAPI service."}</p>}
+              </section>
+              <section className="mlInsightCard">
+                <div className="panelHeading"><h2>Seed dataset evaluation</h2></div>
+                {mlMetrics?.category && mlMetrics?.priority ? <div className="mlMetricGrid">
+                  <div><span>Category accuracy</span><b>{(mlMetrics.category.accuracy * 100).toFixed(1)}%</b><small>Macro F1 {(mlMetrics.category.macro_f1 * 100).toFixed(1)}%</small></div>
+                  <div><span>Priority accuracy</span><b>{(mlMetrics.priority.accuracy * 100).toFixed(1)}%</b><small>Macro F1 {(mlMetrics.priority.macro_f1 * 100).toFixed(1)}%</small></div>
+                </div> : <p className="mutedText">Evaluation metrics appear when the ML API is running and configured for the admin app.</p>}
+                <p className="mlCaveat">{mlMetrics?.note ?? "The dataset contains 54 curated demo examples. These metrics are not production accuracy guarantees."}</p>
+              </section>
+            </div>
+            <section className="mlInsightCard mlHistoryCard">
+              <div className="panelHeading"><h2>Recent prediction history</h2><span className="secure">{mlPredictions.length} records loaded</span></div>
+              {mlPredictions.length === 0 ? <div className="empty">No prediction records yet. Submit a complaint with the ML API configured to populate this history.</div> : <div className="mlHistoryTable">
+                <div className="mlHistoryHead"><span>Complaint</span><span>Category</span><span>Priority</span><span>Department</span><span>Confidence</span><span>State</span></div>
+                {mlPredictions.slice(0, 30).map((item) => <div className="mlHistoryRow" key={item.id}>
+                  <b>{complaints.find((x) => x.id === item.complaint_id)?.title ?? item.complaint_id.slice(0, 8)}</b>
+                  <span>{item.category ?? "—"}</span><span>{item.priority ?? "—"}</span><span>{item.department_name ?? "—"}</span>
+                  <span>{item.category_confidence == null ? "—" : `${Math.round(item.category_confidence * 100)}%`}</span>
+                  <span className={item.requires_manual_review ? "reviewBadge" : "readyBadge"}>{item.requires_manual_review ? "Manual review" : item.prediction_state}</span>
+                </div>)}
+              </div>}
+            </section>
           </section>
         ) : (
           <>
