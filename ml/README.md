@@ -64,9 +64,7 @@ Example request:
 
 ## Connect the Expo mobile app
 
-The mobile app reads this exact environment variable. For the admin dashboard, also set `NEXT_PUBLIC_GRIEVX_API_URL` to the same base URL in `apps/admin/.env.local` if you want the ML Insights page to check API health and evaluation metrics. The API enables CORS for the origins listed in `CORS_ORIGINS` (default local admin origin is `http://localhost:3000`).
-
-The mobile app reads this exact environment variable:
+Set the mobile app environment variable below. For the admin dashboard, also set `NEXT_PUBLIC_GRIEVX_API_URL` to the same base URL in `apps/admin/.env.local` if you want the ML Insights page to check API health and evaluation metrics. The API enables CORS for the origins listed in `CORS_ORIGINS` (default local admin origin is `http://localhost:3000`).
 
 ```env
 EXPO_PUBLIC_GRIEVX_API_URL=http://YOUR_COMPUTER_LAN_IP:8000
