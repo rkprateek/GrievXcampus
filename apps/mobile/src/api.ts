@@ -69,15 +69,26 @@ function isMLWorkflowResult(value: unknown): value is MLWorkflowResult {
   return !!candidate.category
     && typeof candidate.category.category === "string"
     && typeof candidate.category.confidence === "number"
+    && candidate.category.confidence >= 0 && candidate.category.confidence <= 1
+    && typeof candidate.category.low_confidence === "boolean"
     && typeof candidate.category.model_version === "string"
     && !!candidate.priority
     && ["normal", "high", "critical"].includes(candidate.priority.priority)
     && typeof candidate.priority.confidence === "number"
+    && candidate.priority.confidence >= 0 && candidate.priority.confidence <= 1
+    && typeof candidate.priority.method === "string"
+    && typeof candidate.priority.explanation === "string"
+    && Array.isArray(candidate.priority.matched_rules)
     && typeof candidate.priority.model_version === "string"
     && !!candidate.routing
+    && typeof candidate.routing.category === "string"
+    && typeof candidate.routing.department === "string"
     && typeof candidate.routing.department_code === "string"
     && typeof candidate.routing.routing_confidence === "number"
-    && typeof candidate.routing.requires_manual_review === "boolean";
+    && candidate.routing.routing_confidence >= 0 && candidate.routing.routing_confidence <= 1
+    && typeof candidate.routing.requires_manual_review === "boolean"
+    && typeof candidate.routing.reason === "string"
+    && typeof candidate.routing.model_version === "string";
 }
 
 async function runMLWorkflow(title: string, description: string): Promise<MLWorkflowOutcome> {
