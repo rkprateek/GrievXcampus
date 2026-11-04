@@ -46,7 +46,8 @@ http://127.0.0.1:8000/ml/health
 
 The health response reports the model versions and number of training examples. API endpoints:
 
-- `GET /ml/health`\n- `GET /ml/metrics` (seed-dataset evaluation metrics)
+- `GET /ml/health`
+- `GET /ml/metrics` (seed-dataset evaluation metrics)
 - `POST /ml/classify`
 - `POST /ml/priority`
 - `POST /ml/route`
