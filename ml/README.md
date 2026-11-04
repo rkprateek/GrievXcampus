@@ -12,7 +12,7 @@ The current ML workflow uses complaint **title and description text only**. Uplo
 
 ## Dataset and limitations
 
-The checked-in `ml/data/complaints_seed.csv` contains **54 curated development/demo examples** across nine categories and three priority labels. It is not real institutional data. The current models are baseline models for the MCA project demonstration; their confidence scores are model probabilities, not guarantees, and their measured metrics are not proof of production accuracy.
+The checked-in `ml/data/complaints_seed.csv` contains **162 development/demo examples** across nine categories and three priority labels. The original 54 curated examples are retained, with 108 additional synthetic examples added to increase wording variety and category coverage. These examples are development data, not real institutional complaints. The category counts are 18 per category except Classroom & Facilities (19); priority labels are balanced at 54 examples each. The current models are baseline models for the MCA project demonstration; their confidence scores are model probabilities, not guarantees, and their measured metrics are not proof of production accuracy.
 
 For a dependable campus deployment, collect a larger, representative, institution-approved dataset, have labels reviewed by campus staff, evaluate on a held-out time-based test set, and monitor misclassifications. Do not claim that the current seed dataset is production-grade.
 
