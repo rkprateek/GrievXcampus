@@ -30,14 +30,16 @@ RULES: tuple[tuple[str, tuple[str, ...], str], ...] = (
         (
             "harass", "threat", "intruder", "unauthorized entry", "unauthorised entry",
             "theft", "stolen", "assault", "unsafe person", "security guard",
-            "cctv", "gate lock", "security gate", "violence",
+            "cctv", "gate lock", "security gate", "security monitoring", "weak security", "violence",
         ),
         "security_or_personal_safety_terms",
     ),
     (
         "Transport",
         (
-            "campus bus", "bus ", "bus.", "shuttle", "transport", "parking",
+            "campus bus", "bus ", "bus.", "shuttle", "transport",
+            "parking space", "parking area", "parking spot", "parking spots",
+            "parking markings", "bicycle parking", "motorcycle parking",
             "vehicle", "traffic", "bus route", "bus tracking",
         ),
         "transport_or_parking_terms",
@@ -66,6 +68,7 @@ RULES: tuple[tuple[str, tuple[str, ...], str], ...] = (
             "power supply", "voltage", "transformer", "sparks", "burning smell",
             "smoke from", "light ", "lights ", "tube light", "bulb", "flicker",
             "air conditioner", " ac ", " ac's", "fan not", "fan is",
+            "charging port", "charging point",
         ),
         "electrical_or_power_terms",
     ),
@@ -92,10 +95,10 @@ RULES: tuple[tuple[str, tuple[str, ...], str], ...] = (
     (
         "Classroom & Facilities",
         (
-            "classroom", "lecture hall", "class room", "wall", "plaster",
+            "wall", "plaster",
             "ceiling", "chair", "desk", "furniture", "door ", "window",
-            "elevator", "lift ", "staircase", "charging port", "charging point",
-            "library space", "study room", "wheelchair", "facility",
+            "elevator", "lift ", "staircase",
+            "library space", "study room", "wheelchair",
             "lab equipment", "laboratory equipment",
         ),
         "physical_facility_terms",
@@ -120,6 +123,12 @@ def map_description(description: str) -> tuple[str, str, str]:
     text = " ".join((description or "").casefold().split())
     if not text:
         return "", "blank_description", "excluded"
+
+    # Specific safety/security issues should not become transport issues
+    # merely because the complaint mentions a parking area.
+    security_terms = RULES[0][1]
+    if any(term in text for term in security_terms):
+        return "Security", "security_or_personal_safety_terms", "candidate"
 
     matches: list[tuple[str, str]] = []
     for label, terms, reason in RULES:
@@ -192,6 +201,8 @@ def main() -> None:
     print("- Only clear, single-category text matches are marked candidate.")
     print("- Multi-category matches are marked review; unmatched rows are excluded.")
     print("- The Aspects field is not used because the audit showed it is noisy.")
+    print("- Projectors, HDMI and Wi-Fi remain IT even when classrooms are mentioned.")
+    print("- Security terms take precedence over parking context; charging points map to Electrical.")
     print("- Source Severity is preserved; GrievX priority candidates remain blank.")
     print("- Train and official test outputs remain separate.")
     print("- Nothing is added to ml/data/complaints_seed.csv or model training.")
