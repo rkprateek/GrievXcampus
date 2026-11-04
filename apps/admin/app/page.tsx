@@ -452,6 +452,7 @@ export default function AdminPage() {
                       <Status status={item.status} />
                       <strong>{item.title}</strong>
                       <span>{item.location}</span>
+                      <div className="rowTags"><span>{item.category ?? "Unclassified"}</span><span>{item.priority ?? "normal"} priority</span><span>{departments.find((department) => department.id === item.department_id)?.name ?? "Department pending"}</span></div>
                     </div>
                     <div className="rowMeta">
                       <span>{item.student?.name ?? "Student"}</span>
