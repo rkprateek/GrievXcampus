@@ -563,8 +563,8 @@ function Login({ email, onSignedIn }: { email: string; onSignedIn: () => void })
   );
 }
 
-function Stat({ label, value }: { label: string; value: number }) {
-  return <div className="statCard"><span>{label}</span><strong>{value}</strong></div>;
+function Stat({ icon, tone, label, value }: { icon: string; tone: "blue" | "green"; label: string; value: number }) {
+  return <div className="statCard"><span className={`statIcon ${tone}`}>{icon}</span><div><span className="statLabel">{label}</span><strong>{value}</strong></div></div>;
 }
 
 function Status({ status }: { status: Complaint["status"] }) {
