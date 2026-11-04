@@ -46,6 +46,13 @@ export default function AdminPage() {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [staffDirectory, setStaffDirectory] = useState<StaffDirectoryEntry[]>([]);
+  const [showStaffManager, setShowStaffManager] = useState(false);
+  const [staffUserId, setStaffUserId] = useState("");
+  const [staffDepartmentId, setStaffDepartmentId] = useState("");
+  const [staffSkills, setStaffSkills] = useState("");
+  const [staffAvailable, setStaffAvailable] = useState(true);
+  const [staffCapacity, setStaffCapacity] = useState("10");
+  const [staffSaving, setStaffSaving] = useState(false);
 
   useEffect(() => {
     const boot = async () => {
@@ -280,6 +287,40 @@ export default function AdminPage() {
     setMessage(staffId ? "Complaint assigned to staff." : "Staff assignment removed.");
   };
 
+  const saveStaffDirectory = async () => {
+    if (!staffUserId || !staffDepartmentId) {
+      setMessage("Choose a staff account and department first.");
+      return;
+    }
+    const capacity = Number(staffCapacity);
+    if (!Number.isInteger(capacity) || capacity < 1 || capacity > 100) {
+      setMessage("Maximum active assignments must be between 1 and 100.");
+      return;
+    }
+    setStaffSaving(true);
+    const { error } = await supabase.from("staff_directory").upsert({
+      staff_id: staffUserId,
+      department_id: staffDepartmentId,
+      skills: staffSkills.split(",").map((skill) => skill.trim()).filter(Boolean),
+      is_available: staffAvailable,
+      max_active_assignments: capacity,
+      updated_at: new Date().toISOString(),
+    });
+    setStaffSaving(false);
+    if (error) { setMessage(error.message); return; }
+    setMessage("Staff routing profile saved.");
+    setStaffUserId("");
+    setStaffSkills("");
+    await loadStaff();
+  };
+
+  const removeStaffDirectory = async (staffId: string) => {
+    const { error } = await supabase.from("staff_directory").delete().eq("staff_id", staffId);
+    if (error) { setMessage(error.message); return; }
+    setMessage("Staff member removed from automatic assignment.");
+    await loadStaff();
+  };
+
   const logout = async () => {
     await supabase.auth.signOut();
   };
@@ -317,7 +358,7 @@ export default function AdminPage() {
         <nav>
           <button className="navActive">Overview</button>
           <button onClick={() => setFilter("all")}>Complaints</button>
-          <button onClick={() => setMessage("Configure staff department, skills and availability in the Staff Directory before enabling automatic assignment.")}>Departments & Staff</button>
+          <button onClick={() => setShowStaffManager((value) => !value)}>Departments & Staff</button>
           <button onClick={() => setMessage("ML uses TF-IDF and Logistic Regression for category and priority; department routing uses category mapping.")}>ML Insights</button>
           <button onClick={() => setMessage("Analytics are calculated from live complaints. Dedicated charts are planned next.")}>Analytics</button>
           <button onClick={() => setMessage("Admin settings are managed through project configuration.")}>Settings</button>
@@ -349,6 +390,44 @@ export default function AdminPage() {
           <Stat label="Active" value={counts.active} />
           <Stat label="Resolved / closed" value={counts.resolved} />
         </div>
+
+        {showStaffManager && (
+          <section className="staffManager">
+            <div className="staffManagerHeading">
+              <div><span className="eyebrow">ROUTING CONFIGURATION</span><h2>Departments & Staff</h2><p>Configure which staff members can receive automatic complaint assignments.</p></div>
+              <span className="secure">{staffDirectory.length} configured</span>
+            </div>
+            <div className="staffForm">
+              <label>Staff account
+                <select value={staffUserId} onChange={(e) => setStaffUserId(e.target.value)}>
+                  <option value="">Select staff member</option>
+                  {staff.filter((member) => member.role === "staff" || member.role === "department_head").map((member) => <option key={member.id} value={member.id}>{member.name || member.email} · {member.role.replace("_", " ")}</option>)}
+                </select>
+              </label>
+              <label>Department
+                <select value={staffDepartmentId} onChange={(e) => setStaffDepartmentId(e.target.value)}>
+                  <option value="">Select department</option>
+                  {departments.map((department) => <option key={department.id} value={department.id}>{department.name}</option>)}
+                </select>
+              </label>
+              <label>Skills (comma separated)
+                <input value={staffSkills} onChange={(e) => setStaffSkills(e.target.value)} placeholder="network, router, electrical..." />
+              </label>
+              <label>Maximum active complaints
+                <input type="number" min="1" max="100" value={staffCapacity} onChange={(e) => setStaffCapacity(e.target.value)} />
+              </label>
+              <label className="availabilityToggle"><input type="checkbox" checked={staffAvailable} onChange={(e) => setStaffAvailable(e.target.checked)} /> Available for automatic assignment</label>
+              <button className="saveStaffButton" onClick={saveStaffDirectory} disabled={staffSaving || staff.length === 0 || departments.length === 0}>{staffSaving ? "Saving..." : "Save staff routing profile"}</button>
+            </div>
+            <div className="staffDirectoryList">
+              {staffDirectory.length === 0 ? <p>No staff routing profiles configured yet. Add a profile above to enable automatic staff assignment.</p> : staffDirectory.map((entry) => {
+                const member = staff.find((person) => person.id === entry.staff_id);
+                const department = departments.find((item) => item.id === entry.department_id);
+                return <div className="staffDirectoryRow" key={entry.staff_id}><div><strong>{member?.name || member?.email || "Staff account"}</strong><span>{department?.name ?? "Department unavailable"} · {(entry.skills ?? []).join(", ") || "No skills added"} · max {entry.max_active_assignments}</span></div><span className={entry.is_available ? "readyBadge" : "reviewBadge"}>{entry.is_available ? "Available" : "Unavailable"}</span><button className="removeStaffButton" onClick={() => removeStaffDirectory(entry.staff_id)}>Remove</button></div>;
+              })}
+            </div>
+          </section>
+        )}
 
         <div className="workspace">
           <section className="listPanel">
