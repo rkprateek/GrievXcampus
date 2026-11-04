@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.errors import register_exception_handlers
 from app.api.routes.auth import router as auth_router
@@ -15,7 +16,7 @@ app = FastAPI(
     description="GrievX Campus backend API.",
 )
 
-register_exception_handlers(app)
+app.add_middleware(\n    CORSMiddleware,\n    allow_origins=settings.cors_origins,\n    allow_credentials=False,\n    allow_methods=["GET", "POST", "OPTIONS"],\n    allow_headers=["Content-Type"],\n)\n\nregister_exception_handlers(app)
 app.include_router(health_router)
 app.include_router(auth_router)
 app.include_router(complaints_router)
