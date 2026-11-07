@@ -125,6 +125,9 @@ MANUAL_GROUP_DECISIONS: dict[str, tuple[str, str, str]] = {
     "82": ("Electrical", "candidate", "approved_air_conditioning_mapping"),
     "83": ("Cleanliness", "candidate", "approved_cleanliness_mapping"),
     "98": ("IT & Network|Classroom & Facilities", "review", "lab_maintenance_type_requires_human_review"),
+    "123": ("Electrical", "review", "ceiling_fan_failure_needs_confirmed_group_review"),
+    "177": ("Electrical", "review", "parking_area_lighting_needs_confirmed_group_review"),
+    "187": ("Security", "review", "parking_surveillance_camera_failure_needs_cause_review"),
 
     # Remaining excluded-group review
     "3": ("Classroom & Facilities", "candidate", "approved_prayer_room_facilities_mapping"),
