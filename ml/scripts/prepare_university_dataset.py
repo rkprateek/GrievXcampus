@@ -105,6 +105,101 @@ RULES: tuple[tuple[str, tuple[str, ...], str], ...] = (
     ),
 )
 
+
+# Human decisions are keyed by Complaint_Group_ID so every paraphrase in a
+# group receives the same decision in both official source splits.
+# "candidate" means approved category mapping; "review" is never a training
+# label; "excluded" is deliberately outside the current GrievX scope.
+MANUAL_GROUP_DECISIONS: dict[str, tuple[str, str, str]] = {
+    # Earlier review of excluded groups
+    "8": ("", "review", "library_behaviour_requires_scope_review"),
+    "11": ("", "excluded", "lift_queue_not_a_confirmed_lift_fault"),
+    "26": ("Classroom & Facilities", "review", "library_and_study_space_capacity_needs_human_confirmation"),
+    "34": ("Classroom & Facilities", "candidate", "approved_manual_facilities_mapping"),
+    "36": ("Classroom & Facilities", "candidate", "approved_manual_facilities_mapping"),
+    "48": ("IT & Network|Classroom & Facilities", "review", "lab_equipment_type_requires_human_review"),
+    "50": ("IT & Network", "candidate", "approved_classroom_av_equipment_mapping"),
+    "61": ("Electrical", "candidate", "approved_exhaust_fan_mapping"),
+    "64": ("Security", "review", "student_safety_requires_human_review"),
+    "79": ("Classroom & Facilities", "candidate", "approved_washroom_facilities_mapping"),
+    "82": ("Electrical", "candidate", "approved_air_conditioning_mapping"),
+    "83": ("Cleanliness", "candidate", "approved_cleanliness_mapping"),
+    "98": ("IT & Network|Classroom & Facilities", "review", "lab_maintenance_type_requires_human_review"),
+
+    # Remaining excluded-group review
+    "3": ("Classroom & Facilities", "candidate", "approved_prayer_room_facilities_mapping"),
+    "20": ("", "review", "research_facilities_request_mixes_academic_and_physical_resources"),
+    "39": ("", "review", "student_coercion_requires_human_review"),
+    "56": ("", "excluded", "cafeteria_service_preference_outside_current_scope"),
+    "72": ("Classroom & Facilities", "candidate", "approved_prayer_room_facilities_mapping"),
+    "80": ("Classroom & Facilities", "candidate", "approved_washroom_facilities_mapping"),
+    "84": ("Security", "review", "student_safety_requires_human_review"),
+    "87": ("Classroom & Facilities", "candidate", "approved_prayer_room_facilities_mapping"),
+    "94": ("Classroom & Facilities", "candidate", "approved_whiteboard_facilities_mapping"),
+    "105": ("Classroom & Facilities", "candidate", "approved_prayer_room_facilities_mapping"),
+    "113": ("Classroom & Facilities", "candidate", "approved_washroom_facilities_mapping"),
+    "122": ("Electrical", "candidate", "approved_generator_power_backup_mapping"),
+    "132": ("Electrical", "candidate", "approved_fan_mapping"),
+    "136": ("Electrical", "candidate", "approved_generator_power_backup_mapping"),
+    "139": ("Electrical", "candidate", "approved_air_conditioning_mapping"),
+    "143": ("Electrical", "candidate", "approved_damaged_extension_cable_mapping"),
+    "160": ("IT & Network", "review", "digital_receipt_issue_requires_confirmation_of_technical_cause"),
+    "181": ("Transport", "review", "parking_attendant_availability_is_an_operational_staffing_issue"),
+    "182": ("Transport", "candidate", "approved_parking_signage_mapping"),
+    "184": ("Transport", "candidate", "approved_parking_management_mapping"),
+    "189": ("Transport", "candidate", "approved_parking_congestion_mapping"),
+    "190": ("Transport", "candidate", "approved_parking_safety_mapping"),
+    "191": ("Transport", "candidate", "approved_parking_congestion_mapping"),
+    "202": ("Electrical", "candidate", "approved_hand_dryer_equipment_mapping"),
+    "213": ("Classroom & Facilities", "candidate", "approved_stair_railing_facilities_mapping"),
+    "218": ("Plumbing", "candidate", "approved_leaking_tap_mapping"),
+
+    # Out-of-scope academic, finance, and administrative complaint groups
+    "9": ("", "excluded", "academic_advising_issue_outside_current_scope"),
+    "19": ("", "excluded", "teaching_quality_issue_outside_current_scope"),
+    "33": ("", "excluded", "financial_certificate_fee_issue_outside_current_scope"),
+    "37": ("", "excluded", "payment_service_request_outside_current_scope"),
+    "43": ("", "excluded", "academic_timetable_policy_outside_current_scope"),
+    "58": ("", "excluded", "event_scheduling_outside_current_scope"),
+    "59": ("", "excluded", "teaching_delivery_issue_outside_current_scope"),
+    "63": ("", "excluded", "academic_group_allocation_outside_current_scope"),
+    "66": ("", "excluded", "event_fee_policy_outside_current_scope"),
+    "67": ("", "excluded", "academic_group_allocation_outside_current_scope"),
+    "68": ("", "excluded", "assessment_policy_outside_current_scope"),
+    "69": ("", "excluded", "academic_resource_fairness_outside_current_scope"),
+    "77": ("", "excluded", "teaching_quality_issue_outside_current_scope"),
+    "85": ("", "excluded", "thesis_supervision_process_outside_current_scope"),
+    "91": ("", "excluded", "academic_advising_issue_outside_current_scope"),
+    "97": ("", "excluded", "academic_timetable_policy_outside_current_scope"),
+    "107": ("", "excluded", "academic_advising_issue_outside_current_scope"),
+    "111": ("", "excluded", "teaching_quality_issue_outside_current_scope"),
+    "115": ("", "excluded", "payment_service_request_outside_current_scope"),
+    "146": ("", "excluded", "fee_payment_administration_outside_current_scope"),
+    "147": ("", "excluded", "fee_payment_queue_outside_current_scope"),
+    "148": ("", "excluded", "late_fee_dispute_outside_current_scope"),
+    "149": ("", "excluded", "fee_refund_process_outside_current_scope"),
+    "150": ("", "excluded", "fee_receipt_administration_outside_current_scope"),
+    "151": ("", "excluded", "scholarship_fee_adjustment_outside_current_scope"),
+    "153": ("", "excluded", "fee_statement_clarity_outside_current_scope"),
+    "156": ("", "excluded", "fee_clearance_process_outside_current_scope"),
+    "161": ("", "excluded", "late_fee_dispute_outside_current_scope"),
+    "163": ("", "excluded", "payment_verification_process_outside_current_scope"),
+    "165": ("", "excluded", "fee_refund_policy_outside_current_scope"),
+    "167": ("", "excluded", "installment_payment_process_outside_current_scope"),
+}
+
+# Four additional earlier decisions were accepted as review notes, but their
+# Complaint_Group_ID values were not captured. They are intentionally NOT
+# applied by text matching; identify the IDs before turning them into rules.
+PENDING_GROUP_ID_DECISIONS = (
+    ("Bus tracking/routing app", "Transport"),
+    ("Voltage fluctuation affecting computer lab equipment", "Electrical"),
+    ("Outdoor campus lights not working", "Electrical"),
+    ("Computer lab losing electricity", "Electrical"),
+    ("Parking area drainage problem", "Plumbing"),
+    ("Water leaking from classroom corridor ceiling", "Plumbing"),
+)
+
 def read_rows(split: str) -> tuple[list[str], list[dict[str, str]]]:
     path = DATA_DIR / f"{split}.csv"
     if not path.exists():
@@ -149,6 +244,15 @@ def map_description(description: str) -> tuple[str, str, str]:
     return "", "no_clear_grievx_category_match", "excluded"
 
 
+
+def map_row(row: dict[str, str]) -> tuple[str, str, str]:
+    group_id = (row.get("Complaint_Group_ID") or "").strip()
+    if group_id in MANUAL_GROUP_DECISIONS:
+        category, status, reason = MANUAL_GROUP_DECISIONS[group_id]
+        return category, reason, status
+    return map_description(row.get("Complaint_Description", ""))
+
+
 def main() -> None:
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     totals: Counter[str] = Counter()
@@ -167,9 +271,7 @@ def main() -> None:
         output_rows: list[dict[str, str]] = []
 
         for source in source_rows:
-            candidate, reason, status = map_description(
-                source.get("Complaint_Description", "")
-            )
+            candidate, reason, status = map_row(source)
             row = dict(source)
             row["source_split"] = split
             row["grievx_candidate_category"] = candidate
@@ -202,10 +304,14 @@ def main() -> None:
     print("- Multi-category matches are marked review; unmatched rows are excluded.")
     print("- The Aspects field is not used because the audit showed it is noisy.")
     print("- Projectors, HDMI and Wi-Fi remain IT even when classrooms are mentioned.")
+    print("- Approved group-level human decisions override keyword rules consistently across both splits.")
+    print("- Manual-review records are not confirmed training labels.")
+    print("- Six earlier description-based decisions still need group IDs and are not applied.")
     print("- Security terms take precedence over parking context; charging points map to Electrical.")
     print("- Source Severity is preserved; GrievX priority candidates remain blank.")
     print("- Train and official test outputs remain separate.")
     print("- Nothing is added to ml/data/complaints_seed.csv or model training.")
+    print(f"- Applied {len(MANUAL_GROUP_DECISIONS)} approved group-level decisions when their group IDs are present.")
 
 
 if __name__ == "__main__":
