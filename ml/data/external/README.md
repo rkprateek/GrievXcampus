@@ -73,8 +73,9 @@ both source splits, so paraphrases in a group receive the same decision.
 human-review cases and must not be used as confirmed training labels;
 `excluded` entries remain outside the current GrievX scope.
 
-Six earlier complaint-level decisions still lack confirmed group IDs. They are
-documented in `pending_group_id_decisions.md` and are deliberately not applied.
-After running the preparation script, inspect the reports and verify group
-coverage before considering any model training. No source CSV or seed dataset
-is overwritten by this workflow.
+The six earlier complaint-level decisions have now been matched to verified
+group IDs and are applied by the preparation script. The resolved decisions
+are documented in `pending_group_id_decisions.md`. Keep manual-review records
+out of confirmed training labels. After running the preparation script, inspect
+the reports and verify group coverage before considering any model training.
+No source CSV or seed dataset is overwritten by this workflow.
