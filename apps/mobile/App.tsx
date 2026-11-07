@@ -5,6 +5,7 @@ import {
   FlatList,
   Image,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -15,11 +16,17 @@ import {
 } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import * as ImagePicker from "expo-image-picker";
+import { Feather } from "@expo/vector-icons";
 import {
   createComplaint,
+  updateComplaint,
+  withdrawComplaint,
+  findPossibleDuplicates,
   getComplaint,
   getComplaints,
   getMe,
+  updateMyProfileName,
+  submitAppFeedback,
   getNotifications,
   markAllNotificationsRead,
   markNotificationRead,
@@ -27,11 +34,12 @@ import {
   register,
   resetPassword,
   signOut,
+  upvoteComplaint,
   uploadComplaintImage,
 } from "./src/api";
 import { supabase } from "./src/supabase";
 
-type Screen = "home" | "report" | "complaints" | "detail" | "notifications" | "profile";
+type Screen = "home" | "report" | "complaints" | "detail" | "notifications" | "profile" | "settings";
 type AuthMode = "login" | "register";
 type Complaint = {
   id: string;
@@ -39,6 +47,11 @@ type Complaint = {
   description: string;
   location: string;
   status: string;
+  priority?: "normal" | "high" | "critical";
+  category?: string | null;
+  upvote_count?: number;
+  has_upvoted?: boolean;
+  duplicate_of_id?: string | null;
   created_at: string;
   images: { id: string; original_filename: string; content_type: string; signed_url?: string | null }[];
   status_history?: { id: string; from_status: string | null; to_status: string; changed_by: string | null; note: string | null; created_at: string }[];
@@ -122,7 +135,8 @@ function AppContent() {
         <Detail id={id} back={() => setScreen("complaints")} />
       )}
       {screen === "notifications" && <Notifications back={() => setScreen("home")} openComplaint={open} />}
-      {screen === "profile" && <Profile back={() => setScreen("home")} logout={signOut} />}
+      {screen === "profile" && <Profile back={() => setScreen("home")} go={setScreen} logout={signOut} />}
+      {screen === "settings" && <Settings back={() => setScreen("profile")} openNotifications={() => setScreen("notifications")} />}
       {screen !== "detail" && <Nav active={screen} go={setScreen} />}
     </SafeAreaView>
   );
@@ -257,10 +271,41 @@ function Brand() {
 }
 
 function Home({ go }: { go: (x: Screen) => void }) {
-  const [me, setMe] = useState<{ name: string } | null>(null);  useEffect(() => {
-    getMe().then(setMe).catch(() => {});
+  const [me, setMe] = useState<{ name: string } | null>(null);
+  const [complaints, setComplaints] = useState<Complaint[]>([]);
+  const [statsLoading, setStatsLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+
+    getMe().then((profile) => {
+      if (active) setMe(profile);
+    }).catch(() => {});
+
+    getComplaints()
+      .then((items) => {
+        if (active) setComplaints(items as Complaint[]);
+      })
+      .catch(() => {
+        if (active) setComplaints([]);
+      })
+      .finally(() => {
+        if (active) setStatsLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
   }, []);
+
   const first = me?.name?.split(" ")[0] || "Student";
+  const submittedCount = complaints.filter((item) => item.status.toLowerCase() === "submitted").length;
+  const inProgressCount = complaints.filter((item) =>
+    ["assigned", "in_progress"].includes(item.status.toLowerCase()),
+  ).length;
+  const resolvedCount = complaints.filter((item) =>
+    ["resolved", "closed"].includes(item.status.toLowerCase()),
+  ).length;
 
   return (
     <ScrollView contentContainerStyle={s.page} showsVerticalScrollIndicator={false}>
@@ -287,15 +332,15 @@ function Home({ go }: { go: (x: Screen) => void }) {
 
       <Text style={s.section}>Your activity</Text>
       <View style={s.stats}>
-        <Stat label="Submitted" />
-        <Stat label="In progress" />
-        <Stat label="Resolved" />
+        <Stat label="Submitted" value={statsLoading ? "…" : submittedCount} />
+        <Stat label="In progress" value={statsLoading ? "…" : inProgressCount} />
+        <Stat label="Resolved" value={statsLoading ? "…" : resolvedCount} />
       </View>
 
       <Text style={s.section}>Quick actions</Text>
       <View style={s.actions}>
-        <Action title="My complaints" sub="View your reports" icon="▣" onPress={() => go("complaints")} />
-        <Action title="Notifications" sub="Updates and alerts" icon="●" onPress={() => go("notifications")} />
+        <Action title="My complaints" sub="View your reports" icon="📋" onPress={() => go("complaints")} />
+        <Action title="Notifications" sub="Updates and alerts" icon="🔔" onPress={() => go("notifications")} />
       </View>
     </ScrollView>
   );
@@ -303,10 +348,22 @@ function Home({ go }: { go: (x: Screen) => void }) {
 
 function Report({back,done}:{back:()=>void;done:()=>void}){const [title,setTitle]=useState(""),[description,setDescription]=useState(""),[location,setLocation]=useState(""),[image,setImage]=useState<ImagePicker.ImagePickerAsset|null>(null),[busy,setBusy]=useState(false);
  const pick=async()=>{const p=await ImagePicker.requestMediaLibraryPermissionsAsync();if(!p.granted){Alert.alert("Photo access needed","Allow photo access to attach evidence.");return}const r=await ImagePicker.launchImageLibraryAsync({mediaTypes:["images"],allowsEditing:true,quality:.8});if(!r.canceled)setImage(r.assets[0])};
- const submit=async()=>{if(!title.trim()||!description.trim()||!location.trim()){Alert.alert("Missing information","Please complete title, description and campus location.");return}try{setBusy(true);const c=await createComplaint({title:title.trim(),description:description.trim(),location:location.trim()});if(image)await uploadComplaintImage(c.id,image.uri,image.fileName??"evidence.jpg",image.mimeType??"image/jpeg");Alert.alert("Complaint submitted","Your complaint was submitted successfully.",[{text:"View complaints",onPress:done}])}catch(e){Alert.alert("Submission failed",e instanceof Error?e.message:"Please try again.")}finally{setBusy(false)}};
+ const submit=async()=>{if(!title.trim()||!description.trim()||!location.trim()){Alert.alert("Missing information","Please complete title, description and campus location.");return}try{setBusy(true);
+   const input={title:title.trim(),description:description.trim(),location:location.trim()};
+   let duplicates: Awaited<ReturnType<typeof findPossibleDuplicates>> = [];
+   try { duplicates = await findPossibleDuplicates(input); } catch {}
+   const proceed=async()=>{const c=await createComplaint(input);if(image)await uploadComplaintImage(c.id,image.uri,image.fileName??"evidence.jpg",image.mimeType??"image/jpeg");const detail=c.ml_status==="applied"?"ML category, priority and department predictions were saved.":c.ml_status==="history_failed"?"Predictions were applied, but prediction history could not be saved.":c.ml_status==="save_failed"?"The complaint was saved, but ML predictions could not be applied.": "The complaint was saved. ML is unavailable, so it needs manual review.";Alert.alert("Complaint submitted",detail+"\n\n"+(c.ml_message??""),[{text:"View complaints",onPress:done}])};
+   if(duplicates.length){
+     const top=duplicates.slice(0,3).map((d,i)=>`${i+1}. ${d.title} · ${d.location} · ${Math.round(d.similarity_score*100)}% similar`).join("\n");
+     Alert.alert("Possible duplicate found","A recent complaint may describe the same issue:\n\n"+top+"\n\nReview it before submitting another report.",[
+       {text:"Cancel",style:"cancel"},
+       {text:"Submit anyway",onPress:proceed},
+     ]);
+   } else await proceed();
+ }catch(e){Alert.alert("Submission failed",e instanceof Error?e.message:"Please try again.")}finally{setBusy(false)}};
  return <KeyboardAvoidingView style={s.app} behavior={Platform.OS==="ios"?"padding":undefined}><ScrollView contentContainerStyle={s.page}><Header title="Report an issue" back={back}/>
- <View style={s.progress}><Text style={s.step}>1 OF 2 · FAST ROUTE DESK</Text><Text style={s.cardTitle}>Tell us what happened.</Text><Text style={s.muted}>Clear details help the complaint reach the right campus team.</Text></View>
- <Card><Field label="Complaint summary" placeholder="e.g. Wi-Fi disconnected in Lab 304" maxLength={150} value={title} onChangeText={setTitle}/><Field label="Detailed description" placeholder="Describe the problem clearly..." multiline value={description} onChangeText={setDescription} inputStyle={s.area}/><Text style={s.label}>Campus location</Text><Text style={s.helper}>Enter the building, room or campus area manually. No GPS is used.</Text><Field label="" placeholder="e.g. EC Block, Lab 304" value={location} onChangeText={setLocation}/></Card>
+ <View style={s.progress}><Text style={s.cardTitle}>Tell us what happened.</Text><Text style={s.muted}>Clear details help the complaint reach the right campus team.</Text></View>
+ <Card><Field label="Complaint title" placeholder="e.g. Wi-Fi disconnected in Lab 304" maxLength={150} value={title} onChangeText={setTitle}/><Field label="Detailed description" placeholder="Describe the problem clearly..." multiline value={description} onChangeText={setDescription} inputStyle={s.area}/><Text style={s.label}>Campus location</Text><Text style={s.helper}>Enter the building, room or campus area.</Text><Field label="" placeholder="e.g. EC Block, Lab 304" value={location} onChangeText={setLocation}/></Card>
  <Card><Text style={s.label}>Upload evidence</Text><Text style={s.helper}>Add one photo showing the issue. JPG, PNG or WEBP · max 5 MB</Text>{image?<View style={s.imageBox}><Image source={{uri:image.uri}} style={s.image}/><Pressable onPress={pick}><Text style={s.link}>Change photo</Text></Pressable></View>:<Pressable onPress={pick} style={s.upload}><Text style={s.plus}>+</Text><Text style={s.label}>Add photo evidence</Text></Pressable>}</Card>
  <Primary label={busy?"Submitting...":"Submit complaint"} onPress={submit} disabled={busy}/><Pressable onPress={back}><Text style={[s.muted,{textAlign:"center"}]}>Cancel</Text></Pressable>
  </ScrollView></KeyboardAvoidingView>}
@@ -315,15 +372,75 @@ function Complaints({ back, open }: { back: () => void; open: (id: string) => vo
   const [items, setItems] = useState<Complaint[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [editing, setEditing] = useState<Complaint | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editLocation, setEditLocation] = useState("");
+  const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    getComplaints()
-      .then(setItems)
-      .catch((e) => setError(e instanceof Error ? e.message : "Unable to load complaints."))
-      .finally(() => setLoading(false));
-  }, []);
+  const refresh = async () => {
+    try {
+      setError("");
+      setItems(await getComplaints() as Complaint[]);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Unable to load complaints.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  return (    <View style={s.app}>
+  useEffect(() => { refresh(); }, []);
+
+  const beginEdit = (item: Complaint) => {
+    setEditing(item);
+    setEditTitle(item.title);
+    setEditDescription(item.description);
+    setEditLocation(item.location);
+  };
+
+  const saveEdit = async () => {
+    if (!editing || !editTitle.trim() || !editDescription.trim() || !editLocation.trim()) {
+      Alert.alert("Missing information", "Please complete the title, description and location.");
+      return;
+    }
+    try {
+      setSaving(true);
+      await updateComplaint(editing.id, {
+        title: editTitle.trim(),
+        description: editDescription.trim(),
+        location: editLocation.trim(),
+      });
+      setEditing(null);
+      await refresh();
+      Alert.alert("Complaint updated", "Your changes have been saved.");
+    } catch (e) {
+      Alert.alert("Unable to update", e instanceof Error ? e.message : "Please try again.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const confirmWithdraw = (item: Complaint) => {
+    Alert.alert(
+      "Withdraw complaint?",
+      "This will mark your submitted complaint as withdrawn. You cannot undo this action.",
+      [
+        { text: "Keep complaint", style: "cancel" },
+        { text: "Withdraw", style: "destructive", onPress: async () => {
+          try {
+            await withdrawComplaint(item.id);
+            await refresh();
+            Alert.alert("Complaint withdrawn", "Your complaint has been withdrawn.");
+          } catch (e) {
+            Alert.alert("Unable to withdraw", e instanceof Error ? e.message : "Please try again.");
+          }
+        }},
+      ],
+    );
+  };
+
+  return (
+    <View style={s.app}>
       <FlatList
         contentContainerStyle={s.page}
         data={items}
@@ -338,18 +455,57 @@ function Complaints({ back, open }: { back: () => void; open: (id: string) => vo
         ListEmptyComponent={
           loading ? <ActivityIndicator color={C.blue} /> : <Text style={s.error}>{error || "No complaints yet."}</Text>
         }
-        renderItem={({ item }) => (
-          <Pressable style={s.complaint} onPress={() => open(item.id)}>
-            <View style={s.row}>
-              <Status status={item.status} />
-              <Text style={s.date}>{date(item.created_at)}</Text>
+        renderItem={({ item }) => {
+          const canManage = item.status.toLowerCase() === "submitted";
+          return (
+            <View style={s.complaint}>
+              <Pressable onPress={() => open(item.id)}>
+                <View style={s.row}>
+                  <Status status={item.status} />
+                  <Text style={s.date}>{date(item.created_at)}</Text>
+                </View>
+                <Text style={s.complaintTitle}>{item.title}</Text>
+                <Text style={s.muted} numberOfLines={2}>{item.description}</Text>
+                <Text style={s.helper}>• {item.location}</Text>
+                <Text style={s.helper}>• {item.upvote_count ?? 0} campus support{item.upvote_count === 1 ? "" : "s"}</Text>
+              </Pressable>
+              {canManage && (
+                <View style={s.complaintActions}>
+                  <Pressable style={s.editComplaintButton} onPress={() => beginEdit(item)}>
+                    <Text style={s.editComplaintText}>✎  Edit</Text>
+                  </Pressable>
+                  <Pressable style={s.withdrawComplaintButton} onPress={() => confirmWithdraw(item)}>
+                    <Text style={s.withdrawComplaintText}>▤  Withdraw</Text>
+                  </Pressable>
+                </View>
+              )}
             </View>
-            <Text style={s.complaintTitle}>{item.title}</Text>
-            <Text style={s.muted} numberOfLines={2}>{item.description}</Text>
-            <Text style={s.helper}>• {item.location}</Text>
-          </Pressable>
-        )}
+          );
+        }}
       />
+      <Modal visible={!!editing} transparent animationType="slide" onRequestClose={() => {
+        if (!saving) setEditing(null);
+      }}>
+        <View style={s.editModalBackdrop}>
+          <View style={s.editModalCard}>
+            <Text style={s.cardTitle}>Edit complaint</Text>
+            <Text style={s.label}>Title</Text>
+            <TextInput style={s.editInput} value={editTitle} onChangeText={setEditTitle} maxLength={150} />
+            <Text style={s.label}>Description</Text>
+            <TextInput style={[s.editInput, s.editMultiline]} value={editDescription} onChangeText={setEditDescription} multiline textAlignVertical="top" />
+            <Text style={s.label}>Campus location</Text>
+            <TextInput style={s.editInput} value={editLocation} onChangeText={setEditLocation} />
+            <View style={s.editModalActions}>
+              <Pressable style={s.cancelEditButton} disabled={saving} onPress={() => setEditing(null)}>
+                <Text style={s.cancelEditText}>Cancel</Text>
+              </Pressable>
+              <Pressable style={s.saveEditButton} disabled={saving} onPress={saveEdit}>
+                <Text style={s.saveEditText}>{saving ? "Saving..." : "Save changes"}</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -406,6 +562,19 @@ function Detail({ id, back }: { id: string; back: () => void }) {
         )) : <Text style={s.muted}>No evidence attached.</Text>}
       </Card>
       <Card>
+        <View style={s.row}>
+          <View>
+            <Text style={s.label}>Community support</Text>
+            <Text style={s.helper}>{item.upvote_count ?? 0} students support this issue.</Text>
+          </View>
+          {!item.has_upvoted && item.status !== "closed" && item.status !== "rejected" && (
+            <Pressable onPress={async()=>{try{await upvoteComplaint(item.id);setItem({...item,upvote_count:(item.upvote_count??0)+1,has_upvoted:true});}catch(e){Alert.alert("Unable to support",e instanceof Error?e.message:"Please try again.");}}}>
+              <Text style={s.link}>Support issue</Text>
+            </Pressable>
+          )}
+        </View>
+      </Card>
+      <Card>
         <Text style={s.label}>Status history</Text>
         {item.status_history?.length ? item.status_history.map((entry, index) => (
           <View style={s.timeline} key={entry.id}>
@@ -429,30 +598,266 @@ function Detail({ id, back }: { id: string; back: () => void }) {
   );
 }
 
-function Profile({ back, logout }: { back: () => void; logout: () => void }) {
-  const [me, setMe] = useState<{ name: string; email?: string } | null>(null);
-  useEffect(() => {
-    getMe().then(setMe).catch(() => {});
-  }, []);
+function Profile({ back, go, logout }: { back: () => void; go: (screen: Screen) => void; logout: () => Promise<void> | void }) {
+  const [me, setMe] = useState<{ id: string; name: string; email?: string; role?: string } | null>(null);
+  const [stats, setStats] = useState({ total: 0, submitted: 0, resolved: 0, rejected: 0 });
+  const [unread, setUnread] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState(false);
+  const [name, setName] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [feedback, setFeedback] = useState("");
+  const [sendingFeedback, setSendingFeedback] = useState(false);
+
+  const loadProfile = async () => {
+    try {
+      const [profile, complaints, notifications] = await Promise.all([getMe(), getComplaints(), getNotifications()]);
+      setMe(profile);
+      setName(profile.name ?? "");
+      setStats({
+        total: complaints.length,
+        submitted: complaints.filter((x: any) => x.status === "submitted").length,
+        resolved: complaints.filter((x: any) => x.status === "resolved").length,
+        rejected: complaints.filter((x: any) => x.status === "rejected").length,
+      });
+      setUnread(notifications.filter((x: any) => !x.read_at).length);
+    } catch (e) {
+      Alert.alert("Profile unavailable", e instanceof Error ? e.message : "Unable to load your profile.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { loadProfile(); }, []);
+
+  const saveProfile = async () => {
+    if (!name.trim()) {
+      Alert.alert("Name required", "Please enter your full name.");
+      return;
+    }
+    try {
+      setSaving(true);
+      await updateMyProfileName(name.trim());
+      setMe((current) => current ? { ...current, name: name.trim() } : current);
+      setEditing(false);
+      Alert.alert("Profile updated", "Your name has been saved.");
+    } catch (e) {
+      Alert.alert("Unable to update profile", e instanceof Error ? e.message : "Please try again.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const changePassword = async () => {
+    if (!me?.email) {
+      Alert.alert("Email unavailable", "We could not find an email address for this account.");
+      return;
+    }
+    try {
+      await resetPassword();
+      Alert.alert("Password reset email sent", "Check your inbox for the secure password reset link.");
+    } catch (e) {
+      Alert.alert("Unable to send reset email", e instanceof Error ? e.message : "Please try again.");
+    }
+  };
+
+  const sendFeedback = async () => {
+    if (feedback.trim().length < 5) {
+      Alert.alert("More detail needed", "Please enter at least 5 characters.");
+      return;
+    }
+    try {
+      setSendingFeedback(true);
+      await submitAppFeedback(feedback.trim());
+      setFeedback("");
+      setFeedbackOpen(false);
+      Alert.alert("Feedback sent", "Thank you for helping us improve GrievX.");
+    } catch (e) {
+      Alert.alert("Unable to send feedback", e instanceof Error ? e.message : "Please try again.");
+    } finally {
+      setSendingFeedback(false);
+    }
+  };
+
+  const menuRow = (icon: keyof typeof Feather.glyphMap, title: string, subtitle: string, onPress: () => void, badgeText?: string) => (
+    <Pressable style={s.profileMenuRow} onPress={onPress}>
+      <View style={s.profileMenuIcon}>
+        <Feather name={icon} size={20} color={C.blue} strokeWidth={2} />
+      </View>
+      <View style={{ flex: 1, gap: 2 }}>
+        <Text style={s.profileMenuTitle}>{title}</Text>
+        <Text style={s.profileMenuSubtitle}>{subtitle}</Text>
+      </View>
+      {badgeText ? <Text style={s.profileMenuBadge}>{badgeText}</Text> : null}
+      <Feather name="chevron-right" size={20} color={C.muted} />
+    </Pressable>
+  );
+
+  const confirmLogout = () => Alert.alert("Sign out?", "You will need to sign in again to access your complaints.", [
+    { text: "Cancel", style: "cancel" },
+    { text: "Sign out", style: "destructive", onPress: () => { void logout(); } },
+  ]);
 
   return (
     <ScrollView contentContainerStyle={s.page}>
       <Header title="Profile" back={back} />
-      <View style={s.profile}>
-        <View style={s.profileAvatar}><Text style={s.profileLetter}>{(me?.name || "S")[0]}</Text></View>
-        <Text style={s.detailTitle}>{me?.name || "Student"}</Text>
-        <Text style={s.muted}>{me?.email || "Student account"}</Text>
+      <View style={s.profileHero}>
+        <View style={s.profileAvatar}><Text style={s.profileLetter}>{(me?.name || "S").trim().charAt(0).toUpperCase()}</Text></View>
+        <View style={{ flex: 1, gap: 5 }}>
+          <Text style={s.profileHeroName}>{me?.name || (loading ? "Loading..." : "Student")}</Text>
+          <Text style={s.profileHeroEmail}>{me?.email || "Student account"}</Text>
+          <View style={s.rolePill}><Text style={s.rolePillText}>{(me?.role || "student").replace("_", " ").replace(/\b\w/g, (x) => x.toUpperCase())}</Text></View>
+        </View>
+        <Pressable style={s.editProfileButton} onPress={() => { setName(me?.name || ""); setEditing(true); }}>
+          <Feather name="edit-2" size={14} color={C.blue} /><Text style={s.editProfileButtonText}> Edit Profile</Text>
+        </Pressable>
       </View>
+
+      <View style={s.profileStats}>
+        {[
+          { value: stats.total, label: "Total", symbol: "▤", tone: C.blue },
+          { value: stats.submitted, label: "Submitted", symbol: "➤", tone: "#D97706" },
+          { value: stats.resolved, label: "Resolved", symbol: "✓", tone: C.green },
+          { value: stats.rejected, label: "Rejected", symbol: "×", tone: C.red },
+        ].map((item) => (
+          <View key={item.label} style={s.profileStat}>
+            <View style={[s.profileStatIcon, { backgroundColor: item.tone + "18" }]}><Text style={[s.profileStatSymbol, { color: item.tone }]}>{item.symbol}</Text></View>
+            <Text style={s.profileStatValue}>{loading ? "—" : item.value}</Text>
+            <Text style={s.profileStatLabel}>{item.label}</Text>
+          </View>
+        ))}
+      </View>
+
       <Card>
-        <Text style={s.label}>Account</Text>
-        <Text style={s.body}>Student account</Text>
-        <Text style={s.helper}>Authentication and student data are handled by Supabase in the current demo implementation.</Text>
+        <Text style={s.profileSectionTitle}>My Activity</Text>
+        {menuRow("clipboard", "My Complaints", "View and manage your raised complaints", () => go("complaints"))}
+        {menuRow("bell", "Notifications", "Complaint updates and alerts", () => go("notifications"), unread ? String(unread) : undefined)}
       </Card>
-      <Pressable style={s.logout} onPress={logout}>
-        <Text style={{ color: "#B91C1C", fontWeight: "700" }}>Sign out</Text>
+
+      <Card>
+        <Text style={s.profileSectionTitle}>Account</Text>
+        {menuRow("user", "Personal Information", "Update your name and view account email", () => { setName(me?.name || ""); setEditing(true); })}
+        {menuRow("shield", "Security", "Send a secure password reset email", changePassword)}
+      </Card>
+
+      <Card>
+        <Text style={s.profileSectionTitle}>App</Text>
+        {menuRow("settings", "Settings", "Notification updates and app information", () => go("settings"))}
+        {menuRow("info", "About GrievX", "About this campus complaint platform", () => Alert.alert("About GrievX", "GrievX Campus helps students report campus issues, track complaint progress and receive updates from campus teams."))}
+      </Card>
+
+      <Card>
+        <Text style={s.profileSectionTitle}>Support</Text>
+        {menuRow("help-circle", "Help & Support", "Quick answers about using GrievX", () => Alert.alert("Help & Support", "• Report an issue: use the Report tab and provide a clear title, description and campus location.\n\n• Track a complaint: open My Complaints to view its latest status.\n\n• Edit or withdraw: available while a complaint is still submitted.\n\n• Updates: check the Alert tab for complaint notifications."))}
+        {menuRow("message-square", "Send Feedback", "Share suggestions or report a problem", () => setFeedbackOpen(true))}
+      </Card>
+
+      <Pressable style={s.logout} onPress={confirmLogout}>
+        <Feather name="log-out" size={19} color={C.red} /><Text style={s.logoutText}>Sign out</Text>
       </Pressable>
+
+      <Modal visible={editing} transparent animationType="slide" onRequestClose={() => {
+        if (!saving) setEditing(false);
+      }}>
+        <View style={s.editModalBackdrop}>
+          <View style={s.editModalCard}>
+            <Text style={s.cardTitle}>Personal information</Text>
+            <Text style={s.label}>Full name</Text>
+            <TextInput style={s.editInput} value={name} onChangeText={setName} maxLength={100} placeholder="Your full name" />
+            <Text style={s.label}>Email address</Text>
+            <TextInput style={[s.editInput, { opacity: 0.65 }]} value={me?.email || ""} editable={false} />
+            <Text style={s.helper}>Email is managed by your sign-in account and cannot be changed here.</Text>
+            <View style={s.editModalActions}>
+              <Pressable style={s.cancelEditButton} disabled={saving} onPress={() => setEditing(false)}><Text style={s.cancelEditText}>Cancel</Text></Pressable>
+              <Pressable style={s.saveEditButton} disabled={saving} onPress={saveProfile}><Text style={s.saveEditText}>{saving ? "Saving..." : "Save changes"}</Text></Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={feedbackOpen} transparent animationType="slide" onRequestClose={() => {
+        if (!sendingFeedback) setFeedbackOpen(false);
+      }}>
+        <View style={s.editModalBackdrop}>
+          <View style={s.editModalCard}>
+            <Text style={s.cardTitle}>Send feedback</Text>
+            <Text style={s.muted}>Tell us what is working well or what we should improve.</Text>
+            <TextInput style={[s.editInput, s.editMultiline]} value={feedback} onChangeText={setFeedback} multiline textAlignVertical="top" maxLength={2000} placeholder="Write your feedback..." />
+            <Text style={s.helper}>{feedback.length}/2000 characters</Text>
+            <View style={s.editModalActions}>
+              <Pressable style={s.cancelEditButton} disabled={sendingFeedback} onPress={() => setFeedbackOpen(false)}><Text style={s.cancelEditText}>Cancel</Text></Pressable>
+              <Pressable style={s.saveEditButton} disabled={sendingFeedback} onPress={sendFeedback}><Text style={s.saveEditText}>{sendingFeedback ? "Sending..." : "Send feedback"}</Text></Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
+}
+
+function Settings({ back, openNotifications }: { back: () => void; openNotifications: () => void }) {
+  return (
+    <ScrollView contentContainerStyle={s.page}>
+      <Header title="Settings" back={back} />
+      <Card>
+        <View style={s.settingsDetailHeader}>
+          <LineIcon name="settings" color={C.blue} size={22} />
+          <Text style={s.cardTitle}>GrievX preferences</Text>
+        </View>
+        <Text style={s.muted}>Manage how you check updates and learn about the app.</Text>
+        <Pressable style={s.settingsRow} onPress={openNotifications}>
+          <View style={s.settingsIcon}><LineIcon name="bell" color={C.blue} size={21} /></View>
+          <View style={{ flex: 1 }}>
+            <Text style={s.label}>Notifications</Text>
+            <Text style={s.helper}>View complaint updates and status alerts</Text>
+          </View>
+          <Text style={s.settingsChevron}>›</Text>
+        </Pressable>
+      </Card>
+      <Card>
+        <Text style={s.label}>About GrievX</Text>
+        <Text style={s.muted}>GrievX Campus helps students report campus issues and follow their resolution.</Text>
+        <Text style={s.helper}>Version 1.0 · Student mobile app</Text>
+      </Card>
+    </ScrollView>
+  );
+}
+
+function LineIcon({ name, color, size = 22 }: { name: "home" | "clipboard" | "bell" | "user" | "settings"; color: string; size?: number }) {
+  const scale = size / 22;
+  const line = { borderColor: color, borderWidth: 1.8 * scale } as const;
+  if (name === "home") return (
+    <View style={{ width: size, height: size, alignItems: "center", justifyContent: "center" }}>
+      <View style={{ position: "absolute", top: 3 * scale, width: 13 * scale, height: 13 * scale, borderTopWidth: 1.8 * scale, borderLeftWidth: 1.8 * scale, borderColor: color, transform: [{ rotate: "45deg" }] }} />
+      <View style={{ position: "absolute", bottom: 2 * scale, width: 15 * scale, height: 11 * scale, borderTopWidth: 1.8 * scale, borderLeftWidth: 1.8 * scale, borderRightWidth: 1.8 * scale, borderColor: color, alignItems: "center", justifyContent: "flex-end" }}>
+        <View style={{ width: 4 * scale, height: 6 * scale, borderWidth: 1.4 * scale, borderBottomWidth: 0, borderColor: color }} />
+      </View>
+    </View>
+  );
+  if (name === "clipboard") return (
+    <View style={{ width: 15 * scale, height: 18 * scale, borderRadius: 2 * scale, ...line, alignItems: "center", paddingTop: 6 * scale, gap: 2.5 * scale }}>
+      <View style={{ position: "absolute", top: -3 * scale, width: 8 * scale, height: 5 * scale, borderRadius: 2 * scale, backgroundColor: C.white, ...line }} />
+      <View style={{ width: 8 * scale, height: 1.4 * scale, backgroundColor: color }} />
+      <View style={{ width: 8 * scale, height: 1.4 * scale, backgroundColor: color }} />
+      <View style={{ width: 6 * scale, height: 1.4 * scale, backgroundColor: color }} />
+    </View>
+  );
+  if (name === "bell") return (
+    <View style={{ width: 18 * scale, height: 20 * scale, alignItems: "center", justifyContent: "flex-end" }}>
+      <View style={{ position: "absolute", top: 3 * scale, width: 15 * scale, height: 13 * scale, borderTopLeftRadius: 9 * scale, borderTopRightRadius: 9 * scale, borderBottomLeftRadius: 3 * scale, borderBottomRightRadius: 3 * scale, borderWidth: 1.8 * scale, borderBottomWidth: 0, borderColor: color }} />
+      <View style={{ width: 18 * scale, height: 3 * scale, borderTopWidth: 1.8 * scale, borderColor: color }} />
+      <View style={{ width: 4 * scale, height: 3 * scale, borderBottomLeftRadius: 4 * scale, borderBottomRightRadius: 4 * scale, backgroundColor: color }} />
+      <View style={{ position: "absolute", top: 1 * scale, width: 3 * scale, height: 3 * scale, borderRadius: 2 * scale, backgroundColor: color }} />
+    </View>
+  );
+  if (name === "user") return (
+    <View style={{ width: 19 * scale, height: 20 * scale, alignItems: "center", justifyContent: "flex-end", gap: 2 * scale }}>
+      <View style={{ width: 7 * scale, height: 7 * scale, borderRadius: 4 * scale, borderWidth: 1.8 * scale, borderColor: color }} />
+      <View style={{ width: 17 * scale, height: 9 * scale, borderTopLeftRadius: 10 * scale, borderTopRightRadius: 10 * scale, borderWidth: 1.8 * scale, borderBottomWidth: 0, borderColor: color }} />
+    </View>
+  );
+  return <Text style={{ color, fontSize: size, lineHeight: size + 2 }}>⚙</Text>;
 }
 
 function Notifications({ back, openComplaint }: { back: () => void; openComplaint: (id: string) => void }) {
@@ -579,35 +984,33 @@ function Notifications({ back, openComplaint }: { back: () => void; openComplain
 }
 
 function Nav({ active, go }: { active: Screen; go: (x: Screen) => void }) {
-  const items: [Screen, string, string][] = [
-    ["home", "⌂", "Home"],
-    ["complaints", "▤", "Complaints"],
-    ["report", "+", "Report"],
-    ["notifications", "♧", "Alerts"],
-    ["profile", "○", "Profile"],
+  const items: { key: Screen; icon: "home" | "clipboard" | "bell" | "user"; label: string }[] = [
+    { key: "home", icon: "home", label: "Home" },
+    { key: "complaints", icon: "clipboard", label: "Complaints" },
+    { key: "notifications", icon: "bell", label: "Alert" },
+    { key: "profile", icon: "user", label: "Profile" },
   ];
-
   return (
     <View style={s.nav}>
-      {items.map(([key, icon, label]) => {
+      {items.slice(0, 2).map(({ key, icon, label }) => {
         const selected = active === key;
-        if (key === "report") {
-          return (
-            <Pressable key={key} style={s.reportNavItem} onPress={() => go("report")}>
-              <View style={[s.reportNavCircle, selected && s.reportNavCircleActive]}>
-                <Text style={s.reportNavPlus}>{icon}</Text>
-              </View>
-              <Text style={[s.navLabel, selected && s.navActive]}>Report</Text>
-            </Pressable>
-          );
-        }
-
-        return (
-          <Pressable key={key} style={s.navItem} onPress={() => go(key)}>
-            <Text style={[s.navIcon, selected && s.navActive]}>{icon}</Text>
-            <Text style={[s.navLabel, selected && s.navActive]}>{label}</Text>
-          </Pressable>
-        );
+        return <Pressable key={key} style={s.navItem} onPress={() => go(key)}>
+          <LineIcon name={icon} color={selected ? C.blue : C.muted} size={21} />
+          <Text style={[s.navLabel, selected && s.navActive]}>{label}</Text>
+        </Pressable>;
+      })}
+      <Pressable style={s.reportNavItem} onPress={() => go("report")}>
+        <View style={[s.reportNavCircle, active === "report" && s.reportNavCircleActive]}>
+          <Text style={s.reportNavPlus}>+</Text>
+        </View>
+        <Text style={[s.navLabel, active === "report" && s.navActive]}>Report</Text>
+      </Pressable>
+      {items.slice(2).map(({ key, icon, label }) => {
+        const selected = active === key;
+        return <Pressable key={key} style={s.navItem} onPress={() => go(key)}>
+          <LineIcon name={icon} color={selected ? C.blue : C.muted} size={21} />
+          <Text style={[s.navLabel, selected && s.navActive]}>{label}</Text>
+        </Pressable>;
       })}
     </View>
   );
@@ -679,10 +1082,10 @@ function Status({ status }: { status: string }) {
   );
 }
 
-function Stat({ label }: { label: string }) {
+function Stat({ label, value }: { label: string; value: number | string }) {
   return (
     <View style={s.stat}>
-      <Text style={s.statValue}>—</Text>
+      <Text style={s.statValue}>{value}</Text>
       <Text style={s.helper}>{label}</Text>
     </View>
   );
@@ -850,16 +1253,14 @@ const s = StyleSheet.create({
 
   page: { padding: 16, paddingBottom: 112, gap: 16 },
   top: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  eyebrow: { fontSize: 11, fontWeight: "700", letterSpacing: 1.1, color: C.blue },
   greeting: { fontSize: 24, lineHeight: 31, fontWeight: "700", color: C.text, marginTop: 4 },
   avatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: "#DAE2FD", alignItems: "center", justifyContent: "center" },
   avatarText: { fontSize: 18, fontWeight: "800", color: C.navy },
   hero: { backgroundColor: C.navy, borderRadius: 22, padding: 20, flexDirection: "row", minHeight: 185 },
+  heroIcon: { width: 52, height: 52, borderRadius: 26, backgroundColor: "#18316F", alignItems: "center", justifyContent: "center", alignSelf: "center", marginLeft: 10 },
+  heroCheck: { color: C.white, fontSize: 28, fontWeight: "700" },
   heroTitle: { fontSize: 23, lineHeight: 29, fontWeight: "700", color: C.white },
   heroBody: { fontSize: 14, lineHeight: 20, color: "#DCE1FF", marginVertical: 8, maxWidth: 230 },
-  primary: { minHeight: 48, borderRadius: 12, backgroundColor: C.blue, alignItems: "center", justifyContent: "center", paddingHorizontal: 18, marginTop: 8 },
-  primaryText: { color: C.white, fontSize: 14, fontWeight: "700" },
-  disabled: { opacity: 0.55 },
   section: { fontSize: 18, fontWeight: "600", color: C.text },
   stats: { flexDirection: "row", gap: 10 },
   stat: { flex: 1, padding: 14, backgroundColor: C.white, borderWidth: 1, borderColor: C.border, borderRadius: 16 },
@@ -867,12 +1268,14 @@ const s = StyleSheet.create({
   actions: { flexDirection: "row", gap: 10 },
   action: { flex: 1, minHeight: 120, padding: 16, backgroundColor: C.white, borderWidth: 1, borderColor: C.border, borderRadius: 16 },
   actionIcon: { fontSize: 24, color: C.blue, marginBottom: 10 },
-  card: { backgroundColor: C.white, borderWidth: 1, borderColor: C.border, borderRadius: 16, padding: 16, gap: 10 },
   progress: { backgroundColor: C.softBlue, borderRadius: 16, padding: 16, gap: 5 },
+  step: { color: C.blue, fontSize: 10, fontWeight: "700", letterSpacing: 0.8 },
+  area: { minHeight: 110, textAlignVertical: "top" },
+  imageBox: { alignItems: "flex-start", gap: 8 },
+  image: { width: "100%", height: 180, borderRadius: 12, backgroundColor: C.softBlue },
+  upload: { minHeight: 110, borderWidth: 1, borderStyle: "dashed", borderColor: C.border, borderRadius: 12, alignItems: "center", justifyContent: "center", gap: 6 },
+  plus: { color: C.blue, fontSize: 30, lineHeight: 34 },
   cardTitle: { fontSize: 20, lineHeight: 26, fontWeight: "600", color: C.text },
-  field: { gap: 6 },
-  label: { fontSize: 14, fontWeight: "600", color: C.text },
-  input: { backgroundColor: C.softBlue, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, color: C.text, fontSize: 14 },
   error: { fontSize: 13, color: C.red },
   muted: { fontSize: 14, lineHeight: 20, color: C.muted },
   helper: { fontSize: 12, lineHeight: 17, color: C.muted },
@@ -972,12 +1375,16 @@ const s = StyleSheet.create({
   nav: { position: "absolute", left: 0, right: 0, bottom: 0, height: 67, borderTopWidth: 1, borderTopColor: "#E7E8F0", backgroundColor: C.white, flexDirection: "row", alignItems: "center", paddingHorizontal: 3 },
   navItem: { flex: 1, alignItems: "center", gap: 2 },
   navIcon: { fontSize: 19, color: "#252C3E" },
-  navLabel: { fontSize: 9, fontWeight: "600", color: "#252C3E" },
+  navLabel: { fontSize: 9, fontWeight: "600", color: C.muted },
   navActive: { color: C.blue },
   reportNavItem: { flex: 1, alignItems: "center", justifyContent: "center", marginTop: -18 },
   reportNavCircle: { width: 43, height: 43, borderRadius: 22, backgroundColor: "#0A5CDA", alignItems: "center", justifyContent: "center", borderWidth: 4, borderColor: C.white },
   reportNavCircleActive: { backgroundColor: "#0A5CDA" },
   reportNavPlus: { color: C.white, fontSize: 28, lineHeight: 30, fontWeight: "300" },
+  settingsRow: { minHeight: 66, backgroundColor: C.white, borderWidth: 1, borderColor: C.border, borderRadius: 14, paddingHorizontal: 14, flexDirection: "row", alignItems: "center", gap: 12 },
+  settingsIcon: { width: 38, height: 38, borderRadius: 12, backgroundColor: C.softBlue, alignItems: "center", justifyContent: "center" },
+  settingsChevron: { color: C.muted, fontSize: 26 },
+  settingsDetailHeader: { flexDirection: "row", alignItems: "center", gap: 10 },
 
   row: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   status: { flexDirection: "row", alignItems: "center", alignSelf: "flex-start", borderRadius: 999, paddingVertical: 5, paddingHorizontal: 10, gap: 6 },
@@ -986,6 +1393,21 @@ const s = StyleSheet.create({
   date: { fontSize: 11, color: C.muted },
   complaint: { backgroundColor: C.white, borderWidth: 1, borderColor: C.border, borderRadius: 16, padding: 16, marginBottom: 10, gap: 8 },
   complaintTitle: { fontSize: 17, fontWeight: "700", color: C.text },
+  complaintActions: { flexDirection: "row", justifyContent: "flex-end", gap: 9, borderTopWidth: 1, borderTopColor: C.border, paddingTop: 10, marginTop: 4 },
+  editComplaintButton: { borderWidth: 1.5, borderColor: C.blue, borderRadius: 10, paddingVertical: 8, paddingHorizontal: 15 },
+  editComplaintText: { color: C.blue, fontSize: 13, fontWeight: "700" },
+  withdrawComplaintButton: { borderWidth: 1.5, borderColor: C.red, borderRadius: 10, paddingVertical: 8, paddingHorizontal: 13 },
+  withdrawComplaintText: { color: C.red, fontSize: 13, fontWeight: "700" },
+  editModalBackdrop: { flex: 1, backgroundColor: "rgba(6,22,74,0.42)", justifyContent: "center", padding: 20 },
+  editModalCard: { backgroundColor: C.white, borderRadius: 18, padding: 18, gap: 9 },
+  editInput: { minHeight: 43, borderWidth: 1, borderColor: C.border, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 9, color: C.text, fontSize: 14 },
+  editMultiline: { minHeight: 105 },
+  editModalActions: { flexDirection: "row", justifyContent: "flex-end", gap: 10, marginTop: 8 },
+  cancelEditButton: { paddingVertical: 11, paddingHorizontal: 15, borderRadius: 10, backgroundColor: C.softBlue },
+  cancelEditText: { color: C.navy, fontWeight: "700" },
+  saveEditButton: { paddingVertical: 11, paddingHorizontal: 16, borderRadius: 10, backgroundColor: C.blue },
+  saveEditText: { color: C.white, fontWeight: "700" },
+
   detailTitle: { fontSize: 24, lineHeight: 30, fontWeight: "700", color: C.text },
   file: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 7 },
   evidenceDetail: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 8 },
@@ -994,6 +1416,27 @@ const s = StyleSheet.create({
   evidenceDetailPlaceholderText: { color: C.blue, fontSize: 28 },
   timeline: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 9 },
   activeDot: { backgroundColor: C.blue },
+  profileHero: { backgroundColor: "#EAF0FF", borderWidth: 1, borderColor: "#D8E2FF", borderRadius: 20, padding: 18, flexDirection: "row", alignItems: "center", gap: 13 },
+  profileHeroName: { fontSize: 22, fontWeight: "800", color: C.text },
+  profileHeroEmail: { fontSize: 13, color: C.muted },
+  rolePill: { alignSelf: "flex-start", borderRadius: 20, backgroundColor: "#D8E5FF", paddingHorizontal: 11, paddingVertical: 5, marginTop: 3 },
+  rolePillText: { color: C.blue, fontSize: 11, fontWeight: "700", textTransform: "capitalize" },
+  editProfileButton: { borderWidth: 1.3, borderColor: C.blue, borderRadius: 20, paddingVertical: 8, paddingHorizontal: 10, alignSelf: "flex-start" },
+  editProfileButtonText: { color: C.blue, fontSize: 12, fontWeight: "700" },
+  profileStats: { flexDirection: "row", gap: 7 },
+  profileStat: { flex: 1, backgroundColor: C.white, borderWidth: 1, borderColor: C.border, borderRadius: 14, paddingVertical: 11, paddingHorizontal: 4, alignItems: "center", gap: 3 },
+  profileStatIcon: { width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center", marginBottom: 2 },
+  profileStatSymbol: { fontSize: 18, fontWeight: "800" },
+  profileStatValue: { fontSize: 18, fontWeight: "800", color: C.text },
+  profileStatLabel: { fontSize: 10, color: C.muted, textAlign: "center" },
+  profileSectionTitle: { fontSize: 16, fontWeight: "800", color: C.text, marginBottom: 2 },
+  profileMenuRow: { minHeight: 58, flexDirection: "row", alignItems: "center", gap: 11, paddingVertical: 5 },
+  profileMenuIcon: { width: 36, height: 36, borderRadius: 18, backgroundColor: C.softBlue, alignItems: "center", justifyContent: "center" },
+  profileMenuSymbol: { fontSize: 19, color: C.blue, fontWeight: "400", includeFontPadding: false, textAlign: "center" },
+  profileMenuTitle: { fontSize: 14, fontWeight: "700", color: C.text },
+  profileMenuSubtitle: { fontSize: 11, color: C.muted, lineHeight: 15 },
+  profileMenuBadge: { color: C.white, backgroundColor: C.blue, overflow: "hidden", borderRadius: 10, paddingHorizontal: 7, paddingVertical: 2, fontSize: 10, fontWeight: "700" },
+
   profile: { alignItems: "center", backgroundColor: C.white, borderWidth: 1, borderColor: C.border, borderRadius: 18, padding: 24, gap: 5 },
   profileAvatar: { width: 82, height: 82, borderRadius: 41, backgroundColor: "#DAE2FD", alignItems: "center", justifyContent: "center" },
   profileLetter: { fontSize: 34, fontWeight: "800", color: C.navy },
@@ -1002,7 +1445,6 @@ const s = StyleSheet.create({
   notificationCard: { backgroundColor: C.white, borderWidth: 1, borderColor: C.border, borderRadius: 16, padding: 16, gap: 8 },
   notificationUnread: { borderColor: "#B9C9F7", backgroundColor: "#F6F8FF" },
   notificationDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: C.blue },
-  logout: { height: 48, borderRadius: 12, borderWidth: 1, borderColor: "#F1B4B4", backgroundColor: "#FEF2F2", alignItems: "center", justifyContent: "center" },
-  error: { fontSize: 13, color: C.red },
-  body: { fontSize: 16, lineHeight: 24, color: C.text },
+  logout: { height: 52, borderRadius: 14, borderWidth: 1, borderColor: "#F1B4B4", backgroundColor: "#FEF2F2", alignItems: "center", justifyContent: "center" },
+  logoutText: { color: C.red, fontWeight: "800", fontSize: 15 },
 });

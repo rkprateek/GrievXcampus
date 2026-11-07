@@ -2,7 +2,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from app.ml.text_classifier import CONFIDENCE_THRESHOLD, ClassificationResult, get_text_classifier
+from app.ml.text_classifier import (
+    CONFIDENCE_THRESHOLD,
+    ClassificationResult,
+    get_text_classifier,
+)
+
+ROUTER_VERSION = "department-router-v1.1.0"
 
 CATEGORY_TO_DEPARTMENT = {
     "Electrical": {"name": "Electrical", "code": "ELEC"},
@@ -30,12 +36,7 @@ class RoutingResult:
 
 
 class DepartmentRouter:
-    def __init__(self) -> None:
-        self.classifier = get_text_classifier()
-
-    def route(self, title: str, description: str) -> RoutingResult:
-        prediction: ClassificationResult = self.classifier.predict(title, description)
-
+    def route_prediction(self, prediction: ClassificationResult) -> RoutingResult:
         if prediction.low_confidence or prediction.confidence < CONFIDENCE_THRESHOLD:
             fallback = CATEGORY_TO_DEPARTMENT["General"]
             return RoutingResult(
@@ -46,7 +47,7 @@ class DepartmentRouter:
                 routing_confidence=prediction.confidence,
                 requires_manual_review=True,
                 reason="Classification confidence is below the routing threshold; routed to General for admin review.",
-                model_version=prediction.model_version,
+                model_version=ROUTER_VERSION,
             )
 
         department = CATEGORY_TO_DEPARTMENT.get(
@@ -61,8 +62,12 @@ class DepartmentRouter:
             routing_confidence=prediction.confidence,
             requires_manual_review=False,
             reason="Department selected from the predicted complaint category using the project department mapping.",
-            model_version=prediction.model_version,
+            model_version=ROUTER_VERSION,
         )
+
+    def route(self, title: str, description: str) -> RoutingResult:
+        prediction = get_text_classifier().predict(title, description)
+        return self.route_prediction(prediction)
 
 
 _router = DepartmentRouter()
