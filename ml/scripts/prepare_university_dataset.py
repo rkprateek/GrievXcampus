@@ -112,9 +112,15 @@ RULES: tuple[tuple[str, tuple[str, ...], str], ...] = (
 # label; "excluded" is deliberately outside the current GrievX scope.
 MANUAL_GROUP_DECISIONS: dict[str, tuple[str, str, str]] = {
     # Earlier review of excluded groups
-    "8": ("", "review", "library_behaviour_requires_scope_review"),
+    "8": ("", "excluded", "library_behaviour_outside_current_maintenance_scope"),
     "11": ("", "excluded", "lift_queue_not_a_confirmed_lift_fault"),
-    "26": ("Classroom & Facilities", "review", "library_and_study_space_capacity_needs_human_confirmation"),
+    "12": ("Transport", "candidate", "approved_bus_tracking_and_routing_mapping"),
+    "124": ("Electrical", "candidate", "approved_voltage_fluctuation_mapping"),
+    "128": ("Electrical", "candidate", "approved_outdoor_campus_lighting_mapping"),
+    "138": ("Electrical", "candidate", "approved_computer_lab_power_mapping"),
+    "193": ("Plumbing", "candidate", "approved_parking_area_drainage_mapping"),
+    "197": ("Plumbing", "candidate", "approved_classroom_corridor_ceiling_leak_mapping"),
+    "26": ("Classroom & Facilities", "candidate", "approved_library_and_study_space_facilities_mapping"),
     "34": ("Classroom & Facilities", "candidate", "approved_manual_facilities_mapping"),
     "36": ("Classroom & Facilities", "candidate", "approved_manual_facilities_mapping"),
     "48": ("IT & Network|Classroom & Facilities", "review", "lab_equipment_type_requires_human_review"),
@@ -125,8 +131,8 @@ MANUAL_GROUP_DECISIONS: dict[str, tuple[str, str, str]] = {
     "82": ("Electrical", "candidate", "approved_air_conditioning_mapping"),
     "83": ("Cleanliness", "candidate", "approved_cleanliness_mapping"),
     "98": ("IT & Network|Classroom & Facilities", "review", "lab_maintenance_type_requires_human_review"),
-    "123": ("Electrical", "review", "ceiling_fan_failure_needs_confirmed_group_review"),
-    "177": ("Electrical", "review", "parking_area_lighting_needs_confirmed_group_review"),
+    "123": ("Electrical", "candidate", "approved_classroom_ceiling_fan_mapping"),
+    "177": ("Electrical", "candidate", "approved_parking_area_lighting_mapping"),
     "187": ("Security", "review", "parking_surveillance_camera_failure_needs_cause_review"),
 
     # Remaining excluded-group review
@@ -191,17 +197,9 @@ MANUAL_GROUP_DECISIONS: dict[str, tuple[str, str, str]] = {
     "167": ("", "excluded", "installment_payment_process_outside_current_scope"),
 }
 
-# Four additional earlier decisions were accepted as review notes, but their
-# Complaint_Group_ID values were not captured. They are intentionally NOT
-# applied by text matching; identify the IDs before turning them into rules.
-PENDING_GROUP_ID_DECISIONS = (
-    ("Bus tracking/routing app", "Transport"),
-    ("Voltage fluctuation affecting computer lab equipment", "Electrical"),
-    ("Outdoor campus lights not working", "Electrical"),
-    ("Computer lab losing electricity", "Electrical"),
-    ("Parking area drainage problem", "Plumbing"),
-    ("Water leaking from classroom corridor ceiling", "Plumbing"),
-)
+# The six earlier complaint-level decisions have now been matched to exact
+# Complaint_Group_ID values and are applied above. Do not infer future IDs
+# from text; add only after reviewing the source row and confirming its group.
 
 def read_rows(split: str) -> tuple[list[str], list[dict[str, str]]]:
     path = DATA_DIR / f"{split}.csv"
@@ -309,7 +307,7 @@ def main() -> None:
     print("- Projectors, HDMI and Wi-Fi remain IT even when classrooms are mentioned.")
     print("- Approved group-level human decisions override keyword rules consistently across both splits.")
     print("- Manual-review records are not confirmed training labels.")
-    print("- Six earlier description-based decisions still need group IDs and are not applied.")
+    print("- All six previously pending complaint decisions now have confirmed group IDs and approved mappings.")
     print("- Security terms take precedence over parking context; charging points map to Electrical.")
     print("- Source Severity is preserved; GrievX priority candidates remain blank.")
     print("- Train and official test outputs remain separate.")
