@@ -61,3 +61,20 @@ The script does not assign a GrievX priority, does not alter source labels, does
 not merge train and test, and does not modify `ml/data/complaints_seed.csv`.
 Candidate labels are proposals for review, not verified ground truth. Review
 the generated CSVs and counts before any training integration.
+
+
+## Human-reviewed mapping decisions
+
+The approved group-level decisions are stored in
+`ml/data/external/university_students_complaints/manual_mapping_decisions.csv`.
+The preparation script applies these decisions by `Complaint_Group_ID` to
+both source splits, so paraphrases in a group receive the same decision.
+`candidate` entries are approved category mappings; `review` entries remain
+human-review cases and must not be used as confirmed training labels;
+`excluded` entries remain outside the current GrievX scope.
+
+Six earlier complaint-level decisions still lack confirmed group IDs. They are
+documented in `pending_group_id_decisions.md` and are deliberately not applied.
+After running the preparation script, inspect the reports and verify group
+coverage before considering any model training. No source CSV or seed dataset
+is overwritten by this workflow.
