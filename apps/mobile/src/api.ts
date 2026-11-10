@@ -44,6 +44,7 @@ export type MLWorkflowResult = {
     method: string;
     explanation: string;
     matched_rules: string[];
+    requires_manual_review: boolean;
     model_version: string;
   };
   routing: {
@@ -79,6 +80,7 @@ function isMLWorkflowResult(value: unknown): value is MLWorkflowResult {
     && typeof candidate.priority.method === "string"
     && typeof candidate.priority.explanation === "string"
     && Array.isArray(candidate.priority.matched_rules)
+    && typeof candidate.priority.requires_manual_review === "boolean"
     && typeof candidate.priority.model_version === "string"
     && !!candidate.routing
     && typeof candidate.routing.category === "string"
@@ -243,6 +245,13 @@ export async function createComplaint(input: {
     return { ...data, ml_status: "unavailable" as const, ml_message: workflow.message };
   }
 
+  const requiresManualReview =
+    ml.routing.requires_manual_review || ml.priority.requires_manual_review;
+  const reviewReasons = [
+    ml.routing.requires_manual_review ? ml.routing.reason : null,
+    ml.priority.requires_manual_review ? ml.priority.explanation : null,
+  ].filter((reason): reason is string => Boolean(reason));
+
   const { error: workflowError } = await supabase.rpc("apply_complaint_ml_predictions", {
     p_complaint_id: data.id,
     p_category: ml.category.category,
@@ -276,7 +285,7 @@ export async function createComplaint(input: {
 
   const { error: historyError } = await supabase.from("complaint_ml_predictions").upsert({
     complaint_id: data.id,
-    prediction_state: ml.routing.requires_manual_review ? "manual_review" : "completed",
+    prediction_state: requiresManualReview ? "manual_review" : "completed",
     category: ml.category.category,
     category_confidence: ml.category.confidence,
     priority: ml.priority.priority,
@@ -288,8 +297,8 @@ export async function createComplaint(input: {
     department_name: ml.routing.department,
     department_code: ml.routing.department_code,
     routing_confidence: ml.routing.routing_confidence,
-    requires_manual_review: ml.routing.requires_manual_review,
-    review_reason: ml.routing.requires_manual_review ? ml.routing.reason : null,
+    requires_manual_review: requiresManualReview,
+    review_reason: reviewReasons.length ? reviewReasons.join(" ") : null,
     category_model_version: ml.category.model_version,
     priority_model_version: ml.priority.model_version,
     routing_model_version: ml.routing.model_version,
@@ -298,7 +307,7 @@ export async function createComplaint(input: {
   }, { onConflict: "complaint_id" });
 
   const { data: updatedComplaint } = await supabase.from("complaints")
-    .select("id, student_id, title, description, location, status, category, category_confidence, priority, priority_confidence, department_id, assigned_staff_id, created_at, updated_at")
+    .select("id, student_id, title, description, location, status, category, category_confidence, priority, priority_confidence, department_id, suggested_department_id, assigned_staff_id, created_at, updated_at")
     .eq("id", data.id)
     .maybeSingle();
 
@@ -307,8 +316,8 @@ export async function createComplaint(input: {
     ml_status: historyError ? "history_failed" as const : "applied" as const,
     ml_message: historyError
       ? `Predictions were applied, but prediction history could not be saved: ${historyError.message}`
-      : ml.routing.requires_manual_review
-        ? "Category and priority predicted. Department needs admin review because model confidence is low."
+      : requiresManualReview
+        ? "Category and priority predicted. Admin review is required because one or more model predictions have low confidence."
         : "Category, priority and department predicted successfully. Staff assignment depends on configured staff availability.",
   };
 }
@@ -356,7 +365,7 @@ export async function withdrawComplaint(id: string) {
 
 export async function getComplaint(id: string) {
   const { data, error } = await supabase.from("complaints")
-    .select("id, student_id, title, description, location, status, priority, category, upvote_count, duplicate_of_id, created_at, updated_at, complaint_images(id, original_filename, content_type, storage_path), complaint_status_history(id, from_status, to_status, changed_by, note, created_at)")
+    .select("id, student_id, title, description, location, status, priority, category, suggested_department_id, department_confidence, department_source, upvote_count, duplicate_of_id, created_at, updated_at, complaint_images(id, original_filename, content_type, storage_path), complaint_status_history(id, from_status, to_status, changed_by, note, created_at)")
     .eq("id", id)
     .single();
   if (error) throw new Error(error.message);

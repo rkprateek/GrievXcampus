@@ -12,9 +12,9 @@ from sklearn.metrics import accuracy_score, f1_score
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
 
-MODEL_VERSION = "text-classifier-v1.1.0"
+MODEL_VERSION = "text-classifier-v1.2.0"
 CONFIDENCE_THRESHOLD = 0.55
-DATASET_VERSION = "complaints-seed-v1"
+DATASET_VERSION = "complaints-seed-v2"
 CATEGORY_LABELS = (
     "Electrical",
     "Plumbing",

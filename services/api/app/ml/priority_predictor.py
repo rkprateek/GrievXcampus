@@ -13,8 +13,8 @@ from sklearn.metrics import accuracy_score, f1_score
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
 
-MODEL_VERSION = "priority-predictor-v1.1.0"
-DATASET_VERSION = "complaints-seed-v1"
+MODEL_VERSION = "priority-predictor-v1.2.0"
+DATASET_VERSION = "complaints-seed-v2"
 
 CRITICAL_RULES: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("electrical_safety", ("electric shock", "electrocution", "sparking", "sparks", "burning smell", "exposed electrical wire", "exposed live wire", "smoke")),
@@ -69,6 +69,7 @@ class PriorityResult:
     method: str
     explanation: str
     matched_rules: list[str]
+    requires_manual_review: bool
     model_version: str
 
 
@@ -117,15 +118,25 @@ class PriorityPredictor:
                 method="safety_rule_override",
                 explanation="Potential critical safety language detected: " + ", ".join(matched) + ". Admin review is still required to confirm the incident.",
                 matched_rules=matched,
+                requires_manual_review=True,
                 model_version=MODEL_VERSION,
             )
+
+        requires_review = confidence < 0.55
+        explanation = (
+            "Priority estimated using the trained baseline model. "
+            "Low confidence; admin review is required."
+            if requires_review
+            else "Priority estimated from the complaint title and description using the trained baseline model."
+        )
 
         return PriorityResult(
             priority=str(classes[index]),
             confidence=round(confidence, 4),
             method="tfidf_logistic_regression",
-            explanation="Priority estimated from the complaint title and description using the trained baseline model.",
+            explanation=explanation,
             matched_rules=[],
+            requires_manual_review=requires_review,
             model_version=MODEL_VERSION,
         )
 
