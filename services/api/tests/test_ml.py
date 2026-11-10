@@ -132,10 +132,11 @@ def test_low_confidence_department_routing_requires_manual_review() -> None:
 
     assert payload["category"] == "IT & Network"
     assert payload["category_confidence"] < CONFIDENCE_THRESHOLD
-    assert payload["department"] == "General"
-    assert payload["department_code"] == "GEN"
+    assert payload["department"] == payload["category"]
+    assert payload["department"] == "IT & Network"
+    assert payload["department_code"] == "IT"
     assert payload["requires_manual_review"] is True
-    assert "admin review" in payload["reason"]
+    assert "admin confirmation" in payload["reason"]
 
 
 def test_high_confidence_prediction_routes_to_it_department() -> None:
