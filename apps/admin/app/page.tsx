@@ -37,6 +37,7 @@ type MLPredictionRecord = {
   category: string | null; category_confidence: number | null;
   priority: string | null; priority_confidence: number | null;
   department_name: string | null; requires_manual_review: boolean;
+  review_reason: string | null;
   created_at: string;
 };
 type MLHealth = { status: string; training_samples?: number; dataset?: string; models?: Record<string, string>; error?: string };
@@ -129,7 +130,7 @@ export default function AdminPage() {
     setMlError("");
     const { data, error } = await supabase
       .from("complaint_ml_predictions")
-      .select("id, complaint_id, prediction_state, category, category_confidence, priority, priority_confidence, department_name, requires_manual_review, created_at")
+      .select("id, complaint_id, prediction_state, category, category_confidence, priority, priority_confidence, department_name, requires_manual_review, review_reason, created_at")
       .order("created_at", { ascending: false })
       .limit(100);
     if (error) setMlError(`Could not load prediction history: ${error.message}`);
@@ -518,7 +519,12 @@ export default function AdminPage() {
                   <b>{complaints.find((x) => x.id === item.complaint_id)?.title ?? item.complaint_id.slice(0, 8)}</b>
                   <span>{item.category ?? "—"}</span><span>{item.priority ?? "—"}</span><span>{item.department_name ?? "—"}</span>
                   <span>{item.category_confidence == null ? "—" : `${Math.round(item.category_confidence * 100)}%`}</span>
-                  <span className={item.requires_manual_review ? "reviewBadge" : "readyBadge"}>{item.requires_manual_review ? "Manual review" : item.prediction_state}</span>
+                  <span>
+                    <span className={item.requires_manual_review || item.prediction_state === "manual_review" ? "reviewBadge" : "readyBadge"}>
+                      {item.requires_manual_review || item.prediction_state === "manual_review" ? "Manual review" : item.prediction_state}
+                    </span>
+                    {item.requires_manual_review && item.review_reason && <small className="mutedText">{item.review_reason}</small>}
+                  </span>
                 </div>)}
               </div>}
             </section>
