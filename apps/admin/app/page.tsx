@@ -13,6 +13,7 @@ type Complaint = {
   created_at: string;
   updated_at: string;
   department_id?: string | null;
+  suggested_department_id?: string | null;
   priority?: "normal" | "high" | "critical";
   category?: string | null;
   category_confidence?: number | null;
@@ -172,7 +173,7 @@ export default function AdminPage() {
     setLoading(true);
     const { data, error } = await supabase
       .from("complaints")
-      .select("id, student_id, title, description, location, status, category, category_confidence, priority_confidence, department_confidence, department_source, upvote_count, duplicate_of_id, priority, department_id, assigned_staff_id, created_at, updated_at, profiles!complaints_student_id_fkey(name, email), complaint_images(id, storage_path, content_type), complaint_status_history(id, from_status, to_status, changed_by, note, created_at)")
+      .select("id, student_id, title, description, location, status, category, category_confidence, priority_confidence, department_confidence, department_source, upvote_count, duplicate_of_id, priority, department_id, suggested_department_id, assigned_staff_id, created_at, updated_at, profiles!complaints_student_id_fkey(name, email), complaint_images(id, storage_path, content_type), complaint_status_history(id, from_status, to_status, changed_by, note, created_at)")
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -217,7 +218,7 @@ export default function AdminPage() {
       .from("complaints")
       .update({ status, updated_at: new Date().toISOString() })
       .eq("id", selected.id)
-      .select("id, student_id, title, description, location, status, category, category_confidence, priority_confidence, department_confidence, department_source, upvote_count, duplicate_of_id, priority, department_id, assigned_staff_id, created_at, updated_at, profiles!complaints_student_id_fkey(name, email), complaint_images(id, storage_path, content_type), complaint_status_history(id, from_status, to_status, changed_by, note, created_at)")
+      .select("id, student_id, title, description, location, status, category, category_confidence, priority_confidence, department_confidence, department_source, upvote_count, duplicate_of_id, priority, department_id, suggested_department_id, assigned_staff_id, created_at, updated_at, profiles!complaints_student_id_fkey(name, email), complaint_images(id, storage_path, content_type), complaint_status_history(id, from_status, to_status, changed_by, note, created_at)")
       .single();
 
     if (error) {
@@ -249,7 +250,7 @@ export default function AdminPage() {
       .from("complaints")
       .update({ ...changes, updated_at: new Date().toISOString() })
       .eq("id", selected.id)
-      .select("id, student_id, title, description, location, status, category, category_confidence, priority_confidence, department_confidence, department_source, upvote_count, duplicate_of_id, priority, department_id, assigned_staff_id, created_at, updated_at, profiles!complaints_student_id_fkey(name, email), complaint_images(id, storage_path, content_type), complaint_status_history(id, from_status, to_status, changed_by, note, created_at)")
+      .select("id, student_id, title, description, location, status, category, category_confidence, priority_confidence, department_confidence, department_source, upvote_count, duplicate_of_id, priority, department_id, suggested_department_id, assigned_staff_id, created_at, updated_at, profiles!complaints_student_id_fkey(name, email), complaint_images(id, storage_path, content_type), complaint_status_history(id, from_status, to_status, changed_by, note, created_at)")
       .single();
 
     if (error) {
@@ -289,7 +290,7 @@ export default function AdminPage() {
       .from("complaints")
       .update({ assigned_staff_id: staffId, updated_at: new Date().toISOString() })
       .eq("id", selected.id)
-      .select("id, student_id, title, description, location, status, category, category_confidence, priority_confidence, department_confidence, department_source, upvote_count, duplicate_of_id, priority, department_id, assigned_staff_id, created_at, updated_at, profiles!complaints_student_id_fkey(name, email), complaint_images(id, storage_path, content_type), complaint_status_history(id, from_status, to_status, changed_by, note, created_at)")
+      .select("id, student_id, title, description, location, status, category, category_confidence, priority_confidence, department_confidence, department_source, upvote_count, duplicate_of_id, priority, department_id, suggested_department_id, assigned_staff_id, created_at, updated_at, profiles!complaints_student_id_fkey(name, email), complaint_images(id, storage_path, content_type), complaint_status_history(id, from_status, to_status, changed_by, note, created_at)")
       .single();
 
     if (error) {
@@ -547,11 +548,12 @@ export default function AdminPage() {
                       <div className="tableHead"><span>Complaint</span><span>Category</span><span>Department</span><span>Priority</span><span>Status</span><span>Assigned staff</span><span>Submitted</span></div>
                       {loading ? <div className="empty">Loading complaints...</div> : filtered.length === 0 ? <div className="empty">No complaints match your search.</div> : filtered.slice(0, 6).map((item) => {
                         const department = departments.find((d) => d.id === item.department_id);
+                        const suggestedDepartment = departments.find((d) => d.id === item.suggested_department_id);
                         const assigned = staff.find((person) => person.id === item.assigned_staff_id);
                         return <button key={item.id} className={selected?.id === item.id ? "tableRow selected" : "tableRow"} onClick={() => setSelected(item)}>
                           <span className="complaintTitle"><i><Icon name={item.category?.toLowerCase().includes("network") ? "wifi" : item.category?.toLowerCase().includes("plumb") ? "droplet" : "file"} size={18} /></i><b>{item.title}</b></span>
                           <span>{item.category ?? "Unclassified"}</span>
-                          <span>{department?.name ?? "Pending"}</span>
+                          <span>{department?.name ?? (suggestedDepartment ? `Suggested: ${suggestedDepartment.name}` : "Pending")}</span>
                           <span><em className={`priorityPill priority-${item.priority ?? "normal"}`}>{item.priority ?? "normal"}</em></span>
                           <span><Status status={item.status} /></span>
                           <span>{assigned?.name ?? (item.assigned_staff_id ? "Assigned staff" : "Unassigned")}</span>
@@ -590,10 +592,11 @@ export default function AdminPage() {
                     </div>
 
                     <section className="automaticCard">
-                      <div className="automaticHeading"><h3><span><Icon name="settings" size={21} /></span>Automatic assignment</h3><span className={selected.category && selected.department_source !== "manual_review" ? "readyBadge" : "reviewBadge"}>{selected.category && selected.department_source !== "manual_review" ? "ML result saved" : "Review needed"}</span></div>
+                      <div className="automaticHeading"><h3><span><Icon name="settings" size={21} /></span>Department suggestion & assignment</h3><span className={selected.category && selected.department_source !== "manual_review" ? "readyBadge" : "reviewBadge"}>{selected.category && selected.department_source !== "manual_review" ? "ML result saved" : "Review needed"}</span></div>
                       <div className="assignmentSteps">
                         <div><span>◎ &nbsp; Predicted category:</span><b>{selected.category ?? "Pending"}</b><i>{selected.category_confidence != null ? Math.round(selected.category_confidence * 100) + "%" : "—"}</i></div>
-                        <div><span>♜ &nbsp; Department:</span><b>{departments.find((d) => d.id === selected.department_id)?.name ?? "Needs review"}</b><i>{selected.department_confidence != null ? Math.round(selected.department_confidence * 100) + "%" : "—"}</i></div>
+                        <div><span>◎ &nbsp; Suggested department:</span><b>{departments.find((d) => d.id === selected.suggested_department_id)?.name ?? "Not available"}</b><i>{selected.department_confidence != null ? Math.round(selected.department_confidence * 100) + "%" : "—"}</i></div>
+                        <div><span>♜ &nbsp; Confirmed department:</span><b>{departments.find((d) => d.id === selected.department_id)?.name ?? "Pending admin review"}</b><i>{selected.department_id ? "Confirmed" : "Pending"}</i></div>
                         <div><span>⚑ &nbsp; Priority:</span><b><em className={`priorityPill priority-${selected.priority ?? "normal"}`}>{selected.priority ?? "normal"}</em></b><i>{selected.priority_confidence != null ? Math.round(selected.priority_confidence * 100) + "%" : "—"}</i></div>
                         <div><span>♧ &nbsp; Assigned staff:</span><b>{staff.find((member) => member.id === selected.assigned_staff_id)?.name ?? (selected.assigned_staff_id ? "Assigned staff" : "Not assigned")}</b><i>{selected.assigned_staff_id ? "Assigned" : "Pending"}</i></div>
                       </div>
