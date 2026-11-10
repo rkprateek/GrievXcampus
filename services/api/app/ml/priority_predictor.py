@@ -13,8 +13,8 @@ from sklearn.metrics import accuracy_score, f1_score
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
 
-MODEL_VERSION = "priority-predictor-v1.1.0"
-DATASET_VERSION = "complaints-seed-v1"
+MODEL_VERSION = "priority-predictor-v1.2.0"
+DATASET_VERSION = "complaints-seed-v2"
 
 CRITICAL_RULES: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("electrical_safety", ("electric shock", "electrocution", "sparking", "sparks", "burning smell", "exposed electrical wire", "exposed live wire", "smoke")),
