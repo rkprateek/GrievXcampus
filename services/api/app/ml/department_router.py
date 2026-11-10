@@ -8,7 +8,7 @@ from app.ml.text_classifier import (
     get_text_classifier,
 )
 
-ROUTER_VERSION = "department-router-v1.1.0"
+ROUTER_VERSION = "department-router-v1.3.0"
 
 CATEGORY_TO_DEPARTMENT = {
     "Electrical": {"name": "Electrical", "code": "ELEC"},
@@ -37,23 +37,29 @@ class RoutingResult:
 
 class DepartmentRouter:
     def route_prediction(self, prediction: ClassificationResult) -> RoutingResult:
-        if prediction.low_confidence or prediction.confidence < CONFIDENCE_THRESHOLD:
-            fallback = CATEGORY_TO_DEPARTMENT["General"]
-            return RoutingResult(
-                category=prediction.category,
-                category_confidence=prediction.confidence,
-                department=fallback["name"],
-                department_code=fallback["code"],
-                routing_confidence=prediction.confidence,
-                requires_manual_review=True,
-                reason="Classification confidence is below the routing threshold; routed to General for admin review.",
-                model_version=ROUTER_VERSION,
-            )
-
+        # Always preserve the classifier's best department as a suggestion.
+        # Low confidence changes the approval state, not the predicted label.
         department = CATEGORY_TO_DEPARTMENT.get(
             prediction.category,
             CATEGORY_TO_DEPARTMENT["General"],
         )
+
+        if prediction.low_confidence or prediction.confidence < CONFIDENCE_THRESHOLD:
+            return RoutingResult(
+                category=prediction.category,
+                category_confidence=prediction.confidence,
+                department=department["name"],
+                department_code=department["code"],
+                routing_confidence=prediction.confidence,
+                requires_manual_review=True,
+                reason=(
+                    "Suggested department is shown for reference. "
+                    "Classification confidence is below the routing threshold; "
+                    "admin confirmation is required before assignment."
+                ),
+                model_version=ROUTER_VERSION,
+            )
+
         return RoutingResult(
             category=prediction.category,
             category_confidence=prediction.confidence,
@@ -61,14 +67,12 @@ class DepartmentRouter:
             department_code=department["code"],
             routing_confidence=prediction.confidence,
             requires_manual_review=False,
-            reason="Department selected from the predicted complaint category using the project department mapping.",
+            reason=(
+                "Department selected from the predicted complaint category "
+                "using the project department mapping."
+            ),
             model_version=ROUTER_VERSION,
         )
-
-    def route(self, title: str, description: str) -> RoutingResult:
-        prediction = get_text_classifier().predict(title, description)
-        return self.route_prediction(prediction)
-
 
 _router = DepartmentRouter()
 
