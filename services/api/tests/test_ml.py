@@ -139,6 +139,25 @@ def test_low_confidence_department_routing_requires_manual_review() -> None:
     assert "admin confirmation" in payload["reason"]
 
 
+def test_classroom_fan_complaint_suggests_facilities_department() -> None:
+    response = TestClient(app).post(
+        "/ml/predict",
+        json={
+            "title": "Classroom fan not working",
+            "description": "Fan is not working and class become uncomfortable during lectures",
+        },
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["category"]["category"] == "Classroom & Facilities"
+    assert payload["routing"]["department"] == "Classroom & Facilities"
+    assert payload["routing"]["department_code"] == "FAC"
+    assert 0 <= payload["routing"]["routing_confidence"] <= 1
+    # Low confidence may require confirmation, but must not erase the suggestion.
+    if payload["routing"]["routing_confidence"] < CONFIDENCE_THRESHOLD:
+        assert payload["routing"]["requires_manual_review"] is True
+
+
 def test_high_confidence_prediction_routes_to_it_department() -> None:
     prediction = ClassificationResult(
         category="IT & Network",
