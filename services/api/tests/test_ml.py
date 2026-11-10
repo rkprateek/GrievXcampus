@@ -87,7 +87,7 @@ def test_combined_prediction_endpoint_reuses_category_prediction() -> None:
     assert response.status_code == 200
     payload = response.json()
     assert payload["category"]["model_version"] == "text-classifier-v1.2.0"
-    assert payload["priority"]["model_version"] == "priority-predictor-v1.1.0"
+    assert payload["priority"]["model_version"] == "priority-predictor-v1.2.0"
     assert payload["routing"]["category"] == payload["category"]["category"]
 
 
