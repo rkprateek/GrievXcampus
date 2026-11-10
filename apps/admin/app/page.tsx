@@ -248,7 +248,7 @@ export default function AdminPage() {
     setMessage("");
     const { data, error } = await supabase
       .from("complaints")
-      .update({ ...changes, updated_at: new Date().toISOString() })
+      .update({ ...changes, ...(changes.department_id !== undefined ? { department_source: "admin_confirmed" } : {}), updated_at: new Date().toISOString() })
       .eq("id", selected.id)
       .select("id, student_id, title, description, location, status, category, category_confidence, priority_confidence, department_confidence, department_source, upvote_count, duplicate_of_id, priority, department_id, suggested_department_id, assigned_staff_id, created_at, updated_at, profiles!complaints_student_id_fkey(name, email), complaint_images(id, storage_path, content_type), complaint_status_history(id, from_status, to_status, changed_by, note, created_at)")
       .single();
@@ -459,7 +459,7 @@ export default function AdminPage() {
               </label>
               <label>Department
                 <select value={staffDepartmentId} onChange={(e) => setStaffDepartmentId(e.target.value)}>
-                  <option value="">Select department</option>
+                  <option value="">Confirm a department</option>
                   {departments.map((department) => <option key={department.id} value={department.id}>{department.name}</option>)}
                 </select>
               </label>
@@ -604,7 +604,7 @@ export default function AdminPage() {
                     </section>
 
                     <div className="overrideArea">
-                      <label>Override assignment</label>
+                      <label>Confirm department / override assignment</label>
                       <div className="overrideControls">
                         <select className="departmentSelect" value={selected.department_id ?? ""} onChange={(e) => updateRouting({ department_id: e.target.value || null })}>
                           <option value="">Select department</option>
