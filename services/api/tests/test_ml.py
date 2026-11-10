@@ -153,3 +153,24 @@ def test_high_confidence_prediction_routes_to_it_department() -> None:
     assert result.department_code == "IT"
     assert result.requires_manual_review is False
     assert result.category_confidence == 0.90
+
+def test_uncertain_priority_prediction_requires_manual_review() -> None:
+    result = get_priority_predictor().predict(
+        "Need help",
+        "I am facing an issue and need assistance.",
+    )
+
+    assert result.confidence < 0.55
+    assert result.requires_manual_review is True
+    assert "admin review" in result.explanation.lower()
+
+
+def test_safety_override_remains_critical_and_requires_review() -> None:
+    result = get_priority_predictor().predict(
+        "Exposed electrical wire",
+        "An exposed live electrical wire is hanging near the classroom door.",
+    )
+
+    assert result.priority == "critical"
+    assert result.method == "safety_rule_override"
+    assert result.requires_manual_review is True
