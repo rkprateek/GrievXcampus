@@ -25,7 +25,7 @@ def test_ml_metrics_endpoint_reports_seed_evaluation() -> None:
     response = TestClient(app).get("/ml/metrics")
     assert response.status_code == 200
     payload = response.json()
-    assert payload["dataset"] == "complaints-seed-v1"
+    assert payload["dataset"] == "complaints-seed-v2"
     assert 0 <= payload["category"]["accuracy"] <= 1
     assert 0 <= payload["priority"]["macro_f1"] <= 1
     assert "not production" in payload["note"]
@@ -43,7 +43,7 @@ def test_text_classification_endpoint() -> None:
     payload = response.json()
     assert payload["category"] == "IT & Network"
     assert 0 <= payload["confidence"] <= 1
-    assert payload["model_version"] == "text-classifier-v1.1.0"
+    assert payload["model_version"] == "text-classifier-v1.2.0"
 
 
 def test_blank_or_whitespace_complaint_text_is_rejected() -> None:
@@ -86,7 +86,7 @@ def test_combined_prediction_endpoint_reuses_category_prediction() -> None:
     )
     assert response.status_code == 200
     payload = response.json()
-    assert payload["category"]["model_version"] == "text-classifier-v1.1.0"
+    assert payload["category"]["model_version"] == "text-classifier-v1.2.0"
     assert payload["priority"]["model_version"] == "priority-predictor-v1.1.0"
     assert payload["routing"]["category"] == payload["category"]["category"]
 
@@ -144,7 +144,7 @@ def test_high_confidence_prediction_routes_to_it_department() -> None:
         category="IT & Network",
         confidence=0.90,
         low_confidence=False,
-        model_version="text-classifier-v1.1.0",
+        model_version="text-classifier-v1.2.0",
     )
 
     result = DepartmentRouter().route_prediction(prediction)
