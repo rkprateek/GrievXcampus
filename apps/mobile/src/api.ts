@@ -307,7 +307,7 @@ export async function createComplaint(input: {
   }, { onConflict: "complaint_id" });
 
   const { data: updatedComplaint } = await supabase.from("complaints")
-    .select("id, student_id, title, description, location, status, category, category_confidence, priority, priority_confidence, department_id, assigned_staff_id, created_at, updated_at")
+    .select("id, student_id, title, description, location, status, category, category_confidence, priority, priority_confidence, department_id, suggested_department_id, assigned_staff_id, created_at, updated_at")
     .eq("id", data.id)
     .maybeSingle();
 
@@ -365,7 +365,7 @@ export async function withdrawComplaint(id: string) {
 
 export async function getComplaint(id: string) {
   const { data, error } = await supabase.from("complaints")
-    .select("id, student_id, title, description, location, status, priority, category, upvote_count, duplicate_of_id, created_at, updated_at, complaint_images(id, original_filename, content_type, storage_path), complaint_status_history(id, from_status, to_status, changed_by, note, created_at)")
+    .select("id, student_id, title, description, location, status, priority, category, suggested_department_id, department_confidence, department_source, upvote_count, duplicate_of_id, created_at, updated_at, complaint_images(id, original_filename, content_type, storage_path), complaint_status_history(id, from_status, to_status, changed_by, note, created_at)")
     .eq("id", id)
     .single();
   if (error) throw new Error(error.message);
