@@ -77,5 +77,6 @@ def predict_complaint(payload: ComplaintTextRequest) -> dict:
 
 @router.post("/route")
 def route_complaint(payload: ComplaintTextRequest) -> dict:
-    result = get_department_router().route(payload.title, payload.description)
+    prediction = get_text_classifier().predict(payload.title, payload.description)
+    result = get_department_router().route_prediction(prediction)
     return result.__dict__
