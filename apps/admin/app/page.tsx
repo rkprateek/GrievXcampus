@@ -60,6 +60,7 @@ export default function AdminPage() {
   const [staffDirectory, setStaffDirectory] = useState<StaffDirectoryEntry[]>([]);
   const [showStaffManager, setShowStaffManager] = useState(false);
   const [showMLInsights, setShowMLInsights] = useState(false);
+  const [showComplaints, setShowComplaints] = useState(false);
   const [mlPredictions, setMlPredictions] = useState<MLPredictionRecord[]>([]);
   const [mlHealth, setMlHealth] = useState<MLHealth | null>(null);
   const [mlMetrics, setMlMetrics] = useState<MLMetrics | null>(null);
@@ -415,12 +416,12 @@ export default function AdminPage() {
         <div className="brand"><span className="brandMark"><Icon name="check" size={25} /></span><span>GrievX</span></div>
         <div className="brandSub">CAMPUS</div>
         <nav>
-          <button className={!showStaffManager && !showMLInsights ? "navActive" : ""} onClick={() => { setShowStaffManager(false); setShowMLInsights(false); }}><Icon name="home" size={20} />Overview</button>
-          <button onClick={() => { setShowStaffManager(false); setShowMLInsights(false); setFilter("all"); }}><Icon name="clipboard" size={20} />Complaints</button>
-          <button className={showStaffManager ? "navActive" : ""} onClick={() => { setShowStaffManager(true); setShowMLInsights(false); }}><Icon name="users" size={20} />Departments &amp; Staff</button>
-          <button className={showMLInsights ? "navActive" : ""} onClick={() => { setShowStaffManager(false); setShowMLInsights(true); void refreshMLInsights(); }}><Icon name="sparkles" size={20} />ML Insights</button>
-          <button onClick={() => { setShowStaffManager(false); setShowMLInsights(false); setMessage("Analytics are calculated from live complaint records."); }}><Icon name="chart" size={20} />Analytics</button>
-          <button onClick={() => { setShowStaffManager(false); setShowMLInsights(false); setMessage("Admin settings are managed through project configuration."); }}><Icon name="settings" size={20} />Settings</button>
+          <button className={!showStaffManager && !showMLInsights && !showComplaints ? "navActive" : ""} onClick={() => { setShowStaffManager(false); setShowMLInsights(false); setShowComplaints(false); }}><Icon name="home" size={20} />Overview</button>
+          <button className={showComplaints ? "navActive" : ""} onClick={() => { setShowStaffManager(false); setShowMLInsights(false); setShowComplaints(true); setFilter("all"); }}><Icon name="clipboard" size={20} />Complaints</button>
+          <button className={showStaffManager ? "navActive" : ""} onClick={() => { setShowStaffManager(true); setShowMLInsights(false); setShowComplaints(false); }}><Icon name="users" size={20} />Departments &amp; Staff</button>
+          <button className={showMLInsights ? "navActive" : ""} onClick={() => { setShowStaffManager(false); setShowMLInsights(true); setShowComplaints(false); void refreshMLInsights(); }}><Icon name="sparkles" size={20} />ML Insights</button>
+          <button onClick={() => { setShowStaffManager(false); setShowMLInsights(false); setShowComplaints(false); setMessage("Analytics are calculated from live complaint records."); }}><Icon name="chart" size={20} />Analytics</button>
+          <button onClick={() => { setShowStaffManager(false); setShowMLInsights(false); setShowComplaints(false); setMessage("Admin settings are managed through project configuration."); }}><Icon name="settings" size={20} />Settings</button>
         </nav>
         <div className="sidebarArtwork" aria-hidden="true"><div className="campusBuilding"><span>⚑</span><b>▱</b><i>▥</i></div></div>
         <div className="sideBottom">
@@ -432,8 +433,8 @@ export default function AdminPage() {
       <section className="content">
         <header className="topbar">
           <div className="pageHeading">
-            <h1>{showStaffManager ? "Departments & Staff" : showMLInsights ? "ML Insights" : "Complaint Management"}</h1>
-            <p>{showStaffManager ? "Manage staff profiles and automatic assignment rules." : showMLInsights ? "Monitor model availability, prediction history and evaluation results." : "Review, assign and update student complaints from one place."}</p>
+            <h1>{showStaffManager ? "Departments & Staff" : showMLInsights ? "ML Insights" : showComplaints ? "All Complaints" : "Complaint Management"}</h1>
+            <p>{showStaffManager ? "Manage staff profiles and automatic assignment rules." : showMLInsights ? "Monitor model availability, prediction history and evaluation results." : showComplaints ? "View, search, filter and manage all student complaints." : "Review, assign and update student complaints from one place."}</p>
           </div>
           <div className="topActions">
             <div className="globalSearch"><Icon name="search" size={19} /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search complaints, students, departments..." /></div>
@@ -542,11 +543,11 @@ export default function AdminPage() {
             <div className="dashboardGrid">
               <div className="leftColumn">
                 <section className="listPanel">
-                  <div className="panelHeading"><h2>Recent Complaints</h2><button onClick={() => setFilter("all")}>View All Complaints <span>→</span></button></div>
+                  <div className="panelHeading"><h2>{showComplaints ? "All Complaints" : "Recent Complaints"}</h2>{!showComplaints && <button onClick={() => { setShowStaffManager(false); setShowMLInsights(false); setShowComplaints(true); setFilter("all"); }}>View All Complaints <span>→</span></button>}</div>
                   <div className="tableScroll">
                     <div className="complaintTable">
                       <div className="tableHead"><span>Complaint</span><span>Category</span><span>Department</span><span>Priority</span><span>Status</span><span>Assigned staff</span><span>Submitted</span></div>
-                      {loading ? <div className="empty">Loading complaints...</div> : filtered.length === 0 ? <div className="empty">No complaints match your search.</div> : filtered.slice(0, 6).map((item) => {
+                      {loading ? <div className="empty">Loading complaints...</div> : filtered.length === 0 ? <div className="empty">No complaints match your search.</div> : (showComplaints ? filtered : filtered.slice(0, 5)).map((item) => {
                         const department = departments.find((d) => d.id === item.department_id);
                         const suggestedDepartment = departments.find((d) => d.id === item.suggested_department_id);
                         const assigned = staff.find((person) => person.id === item.assigned_staff_id);
