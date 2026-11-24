@@ -73,6 +73,8 @@ class TextClassifier:
         # Context-specific categories take precedence over generic equipment words.
         if any(term in normalized for term in ("hostel", "dormitory", "warden")):
             return "Hostel"
+        if any(term in normalized for term in ("electric shock", "sparking", "sparks", "short circuit", "exposed electrical wire", "switchboard")):
+            return "Electrical"
         matches = [
             category for category, phrases in CATEGORY_RULES
             if any(phrase in normalized for phrase in phrases)
