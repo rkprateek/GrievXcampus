@@ -177,7 +177,7 @@ export async function createComplaint(input: {
   });
 
   if (workflowError) {
-    return { ...data, ml_warning: `Complaint saved, but automatic routing failed: ${workflowError.message}` };
+    return { ...data, ml_warning: `Complaint saved, but automatic routing failed: ${workflowError.message}`, routing_fallback: ml.routing.method === "fallback", routing_message: ml.routing.explanation };
   }
   return {
     ...data,
@@ -185,6 +185,9 @@ export async function createComplaint(input: {
     category_confidence: ml.category.confidence,
     priority: ml.priority.priority,
     priority_confidence: ml.priority.confidence,
+    ml_warning: null,
+    routing_fallback: ml.routing.method === "fallback",
+    routing_message: ml.routing.explanation,
   };
 }
 
