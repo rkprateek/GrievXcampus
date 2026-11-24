@@ -12,18 +12,18 @@ The current ML workflow uses complaint **title and description text only**. Uplo
 
 ## Dataset and limitations
 
-The checked-in `ml/data/complaints_seed.csv` contains **162 development/demo examples** across nine categories and three priority labels. The original 54 curated examples are retained, with 108 additional synthetic examples added to increase wording variety and category coverage. These examples are development data, not real institutional complaints. The category counts are 18 per category except Classroom & Facilities (19); priority labels are balanced at 54 examples each. The current models are baseline models for the MCA project demonstration; their confidence scores are model probabilities, not guarantees, and their measured metrics are not proof of production accuracy.
+The checked-in `ml/data/complaints_seed.csv` contains **180 development/demo examples** across nine categories and three priority labels. The 162 existing development examples are retained, with 18 additional labelled classroom-facilities examples focused on common fan, furniture and classroom maintenance reports. These examples are development data, not real institutional complaints. The current models are baseline models for the MCA project demonstration; their confidence scores are model probabilities, not guarantees, and their measured metrics are not proof of production accuracy.
 
 For a dependable campus deployment, collect a larger, representative, institution-approved dataset, have labels reviewed by campus staff, evaluate on a held-out time-based test set, and monitor misclassifications. Do not claim that the current seed dataset is production-grade.
 
 ## Models
 
-- Category model: `text-classifier-v1.1.0`
-- Priority model: `priority-predictor-v1.1.0`
-- Department router: `department-router-v1.1.0`
+- Category model: `text-classifier-v1.2.0`
+- Priority model: `priority-predictor-v1.2.0`
+- Department router: `department-router-v1.3.0`
 - Vectorization: lowercase TF-IDF, unigrams and bigrams, sublinear term frequency.
 - Classifier: Logistic Regression with class balancing.
-- Routing threshold: `0.55`. Below this threshold, the system uses General as a safe fallback and requires admin review.
+- Routing threshold: `0.55`. Below this threshold, the predicted department is displayed as a suggestion; confirmed department routing and staff assignment wait for admin review.
 - Priority safety rules: possible electrical hazards, flooding/sewage emergencies, security threats, transport brake/safety issues and structural hazards are raised to critical. Negated phrases such as "no electric shock" do not trigger that matching rule. A critical flag still requires human assessment.
 
 The serving models train once from the complete seed dataset when first loaded. Evaluation trains a separate model on a stratified 80/20 split and does not modify the live inference model.
