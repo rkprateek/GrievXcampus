@@ -102,3 +102,8 @@ h1 { margin: 6px 0 6px; font-size: 30px; }
   .rowMeta { display: none; }
   .content { padding: 18px 12px; }
 }
+.historyList { display: grid; gap: 10px; }
+.historyItem { display: flex; align-items: flex-start; gap: 10px; padding: 9px 10px; border: 1px solid #e7e8ef; border-radius: 10px; background: #fafbff; }
+.historyDot { width: 8px; height: 8px; margin-top: 6px; border-radius: 50%; background: #0757D9; flex: 0 0 auto; }
+.historyItem strong { display: block; font-size: 13px; }
+.historyItem small { display: block; margin-top: 3px; color: #6f7381; font-size: 11px; line-height: 1.4; }
