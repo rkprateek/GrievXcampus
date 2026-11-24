@@ -45,7 +45,6 @@ export type MLWorkflowResult = {
 async function runMLWorkflow(title: string, description: string): Promise<MLWorkflowResult | null> {
   const baseUrl = process.env.EXPO_PUBLIC_GRIEVX_API_URL?.trim().replace(/\/$/, "");
   if (!baseUrl) return null;
-
   try {
     const response = await fetch(`${baseUrl}/ml/predict`, {
       method: "POST",
@@ -53,11 +52,31 @@ async function runMLWorkflow(title: string, description: string): Promise<MLWork
       body: JSON.stringify({ title, description }),
     });
     if (!response.ok) return null;
-    return await response.json() as MLWorkflowResult;
+    const result = await response.json();
+    if (
+      typeof result?.category?.category !== "string" ||
+      typeof result?.category?.confidence !== "number" ||
+      typeof result?.category?.model_version !== "string" ||
+      typeof result?.priority?.priority !== "string" ||
+      typeof result?.priority?.confidence !== "number" ||
+      typeof result?.priority?.method !== "string" ||
+      typeof result?.priority?.model_version !== "string" ||
+      typeof result?.routing?.department_code !== "string" ||
+      typeof result?.routing?.confidence !== "number" ||
+      typeof result?.routing?.method !== "string"
+    ) return null;
+    return result as MLWorkflowResult;
   } catch {
-    // Complaint submission must remain usable when the optional ML service is offline.
     return null;
   }
+}
+
+function generalFallbackPrediction(): MLWorkflowResult {
+  return {
+    category: { category: "General", confidence: 0, low_confidence: true, model_version: "ml-unavailable" },
+    priority: { priority: "normal", confidence: 0, method: "fallback", explanation: "ML service unavailable; routed safely for later review.", model_version: "ml-unavailable" },
+    routing: { department_code: "GEN", confidence: 0, method: "fallback", explanation: "Automatically routed to General because the ML service was unavailable.", model_version: "department-router-fallback-v1" },
+  };
 }
 
 export async function register(name: string, email: string, password: string) {
@@ -140,42 +159,33 @@ export async function createComplaint(input: {
 
   if (error) throw new Error(error.message);
 
-  const ml = await runMLWorkflow(input.title, input.description);
-  if (ml) {
-    const { data: department } = await supabase
-      .from("departments")
-      .select("id")
-      .eq("code", ml.routing.department_code)
-      .maybeSingle();
+  // Route every complaint. If inference is unavailable or malformed, the
+  // database workflow still assigns the complaint to the General department.
+  const ml = (await runMLWorkflow(input.title, input.description)) ?? generalFallbackPrediction();
+  const { error: workflowError } = await supabase.rpc("apply_complaint_ml_predictions", {
+    p_complaint_id: data.id,
+    p_category: ml.category.category,
+    p_category_confidence: ml.category.confidence,
+    p_category_model_version: ml.category.model_version,
+    p_priority: ml.priority.priority,
+    p_priority_confidence: ml.priority.confidence,
+    p_priority_model_version: ml.priority.model_version,
+    p_priority_source: ml.priority.method,
+    p_department_code: ml.routing.department_code,
+    p_department_confidence: ml.routing.confidence,
+    p_department_source: ml.routing.method,
+  });
 
-    const { error: workflowError } = await supabase.rpc("apply_complaint_ml_predictions", {
-      p_complaint_id: data.id,
-      p_category: ml.category.category,
-      p_category_confidence: ml.category.confidence,
-      p_category_model_version: ml.category.model_version,
-      p_priority: ml.priority.priority,
-      p_priority_confidence: ml.priority.confidence,
-      p_priority_model_version: ml.priority.model_version,
-      p_priority_source: ml.priority.method,
-      p_department_code: ml.routing.department_code,
-      p_department_confidence: ml.routing.confidence,
-      p_department_source: ml.routing.method,
-    });
-
-    if (!workflowError) {
-      return {
-        ...data,
-        category: ml.category.category,
-        category_confidence: ml.category.confidence,
-        priority: ml.priority.priority,
-        priority_confidence: ml.priority.confidence,
-      };
-    }
-
-    return data;
+  if (workflowError) {
+    return { ...data, ml_warning: `Complaint saved, but automatic routing failed: ${workflowError.message}` };
   }
-
-  return data;
+  return {
+    ...data,
+    category: ml.category.category,
+    category_confidence: ml.category.confidence,
+    priority: ml.priority.priority,
+    priority_confidence: ml.priority.confidence,
+  };
 }
 
 export async function getComplaints() {
