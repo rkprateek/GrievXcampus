@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import { type CSSProperties, type FormEvent, useCallback, useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
 
 type Profile = { role: string; department_id: string | null };
@@ -115,7 +115,7 @@ export default function DepartmentPage() {
 function Stat({ label, value }: { label: string; value: number }) {
   return <div style={styles.stat}><small>{label}</small><strong>{value}</strong></div>;
 }
-const styles: Record<string, React.CSSProperties> = {
+const styles: Record<string, CSSProperties> = {
   shell: { maxWidth: 1180, margin: "0 auto", padding: 28, color: "#17233B", fontFamily: "Arial, sans-serif" },
   login: { maxWidth: 420, margin: "10vh auto", padding: 28, border: "1px solid #dce3ef", borderRadius: 16, display: "grid", gap: 12 },
   brand: { color: "#315DB8", fontWeight: 800, letterSpacing: ".04em" },
