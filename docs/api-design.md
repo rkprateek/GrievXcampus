@@ -54,3 +54,18 @@ Lifecycle/admin endpoints for assignment, status transitions, priority updates a
 - Enforce authorization server-side.
 - Use consistent error responses.
 - Do not leak secrets or internal errors.
+
+
+## Week 7–8 — ML inference
+
+POST /ml/classify
+POST /ml/priority
+POST /ml/predict
+
+These inference endpoints accept:
+- title
+- description
+
+Classification returns category, confidence, low-confidence flag and model version.
+Priority prediction returns priority, confidence, method, explanation, matched safety rules and model version.
+The endpoints are standalone in Weeks 7–8. Complaint submission does not call them automatically until the later ML integration stage.
