@@ -217,8 +217,7 @@ export default function AdminPage() {
       .update({ assigned_staff_id: staffId, updated_at: new Date().toISOString() })
       .eq("id", selected.id)
       .select("id, student_id, title, description, location, status, priority, department_id, assigned_staff_id, created_at, updated_at, profiles!complaints_student_id_fkey(name, email), complaint_images(id, storage_path, content_type)")
-      .single();
-    if (error) {
+      .single();    if (error) {
       setMessage(error.message);
       return;
     }
@@ -385,6 +384,14 @@ export default function AdminPage() {
                   <p>{selected.description}</p>
                 </div>
                 <div className="detailSection">
+                  <label>Automatic ML classification and routing</label>
+                  <strong>{selected.category ?? "Category pending"}</strong>
+                  <span>Category confidence: {selected.category_confidence == null ? "Unavailable" : (selected.category_confidence * 100).toFixed(1) + "%"}</span>
+                  <span>Routed department: {departments.find((item) => item.id === selected.department_id)?.name ?? "General / unassigned"}</span>
+                  <span>Routing confidence: {selected.department_confidence == null ? "Fallback" : (selected.department_confidence * 100).toFixed(1) + "%"}</span>
+                  <span>Routing source: {selected.department_source ?? "automatic fallback"}</span>
+                </div>
+                <div className="detailSection">
                   <label>Submitted</label>
                   <span>{formatDate(selected.created_at)}</span>
                 </div>
@@ -437,8 +444,7 @@ export default function AdminPage() {
                 <div className="detailSection">                  <label>Department</label>
                   <select className="departmentSelect" value={selected.department_id ?? ""} onChange={(e) => updateRouting({ department_id: e.target.value || null })}>
                     <option value="">Unassigned</option>
-                    {departments.map((department) => <option key={department.id} value={department.id}>{department.name}</option>)}
-                  </select>
+                    {departments.map((department) => <option key={department.id} value={department.id}>{department.name}</option>)}                  </select>
                 </div>
 
                 <div className="detailSection">
@@ -657,7 +663,6 @@ function exportComplaints(complaints: Complaint[], departments: Department[]) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `grievx-complaints-${new Date().toISOString().slice(0, 10)}.csv`;
-  a.click();
+  a.download = `grievx-complaints-${new Date().toISOString().slice(0, 10)}.csv`;  a.click();
   URL.revokeObjectURL(url);
 }
