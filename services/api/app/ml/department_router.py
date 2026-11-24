@@ -45,13 +45,13 @@ def route_category(category: str, category_confidence: float) -> DepartmentRoute
             confidence=confidence,
             method="category-mapping",
             explanation=f"The {category} complaint category maps to department {code}.",
-            model_version="department-router-v1.0.0",
+            model_version="department-router-v1.1.0",
         )
 
     return DepartmentRouteResult(
         department_code="GEN",
         confidence=0.50,
         method="fallback",
-        explanation="The category is unknown or low-confidence, so the complaint is routed to General for manual review.",
+        explanation="The category is unknown or low-confidence, so the complaint is automatically routed to General. An administrator may review it later, but approval is not required.",
         model_version="department-router-v1.0.0",
     )
