@@ -70,6 +70,9 @@ class TextClassifier:
     @staticmethod
     def _rule_prediction(text: str) -> str | None:
         normalized = " ".join(text.lower().replace("&", "and").split())
+        # Context-specific categories take precedence over generic equipment words.
+        if any(term in normalized for term in ("hostel", "dormitory", "warden")):
+            return "Hostel"
         matches = [
             category for category, phrases in CATEGORY_RULES
             if any(phrase in normalized for phrase in phrases)
