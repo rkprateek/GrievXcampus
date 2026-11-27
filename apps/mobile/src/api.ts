@@ -191,6 +191,28 @@ export async function createComplaint(input: {
   };
 }
 
+export async function updateComplaint(id: string, input: { title: string; description: string; location: string }) {
+  const { data, error } = await supabase.from("complaints")
+    .update({ title: input.title, description: input.description, location: input.location })
+    .eq("id", id)
+    .eq("status", "submitted")
+    .select("id")
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data) throw new Error("This complaint can no longer be edited. Refresh and try again.");
+}
+
+export async function withdrawComplaint(id: string) {
+  const { data, error } = await supabase.from("complaints")
+    .update({ status: "withdrawn" })
+    .eq("id", id)
+    .eq("status", "submitted")
+    .select("id")
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data) throw new Error("This complaint can no longer be withdrawn. Refresh and try again.");
+}
+
 export async function getComplaints() {
   const { data, error } = await supabase.from("complaints")
     .select("id, student_id, title, description, location, status, priority, category, upvote_count, created_at, updated_at, complaint_images(id, original_filename, content_type, storage_path)")
