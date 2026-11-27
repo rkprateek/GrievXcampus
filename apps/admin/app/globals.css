@@ -131,3 +131,108 @@ h1 { margin: 6px 0 6px; font-size: 30px; }
 @media (max-width: 800px) {
   .analyticsCards, .campusGrid { grid-template-columns: 1fr; }
 }
+
+
+/* Department portal visual language — admin UI only */
+:root {
+  --admin-ink: #17233b;
+  --admin-muted: #6c7890;
+  --admin-blue: #2457d6;
+  --admin-line: #e5eaf2;
+}
+html, body {
+  background: #f4f7fb;
+  color: var(--admin-ink);
+  font-family: 'DM Sans', Arial, Helvetica, sans-serif;
+}
+.shell { background: #f4f7fb; }
+.sidebar {
+  background: #fff;
+  color: var(--admin-ink);
+  border-right: 1px solid var(--admin-line);
+  padding: 28px 18px;
+}
+.brand { color: #1c3470; font-family: 'Manrope', Arial, sans-serif; letter-spacing: -.6px; }
+.brandMark {
+  background: #edf2ff;
+  color: var(--admin-blue);
+  border: 1px solid #dce6ff;
+  border-radius: 10px;
+}
+.brandSub { color: #8793a8; }
+nav button { color: #66738a; border-radius: 10px; }
+nav button:hover, nav .navActive {
+  background: #edf2ff;
+  color: var(--admin-blue);
+}
+.adminMini { border-top-color: var(--admin-line); }
+.adminMini small { color: #8793a8; }
+.avatar { background: #edf2ff; color: var(--admin-blue); }
+.logout {
+  border-color: #dce3ee;
+  background: #fff;
+  color: #53617a;
+}
+.logout:hover, .refresh:hover, .statusButton:hover { background: #f5f7fc; }
+.content { padding: 32px 36px; }
+.eyebrow { color: var(--admin-blue); }
+h1, .detailHeader h2 { font-family: 'Manrope', Arial, sans-serif; letter-spacing: -.8px; color: #17233b; }
+.topbar p { color: var(--admin-muted); }
+.secure { color: #16805a; background: #eaf7f0; }
+.refresh, .filter, .statusButton, .departmentSelect {
+  border-color: #dce3ee;
+  border-radius: 10px;
+  color: #53617a;
+}
+.notice { background: #edf2ff; color: #2856b4; border-color: #dce6ff; }
+.statCard, .listPanel, .detailPanel, .analyticsCard {
+  border-color: var(--admin-line);
+  border-radius: 15px;
+  box-shadow: 0 3px 14px rgba(23,35,59,.025);
+}
+.statCard { padding: 19px 20px; }
+.statCard span, .detailSection label, .statusEditor label { color: #7a879a; }
+.statCard strong { font-family: 'Manrope', Arial, sans-serif; color: #17233b; }
+.listToolbar { border-bottom-color: #edf0f5; }
+.filter { border-color: #dce3ee; color: #66738a; }
+.filter.active {
+  background: #edf2ff;
+  border-color: #d5e1ff;
+  color: var(--admin-blue);
+}
+.listToolbar input, .loginCard input {
+  border-color: #dce3ee;
+  border-radius: 10px;
+}
+.listToolbar input:focus, .loginCard input:focus, .departmentSelect:focus {
+  outline: none;
+  border-color: #8aa8f0;
+  box-shadow: 0 0 0 3px #edf2ff;
+}
+.complaintRow { border-bottom-color: #edf0f5; }
+.complaintRow:hover, .complaintRow.selected { background: #f3f6ff; }
+.rowMain span, .rowMeta { color: #8791a3; }
+.detailPanel { padding: 22px; }
+.detailHeader, .detailSection { border-bottom-color: #edf0f5; }
+.detailSection span, .detailSection p { color: #647189; }
+.statusButton.current {
+  border-color: #cbd9ff;
+  color: var(--admin-blue);
+  background: #edf2ff;
+}
+.detailIcon { background: #edf2ff; color: var(--admin-blue); }
+.historyItem { border-color: #e7edf6; background: #fafbfe; }
+.historyDot, .barFill, .campusMeter span { background: var(--admin-blue); }
+.analyticsCard { background: #fff; }
+.campusCell { border-color: var(--admin-line); background: #f8faff; }
+.campusCellTop b { background: #edf2ff; color: var(--admin-blue); }
+.loginShell { background: #f4f7fb; }
+.loginCard {
+  border-color: var(--admin-line);
+  border-radius: 16px;
+  box-shadow: 0 12px 40px rgba(23,35,59,.06);
+}
+.loginButton { background: var(--admin-blue); border-radius: 10px; }
+@media (max-width: 700px) {
+  .sidebar { border-right: 0; border-bottom: 1px solid var(--admin-line); }
+}
