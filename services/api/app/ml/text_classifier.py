@@ -70,11 +70,24 @@ class TextClassifier:
     @staticmethod
     def _rule_prediction(text: str) -> str | None:
         normalized = " ".join(text.lower().replace("&", "and").split())
-        # Context-specific categories take precedence over generic equipment words.
+        # Hostel context takes precedence so hostel facilities stay in Hostel.
         if any(term in normalized for term in ("hostel", "dormitory", "warden")):
             return "Hostel"
         if any(term in normalized for term in ("electric shock", "sparking", "sparks", "short circuit", "exposed electrical wire", "switchboard")):
             return "Electrical"
+
+        # A leak from/through a ceiling is a water-intrusion issue. The word
+        # "ceiling" alone also matches facilities, so resolve this specific
+        # phrase before the generic multi-category ambiguity check.
+        water_leak_phrases = (
+            "water leak", "water is leaking", "water leaking",
+            "ceiling is leaking", "leaking ceiling", "roof leak",
+            "roof is leaking", "water dripping from ceiling",
+            "water dripping through ceiling",
+        )
+        if any(phrase in normalized for phrase in water_leak_phrases):
+            return "Plumbing"
+
         matches = [
             category for category, phrases in CATEGORY_RULES
             if any(phrase in normalized for phrase in phrases)
