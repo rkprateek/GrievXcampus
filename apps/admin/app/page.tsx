@@ -43,7 +43,7 @@ export default function AdminPage() {
   const [message, setMessage] = useState("");
   const [departments, setDepartments] = useState<Department[]>([]);
   const [staff, setStaff] = useState<StaffMember[]>([]);
-  const [view, setView] = useState<"dashboard" | "analytics">("dashboard");
+  const [view, setView] = useState<"overview" | "complaints" | "analytics">("overview");
 
   useEffect(() => {
     const boot = async () => {
@@ -285,8 +285,8 @@ export default function AdminPage() {
         <div className="brand"><span className="brandMark">✓</span><span>GrievX</span></div>
         <div className="brandSub">CAMPUS ADMIN</div>
         <nav>
-          <button className={view === "dashboard" ? "navActive" : ""} onClick={() => setView("dashboard")}>Dashboard</button>
-          <button className={view === "dashboard" ? "navActive" : ""} onClick={() => { setView("dashboard"); setFilter("all"); }}>Complaints</button>
+          <button className={view === "overview" ? "navActive" : ""} onClick={() => setView("overview")}>Dashboard</button>
+          <button className={view === "complaints" ? "navActive" : ""} onClick={() => { setView("complaints"); setFilter("all"); }}>Complaints</button>
           <button className={view === "analytics" ? "navActive" : ""} onClick={() => setView("analytics")}>Analytics</button>
         </nav>
         <div className="sideBottom">
@@ -327,6 +327,14 @@ export default function AdminPage() {
 
         <div className="workspace">
           <section className="listPanel">
+            {view === "overview" ? (
+              <div className="listToolbar">
+                <div className="recentHeading">
+                  <strong>Recent complaints</strong>
+                  <button className="viewAllLink" onClick={() => { setView("complaints"); setFilter("all"); }}>View all complaints</button>
+                </div>
+              </div>
+            ) : (
             <div className="listToolbar">
               <div className="filters">
                 {statuses.map((status) => (
@@ -337,12 +345,13 @@ export default function AdminPage() {
               </div>
               <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search complaints..." />
             </div>
+            )}
 
-            {loading ? <div className="empty">Loading complaints...</div> : filtered.length === 0 ? (
+            {loading ? <div className="empty">Loading complaints...</div> : (view === "overview" ? complaints.slice(0, 5) : filtered).length === 0 ? (
               <div className="empty">No complaints match the current filter.</div>
             ) : (
               <div className="table">
-                {filtered.map((item) => (
+                {(view === "overview" ? complaints.slice(0, 5) : filtered).map((item) => (
                   <button key={item.id} className={selected?.id === item.id ? "complaintRow selected" : "complaintRow"} onClick={() => setSelected(item)}>
                     <div className="rowMain">
                       <Status status={item.status} />
