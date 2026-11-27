@@ -236,3 +236,26 @@ h1, .detailHeader h2 { font-family: 'Manrope', Arial, sans-serif; letter-spacing
 @media (max-width: 700px) {
   .sidebar { border-right: 0; border-bottom: 1px solid var(--admin-line); }
 }
+
+
+.recentHeading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+.recentHeading strong {
+  color: #17233b;
+  font-size: 15px;
+  font-weight: 800;
+}
+.viewAllLink {
+  border: 0;
+  padding: 4px 0;
+  background: transparent;
+  color: #2457d6;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.viewAllLink:hover { color: #173f9f; text-decoration: underline; }
