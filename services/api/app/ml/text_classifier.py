@@ -70,19 +70,68 @@ class TextClassifier:
     @staticmethod
     def _rule_prediction(text: str) -> str | None:
         normalized = " ".join(text.lower().replace("&", "and").split())
-        # Hostel context takes precedence so hostel facilities stay in Hostel.
+
+        # Hostel context takes precedence over generic equipment keywords.
         if any(term in normalized for term in ("hostel", "dormitory", "warden")):
             return "Hostel"
-        if any(term in normalized for term in ("electric shock", "sparking", "sparks", "short circuit", "exposed electrical wire", "switchboard")):
+
+        # Electrical equipment faults take priority over generic facilities terms.
+        electrical_fault_phrases = (
+            "not working",
+            "not functioning",
+            "stopped working",
+            "does not work",
+            "doesn't work",
+            "is faulty",
+            "is broken",
+            "broken",
+            "damaged",
+        )
+        electrical_equipment = (
+            "fan",
+            "ceiling fan",
+            "light",
+            "lights",
+            "bulb",
+            "switch",
+            "switchboard",
+            "socket",
+            "wiring",
+            "electrical",
+            "electricity",
+        )
+        if (
+            any(item in normalized for item in electrical_equipment)
+            and any(phrase in normalized for phrase in electrical_fault_phrases)
+        ):
             return "Electrical"
 
-        # A leak from/through a ceiling is a water-intrusion issue. The word
-        # "ceiling" alone also matches facilities, so resolve this specific
-        # phrase before the generic multi-category ambiguity check.
+        # Clear electrical safety issues.
+        if any(
+            term in normalized
+            for term in (
+                "electric shock",
+                "sparking",
+                "sparks",
+                "short circuit",
+                "exposed electrical wire",
+                "exposed wire",
+                "power outage",
+            )
+        ):
+            return "Electrical"
+
+        # A ceiling/roof leak is a plumbing issue even though "ceiling"
+        # also appears in the classroom and facilities category rules.
         water_leak_phrases = (
-            "water leak", "water is leaking", "water leaking",
-            "ceiling is leaking", "leaking ceiling", "roof leak",
-            "roof is leaking", "water dripping from ceiling",
+            "water leak",
+            "water is leaking",
+            "water leaking",
+            "ceiling is leaking",
+            "leaking ceiling",
+            "roof leak",
+            "roof is leaking",
+            "water dripping from ceiling",
             "water dripping through ceiling",
         )
         if any(phrase in normalized for phrase in water_leak_phrases):
