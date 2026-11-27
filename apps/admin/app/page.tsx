@@ -143,7 +143,7 @@ export default function AdminPage() {
     const q = query.trim().toLowerCase();
     return complaints.filter((item) => {
       const statusMatch = filter === "all" || item.status === filter;
-      const text = [item.title, item.description, item.location, item.student?.name, item.student?.email].join(" ").toLowerCase();
+      const text = [item.id, item.title, item.description, item.location, item.student?.name, item.student?.email].join(" ").toLowerCase();
       return statusMatch && (!q || text.includes(q));
     });
   }, [complaints, filter, query]);
