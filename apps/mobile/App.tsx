@@ -363,8 +363,17 @@ function Brand() {
 }
 
 function Home({ go }: { go: (x: Screen) => void }) {
-  const [me, setMe] = useState<{ name: string } | null>(null);  useEffect(() => {
+  const [me, setMe] = useState<{ name: string } | null>(null);
+  const [counts, setCounts] = useState({ submitted: 0, progress: 0, resolved: 0 });
+  useEffect(() => {
     getMe().then(setMe).catch(() => {});
+    getComplaints().then((items) => {
+      setCounts({
+        submitted: items.filter((x) => x.status?.toLowerCase() === "submitted").length,
+        progress: items.filter((x) => ["assigned", "in_progress"].includes(x.status?.toLowerCase())).length,
+        resolved: items.filter((x) => ["resolved", "closed"].includes(x.status?.toLowerCase())).length,
+      });
+    }).catch(() => {});
   }, []);
   const first = me?.name?.split(" ")[0] || "Student";
 
@@ -383,9 +392,7 @@ function Home({ go }: { go: (x: Screen) => void }) {
       <View style={s.hero}>
         <View style={{ flex: 1 }}>
           <Text style={s.heroTitle}>Make your campus better.</Text>
-          <Text style={s.heroBody}>
-            Report an issue in a few simple steps and follow its progress.
-          </Text>
+          <Text style={s.heroBody}>Report an issue in a few simple steps and follow its progress.</Text>
           <Primary label="Report an issue" onPress={() => go("report")} />
         </View>
         <View style={s.heroIcon}><Text style={s.heroCheck}>✓</Text></View>
@@ -393,9 +400,9 @@ function Home({ go }: { go: (x: Screen) => void }) {
 
       <Text style={s.section}>Your activity</Text>
       <View style={s.stats}>
-        <Stat label="Submitted" />
-        <Stat label="In progress" />
-        <Stat label="Resolved" />
+        <Stat label="Submitted" value={counts.submitted} />
+        <Stat label="In progress" value={counts.progress} />
+        <Stat label="Resolved" value={counts.resolved} />
       </View>
 
       <Text style={s.section}>Quick actions</Text>
@@ -430,23 +437,18 @@ function Report({ back, done }: { back: () => void; done: () => void }) {
 
   const submit = async () => {
     if (!title.trim() || !description.trim() || !location.trim()) {
-      Alert.alert("Missing information", "Please complete the complaint summary, description and campus location.");
+      Alert.alert("Missing information", "Please complete the complaint title, description and campus location.");
       return;
     }
 
     try {
       setBusy(true);
-      const input = {
-        title: title.trim(),
-        description: description.trim(),
-        location: location.trim(),
-      };
-
+      const input = { title: title.trim(), description: description.trim(), location: location.trim() };
       let duplicates: Awaited<ReturnType<typeof findPossibleDuplicates>> = [];
       try {
         duplicates = await findPossibleDuplicates(input);
       } catch {
-        // Duplicate checking is advisory; submission can continue if it is unavailable.
+        // Duplicate checking is advisory; allow the student to continue if it is unavailable.
       }
 
       const proceed = async () => {
@@ -459,13 +461,10 @@ function Report({ back, done }: { back: () => void; done: () => void }) {
             image.mimeType ?? "image/jpeg",
           );
         }
-
-        const routingNotice =
-          complaint.ml_warning ??
+        const routingNotice = complaint.ml_warning ??
           (complaint.routing_fallback
             ? "ML service is unavailable, so your complaint was automatically routed to General."
-            : "Your complaint was automatically routed to the appropriate department.");
-
+            : "Your complaint was automatically classified and routed to the appropriate department.");
         Alert.alert(
           complaint.ml_warning ? "Complaint saved — routing needs attention" : "Complaint submitted",
           complaint.ml_warning ?? ("Your complaint was submitted successfully. " + routingNotice),
@@ -474,18 +473,12 @@ function Report({ back, done }: { back: () => void; done: () => void }) {
       };
 
       if (duplicates.length) {
-        const top = duplicates
-          .slice(0, 3)
-          .map((duplicate, index) =>
-            `${index + 1}. ${duplicate.title} · ${duplicate.location} · ${Math.round(duplicate.similarity_score * 100)}% similar`,
-          )
-          .join("\n");
-
+        const top = duplicates.slice(0, 3).map((duplicate, index) =>
+          `${index + 1}. ${duplicate.title} · ${duplicate.location} · ${Math.round(duplicate.similarity_score * 100)}% similar`,
+        ).join("\n");
         Alert.alert(
           "Possible duplicate found",
-          "A recent complaint may describe the same issue:\n\n" +
-            top +
-            "\n\nReview it before submitting another report.",
+          "A recent complaint may describe the same issue:\n\n" + top + "\n\nReview it before submitting another report.",
           [
             { text: "Cancel", style: "cancel" },
             { text: "Submit anyway", onPress: proceed },
@@ -495,163 +488,72 @@ function Report({ back, done }: { back: () => void; done: () => void }) {
         await proceed();
       }
     } catch (error) {
-      Alert.alert(
-        "Submission failed",
-        error instanceof Error ? error.message : "Please try again.",
-      );
+      Alert.alert("Submission failed", error instanceof Error ? error.message : "Please try again.");
     } finally {
       setBusy(false);
     }
   };
 
   return (
-    <KeyboardAvoidingView
-      style={s.reportRoot}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-    >
-      <ScrollView
-        contentContainerStyle={s.reportPage}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-      >
-        <View style={s.reportTop}>
-          <Pressable style={s.back} onPress={back} accessibilityLabel="Go back">
-            <Text style={s.backText}>‹</Text>
-          </Pressable>
-          <View style={s.reportBrand}>
-            <View style={s.miniLogo}><Text style={s.miniLogoText}>G</Text></View>
-            <View>
-              <Text style={s.reportBrandTitle}><Text style={{ color: C.blue }}>GrievX</Text> | Report</Text>
-              <Text style={s.reportBrandSub}>University Campus Portal</Text>
-            </View>
-          </View>
-          <View style={s.photoAvatar}><Text style={s.photoAvatarText}>S</Text></View>
+    <KeyboardAvoidingView style={s.reportRoot} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+      <ScrollView contentContainerStyle={s.originalReportPage} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+        <View style={s.originalReportIntro}>
+          <Text style={s.originalReportIntroTitle}>Tell us what happened.</Text>
+          <Text style={s.originalReportIntroText}>Clear details help the complaint reach the right campus team.</Text>
         </View>
 
-        <View style={s.routeCard}>
-          <View style={{ flex: 1 }}>
-            <Text style={s.routeStep}><Text style={s.routeBadge}>1/4</Text> AUTOMATIC ROUTING</Text>
-            <Text style={s.routeTitle}>Report an Issue</Text>
-            <Text style={s.routeBody}>Describe the problem and GrievX will identify the category and route it to the responsible campus department.</Text>
-          </View>
-          <View style={s.routeIcon}><Text style={s.routeIconText}>↗</Text></View>
-        </View>
-
-        <View style={s.formCard}>
-          <View style={s.sectionHeader}>
-            <Text style={s.formTitle}>1. Complaint Summary <Text style={s.required}>*</Text></Text>
-            <Text style={s.counter}>{title.length}/150</Text>
-          </View>
-          <View style={s.compactInput}>
-            <Text style={s.compactIcon}>≡</Text>
-            <TextInput
-              value={title}
-              onChangeText={setTitle}
-              maxLength={150}
-              placeholder="e.g. Classroom fan is not working"
-              placeholderTextColor="#6E7381"
-              style={s.compactTextInput}
-              accessibilityLabel="Complaint summary"
-            />
-          </View>
-        </View>
-
-        <View style={s.formCard}>
-          <View style={s.sectionHeader}>
-            <Text style={s.formTitle}>2. Detailed Description <Text style={s.required}>*</Text></Text>
-            <Text style={s.tipText}>Clear details help the right team respond.</Text>
-          </View>
+        <View style={s.originalReportCard}>
+          <Text style={s.originalFieldLabel}>Complaint title</Text>
+          <TextInput
+            value={title}
+            onChangeText={setTitle}
+            maxLength={150}
+            placeholder="e.g. Wi-Fi disconnected in Lab 304"
+            placeholderTextColor="#858A99"
+            style={s.originalFieldInput}
+          />
+          <Text style={s.originalFieldLabel}>Detailed description</Text>
           <TextInput
             value={description}
             onChangeText={setDescription}
-            placeholder="Explain what happened, where it happened and who is affected..."
-            placeholderTextColor="#6E7381"
+            placeholder="Describe the problem clearly..."
+            placeholderTextColor="#858A99"
             multiline
-            style={s.descriptionInput}
             textAlignVertical="top"
-            accessibilityLabel="Detailed description"
+            style={s.originalDescriptionInput}
+          />
+          <Text style={s.originalFieldLabel}>Campus location</Text>
+          <Text style={s.originalFieldHint}>Enter the building, room or campus area.</Text>
+          <TextInput
+            value={location}
+            onChangeText={setLocation}
+            placeholder="e.g. EC Block, Lab 304"
+            placeholderTextColor="#858A99"
+            style={s.originalFieldInput}
           />
         </View>
 
-        <View style={s.formCard}>
-          <View style={s.sectionHeader}>
-            <Text style={s.formTitle}>3. Campus Location <Text style={s.required}>*</Text></Text>
-            <Text style={s.preciseNode}>Manual entry</Text>
-          </View>
-          <Text style={s.formHint}>Building, block, floor, room or campus area</Text>
-          <View style={s.locationInput}>
-            <Text style={s.locationIcon}>⌂</Text>
-            <TextInput
-              value={location}
-              onChangeText={setLocation}
-              placeholder="e.g. EC Block, Classroom 201"
-              placeholderTextColor="#6E7381"
-              style={s.locationTextInput}
-              accessibilityLabel="Campus location"
-            />
-          </View>
-          <View style={s.noGpsNote}>
-            <Text style={s.noGpsIcon}>⌖</Text>
-            <Text style={s.noGpsText}>Manual campus location only · No GPS is used</Text>
-          </View>
-        </View>
-
-        <View style={s.formCard}>
-          <View style={s.sectionHeader}>
-            <Text style={s.formTitle}>4. Upload Evidence</Text>
-            <Text style={s.counter}>{image ? "1 attached" : "Optional"}</Text>
-          </View>
-          <Text style={s.formHint}>Attach a photo to help the campus team understand the issue.</Text>
-          <View style={s.evidenceRow}>
-            {image ? (
-              <View style={s.evidencePreview}>
-                <Image source={{ uri: image.uri }} style={s.evidenceImage} />
-                <Pressable
-                  style={s.removeImage}
-                  onPress={() => setImage(null)}
-                  accessibilityLabel="Remove attached photo"
-                >
-                  <Text style={s.removeImageText}>×</Text>
-                </Pressable>
-                <View style={s.fileCaption}>
-                  <Text style={s.fileName} numberOfLines={1}>{image.fileName ?? "evidence.jpg"}</Text>
-                  <Text style={s.fileSize}>photo</Text>
-                </View>
-              </View>
-            ) : null}
-            <Pressable style={s.evidenceEmpty} onPress={pick}>
-              <Text style={s.evidenceEmptyIcon}>▧</Text>
-              <Text style={s.addMedia}>{image ? "Change photo" : "+ Add photo evidence"}</Text>
-              <Text style={s.mediaHint}>JPG, PNG or WEBP</Text>
+        <View style={s.originalReportCard}>
+          <Text style={s.originalFieldLabel}>Upload evidence</Text>
+          <Text style={s.originalFieldHint}>Add one photo showing the issue. JPG, PNG or WEBP · max 5 MB</Text>
+          {image ? (
+            <View style={s.originalImagePreviewWrap}>
+              <Image source={{ uri: image.uri }} style={s.originalImagePreview} />
+              <Pressable onPress={() => setImage(null)} style={s.originalRemoveImage}>
+                <Text style={{ color: C.white, fontWeight: "700" }}>Remove photo</Text>
+              </Pressable>
+            </View>
+          ) : (
+            <Pressable style={s.originalUpload} onPress={pick}>
+              <Text style={s.originalUploadPlus}>＋</Text>
+              <Text style={s.originalUploadText}>Add photo</Text>
             </Pressable>
-          </View>
+          )}
         </View>
 
-        <View style={s.formCard}>
-          <View style={s.sectionHeader}>
-            <Text style={s.formTitle}>5. Automatic Classification & Routing</Text>
-            <Text style={s.selectedLabel}>AI-assisted</Text>
-          </View>
-          <Text style={s.formHint}>You do not need to select a category or priority. GrievX analyses the complaint description and assigns the category, priority and responsible department automatically after submission.</Text>
-          <View style={s.priorityInfo}>
-            <Text style={s.infoIcon}>i</Text>
-            <Text style={s.priorityInfoText}>The submission confirmation will show whether automatic routing succeeded or needs attention.</Text>
-          </View>
-        </View>
-
-        <Pressable
-          style={[s.submitComplaint, busy && { opacity: 0.55 }]}
-          onPress={submit}
-          disabled={busy}
-        >
-          <Text style={s.submitComplaintText}>{busy ? "Submitting..." : "Submit Complaint"}</Text>
-          <Text style={s.submitArrow}>→</Text>
+        <Pressable style={[s.originalSubmit, busy && s.disabled]} onPress={submit} disabled={busy}>
+          {busy ? <ActivityIndicator color={C.white} /> : <Text style={s.originalSubmitText}>Submit complaint</Text>}
         </Pressable>
-
-        <View style={s.ticketNote}>
-          <Text style={s.ticketIcon}>✓</Text>
-          <Text style={s.ticketText}>Automatic ticket creation · Status tracking enabled</Text>
-        </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -791,27 +693,108 @@ function Detail({ id, back }: { id: string; back: () => void }) {
 
 function Profile({ back, logout }: { back: () => void; logout: () => void }) {
   const [me, setMe] = useState<{ name: string; email?: string } | null>(null);
+  const [stats, setStats] = useState({ total: 0, submitted: 0, resolved: 0, rejected: 0 });
+  const [unread, setUnread] = useState(0);
+
   useEffect(() => {
     getMe().then(setMe).catch(() => {});
+    getComplaints().then((items) => setStats({
+      total: items.length,
+      submitted: items.filter((x) => x.status?.toLowerCase() === "submitted").length,
+      resolved: items.filter((x) => ["resolved", "closed"].includes(x.status?.toLowerCase())).length,
+      rejected: items.filter((x) => x.status?.toLowerCase() === "rejected").length,
+    })).catch(() => {});
+    getNotifications().then((items) => setUnread(items.filter((x) => !x.read_at).length)).catch(() => {});
   }, []);
 
+  const security = async () => {
+    if (!me?.email) {
+      Alert.alert("Security", "Your account email could not be loaded.");
+      return;
+    }
+    try {
+      await resetPassword(me.email);
+      Alert.alert("Password reset email sent", "Check your inbox for the secure password reset link.");
+    } catch (error) {
+      Alert.alert("Unable to send reset email", error instanceof Error ? error.message : "Please try again.");
+    }
+  };
+
   return (
-    <ScrollView contentContainerStyle={s.page}>
+    <ScrollView contentContainerStyle={s.profilePage} showsVerticalScrollIndicator={false}>
       <Header title="Profile" back={back} />
-      <View style={s.profile}>
-        <View style={s.profileAvatar}><Text style={s.profileLetter}>{(me?.name || "S")[0]}</Text></View>
-        <Text style={s.detailTitle}>{me?.name || "Student"}</Text>
-        <Text style={s.muted}>{me?.email || "Student account"}</Text>
+      <View style={s.profileSummary}>
+        <View style={s.profileAvatar}><Text style={s.profileLetter}>{(me?.name || "S")[0]?.toUpperCase()}</Text></View>
+        <View style={{ flex: 1 }}>
+          <Text style={s.profileSummaryName}>{me?.name || "Student"}</Text>
+          <Text style={s.profileSummaryEmail}>{me?.email || "Student account"}</Text>
+          <Text style={s.profileRole}>Student</Text>
+        </View>
+        <Pressable style={s.profileEdit} onPress={() => Alert.alert("Personal information", "Your name and email are managed by your university account.")}>
+          <Text style={s.profileEditText}>Edit</Text>
+        </Pressable>
       </View>
-      <Card>
-        <Text style={s.label}>Account</Text>
-        <Text style={s.body}>Student account</Text>
-        <Text style={s.helper}>Authentication and student data are handled by Supabase in the current demo implementation.</Text>
-      </Card>
+
+      <View style={s.profileStats}>
+        <ProfileStat value={stats.total} label="Total" tone="blue" />
+        <ProfileStat value={stats.submitted} label="Submitted" tone="orange" />
+        <ProfileStat value={stats.resolved} label="Resolved" tone="green" />
+        <ProfileStat value={stats.rejected} label="Rejected" tone="red" />
+      </View>
+
+      <View style={s.profileSection}>
+        <Text style={s.profileSectionTitle}>My Activity</Text>
+        <ProfileRow icon="☷" title="My Complaints" subtitle="View and manage your raised complaints" onPress={() => back()} />
+        <ProfileRow icon="♢" title="Notifications" subtitle="Complaint updates and alerts" count={unread} onPress={() => Alert.alert("Notifications", "Open Alerts from the bottom navigation to view your updates.")} />
+      </View>
+
+      <View style={s.profileSection}>
+        <Text style={s.profileSectionTitle}>Account</Text>
+        <ProfileRow icon="○" title="Personal Information" subtitle="Update your name and view account email" onPress={() => Alert.alert("Personal information", `${me?.name || "Student"}\n${me?.email || ""}\n\nYour account details are managed securely through Supabase.`)} />
+        <ProfileRow icon="⬡" title="Security" subtitle="Send a secure password reset email" onPress={security} />
+      </View>
+
+      <View style={s.profileSection}>
+        <Text style={s.profileSectionTitle}>App</Text>
+        <ProfileRow icon="⚙" title="Settings" subtitle="Notification updates and app information" onPress={() => Alert.alert("Settings", "Notification preferences are managed by the current app configuration.")} />
+        <ProfileRow icon="ⓘ" title="About GrievX" subtitle="About this campus complaint platform" onPress={() => Alert.alert("About GrievX", "GrievX helps students report campus issues, track progress and route complaints to the responsible department.")} />
+      </View>
+
+      <View style={s.profileSection}>
+        <Text style={s.profileSectionTitle}>Support</Text>
+        <ProfileRow icon="ⓘ" title="Help & Support" subtitle="Quick answers about using GrievX" onPress={() => Alert.alert("Help & Support", "Submit a complaint with a clear title, description, campus location and optional photo. You can track updates under My Complaints.")} />
+        <ProfileRow icon="▱" title="Send Feedback" subtitle="Share suggestions or report a problem" onPress={() => Alert.alert("Send Feedback", "Please share feedback with your project administrator or campus support team.")} />
+      </View>
+
       <Pressable style={s.logout} onPress={logout}>
-        <Text style={{ color: "#B91C1C", fontWeight: "700" }}>Sign out</Text>
+        <Text style={{ color: "#B91C1C", fontWeight: "700" }}>←  Sign out</Text>
       </Pressable>
     </ScrollView>
+  );
+}
+
+function ProfileStat({ value, label, tone }: { value: number; label: string; tone: "blue" | "orange" | "green" | "red" }) {
+  return (
+    <View style={s.profileStat}>
+      <View style={[s.profileStatIcon, tone === "blue" ? s.profileToneBlue : tone === "orange" ? s.profileToneOrange : tone === "green" ? s.profileToneGreen : s.profileToneRed]}>
+        <Text style={s.profileStatValue}>{value}</Text>
+      </View>
+      <Text style={s.profileStatLabel}>{label}</Text>
+    </View>
+  );
+}
+
+function ProfileRow({ icon, title, subtitle, count, onPress }: { icon: string; title: string; subtitle: string; count?: number; onPress: () => void }) {
+  return (
+    <Pressable style={s.profileRow} onPress={onPress}>
+      <View style={s.profileRowIcon}><Text style={s.profileRowIconText}>{icon}</Text></View>
+      <View style={{ flex: 1 }}>
+        <Text style={s.profileRowTitle}>{title}</Text>
+        <Text style={s.profileRowSubtitle}>{subtitle}</Text>
+      </View>
+      {!!count && <View style={s.profileUnread}><Text style={s.profileUnreadText}>{count}</Text></View>}
+      <Text style={s.profileChevron}>›</Text>
+    </Pressable>
   );
 }
 
@@ -1039,10 +1022,10 @@ function Status({ status }: { status: string }) {
   );
 }
 
-function Stat({ label }: { label: string }) {
+function Stat({ label, value }: { label: string; value: number }) {
   return (
     <View style={s.stat}>
-      <Text style={s.statValue}>—</Text>
+      <Text style={s.statValue}>{value}</Text>
       <Text style={s.helper}>{label}</Text>
     </View>
   );
@@ -1312,6 +1295,49 @@ const s = StyleSheet.create({
   ticketIcon: { color: C.green, fontSize: 12 },
   ticketText: { color: "#666B77", fontSize: 8.5 },
 
+  originalReportPage: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 118, gap: 16 },
+  originalReportIntro: { backgroundColor: "#EEF1FF", borderRadius: 22, padding: 20, gap: 8 },
+  originalReportIntroTitle: { color: C.text, fontSize: 21, lineHeight: 28, fontWeight: "700" },
+  originalReportIntroText: { color: C.muted, fontSize: 15, lineHeight: 23 },
+  originalReportCard: { backgroundColor: C.white, borderRadius: 20, borderWidth: 1, borderColor: C.border, padding: 16, gap: 10 },
+  originalFieldLabel: { color: C.text, fontSize: 15, fontWeight: "600", marginTop: 2 },
+  originalFieldHint: { color: C.muted, fontSize: 13, lineHeight: 19 },
+  originalFieldInput: { minHeight: 48, backgroundColor: "#F0F1FC", borderRadius: 13, paddingHorizontal: 14, paddingVertical: 12, color: C.text, fontSize: 15, marginBottom: 4 },
+  originalDescriptionInput: { minHeight: 126, backgroundColor: "#F0F1FC", borderRadius: 14, paddingHorizontal: 14, paddingVertical: 13, color: C.text, fontSize: 15, lineHeight: 22, marginBottom: 5 },
+  originalUpload: { minHeight: 116, borderWidth: 1, borderStyle: "dashed", borderColor: C.border, borderRadius: 15, alignItems: "center", justifyContent: "center", backgroundColor: C.white, gap: 6, marginTop: 4 },
+  originalUploadPlus: { color: C.blue, fontSize: 32, lineHeight: 36 },
+  originalUploadText: { color: C.text, fontSize: 15, fontWeight: "600" },
+  originalImagePreviewWrap: { gap: 8, marginTop: 4 },
+  originalImagePreview: { width: "100%", height: 170, borderRadius: 12 },
+  originalRemoveImage: { backgroundColor: C.red, alignSelf: "flex-start", paddingHorizontal: 12, paddingVertical: 8, borderRadius: 9 },
+  originalSubmit: { minHeight: 58, borderRadius: 14, backgroundColor: C.blue, alignItems: "center", justifyContent: "center", marginTop: 1 },
+  originalSubmitText: { color: C.white, fontSize: 16, fontWeight: "800" },
+  profilePage: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 112, gap: 14 },
+  profileSummary: { backgroundColor: "#EAF0FF", borderRadius: 18, padding: 14, flexDirection: "row", alignItems: "center", gap: 12 },
+  profileSummaryName: { color: C.text, fontSize: 17, fontWeight: "700" },
+  profileSummaryEmail: { color: C.muted, fontSize: 12, marginTop: 2 },
+  profileRole: { color: C.blue, fontSize: 11, fontWeight: "700", marginTop: 5 },
+  profileEdit: { borderWidth: 1, borderColor: C.blue, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6 },
+  profileEditText: { color: C.blue, fontSize: 11, fontWeight: "700" },
+  profileStats: { flexDirection: "row", gap: 7 },
+  profileStat: { flex: 1, backgroundColor: C.white, borderRadius: 13, borderWidth: 1, borderColor: C.border, paddingVertical: 10, alignItems: "center", gap: 5 },
+  profileStatIcon: { width: 29, height: 29, borderRadius: 15, alignItems: "center", justifyContent: "center" },
+  profileToneBlue: { backgroundColor: "#E5EDFF" },
+  profileToneOrange: { backgroundColor: "#FFF1DF" },
+  profileToneGreen: { backgroundColor: "#E4F7EE" },
+  profileToneRed: { backgroundColor: "#FDE9E9" },
+  profileStatValue: { color: C.text, fontSize: 12, fontWeight: "800" },
+  profileStatLabel: { color: C.muted, fontSize: 9.5, textAlign: "center" },
+  profileSection: { backgroundColor: C.white, borderWidth: 1, borderColor: C.border, borderRadius: 15, padding: 13, gap: 3 },
+  profileSectionTitle: { color: C.text, fontSize: 13, fontWeight: "700", marginBottom: 5 },
+  profileRow: { minHeight: 55, flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 5 },
+  profileRowIcon: { width: 31, height: 31, borderRadius: 16, backgroundColor: "#EEF1FF", alignItems: "center", justifyContent: "center" },
+  profileRowIconText: { color: C.blue, fontSize: 16, fontWeight: "700" },
+  profileRowTitle: { color: C.text, fontSize: 12, fontWeight: "700" },
+  profileRowSubtitle: { color: C.muted, fontSize: 10, marginTop: 3 },
+  profileUnread: { minWidth: 19, height: 19, borderRadius: 10, backgroundColor: C.blue, alignItems: "center", justifyContent: "center", paddingHorizontal: 5 },
+  profileUnreadText: { color: C.white, fontSize: 10, fontWeight: "700" },
+  profileChevron: { color: C.muted, fontSize: 22, paddingLeft: 3 },
   nav: { position: "absolute", left: 0, right: 0, bottom: 0, height: 67, borderTopWidth: 1, borderTopColor: "#E7E8F0", backgroundColor: C.white, flexDirection: "row", alignItems: "center", paddingHorizontal: 3 },
   navItem: { flex: 1, alignItems: "center", gap: 2 },
   navIcon: { fontSize: 19, color: "#252C3E" },
