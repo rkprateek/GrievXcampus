@@ -1,26 +1,31 @@
-# GrievX Campus — Staff and Department Workspaces
+# GrievX Campus — Department Portal
 
-## Admin setup
+## Administrator setup
 
-1. Sign in to the main admin dashboard using an administrator account.
-2. Open the staff directory at /staff.
-3. Assign each staff member and department head to the correct department.
-4. Confirm that staff accounts are assigned to the appropriate complaint records through the admin complaint workflow.
+1. Sign in to the main administrator dashboard.
+2. Open /staff.
+3. Assign each existing department head and staff account to the correct department.
+4. Ensure the user has the department_head or staff role in the profiles table.
+5. The administrator can monitor all department activity at /department-activity.
 
-## Staff workspace
+## Department login
 
-Open /department after signing in. Staff users can view and update complaints assigned to their own account. The database policies are the access boundary; the page does not rely on client-side filtering for privacy.
+Open /department. Department heads and staff sign in directly with their Supabase email and password. The portal checks the authenticated profile and assigned department before loading complaints.
 
 ## Department-head workspace
 
-Open /department after signing in. Department heads can view complaints belonging to the department assigned to their profile and update permitted complaint states. An administrator must assign a department to the department-head profile before the department view is populated.
+Department heads see complaints routed to their assigned department. They can review complaint details, priority and ML confidence, and update permitted lifecycle statuses. They do not need administrator approval to receive or work on automatically routed complaints.
+
+## Staff workspace
+
+Staff accounts are restricted by database policies to complaints assigned to their staff account. They can update only the permitted lifecycle fields.
 
 ## Access rules
 
 - Administrators retain campus-wide operational access.
 - Department heads are scoped to their assigned department.
-- Staff members are scoped to complaints assigned to their staff account.
+- Staff members are scoped to their assigned complaints.
 - Complaint evidence and assignment history follow the same complaint access check.
 - Students retain their own complaint access and cannot use these workspaces.
 
-The Week 13 scoped-access migration must be reviewed and applied before using these routes against a shared Supabase project. Run the final authorization tests before production use.
+Supabase RLS is the actual access boundary. Review and apply the scoped staff-access migration before using the portal against a shared database. Apply the automatic-routing migration separately as described in docs/automatic-routing-and-department-portal.md.

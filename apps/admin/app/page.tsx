@@ -43,7 +43,7 @@ export default function AdminPage() {
   const [message, setMessage] = useState("");
   const [departments, setDepartments] = useState<Department[]>([]);
   const [staff, setStaff] = useState<StaffMember[]>([]);
-  const [view, setView] = useState<"dashboard" | "analytics" | "campus">("dashboard");
+  const [view, setView] = useState<"dashboard" | "analytics">("dashboard");
 
   useEffect(() => {
     const boot = async () => {
@@ -217,9 +217,7 @@ export default function AdminPage() {
       .update({ assigned_staff_id: staffId, updated_at: new Date().toISOString() })
       .eq("id", selected.id)
       .select("id, student_id, title, description, location, status, priority, department_id, assigned_staff_id, created_at, updated_at, profiles!complaints_student_id_fkey(name, email), complaint_images(id, storage_path, content_type)")
-      .single();
-
-    if (error) {
+      .single();    if (error) {
       setMessage(error.message);
       return;
     }
@@ -290,7 +288,6 @@ export default function AdminPage() {
           <button className={view === "dashboard" ? "navActive" : ""} onClick={() => setView("dashboard")}>Dashboard</button>
           <button className={view === "dashboard" ? "navActive" : ""} onClick={() => { setView("dashboard"); setFilter("all"); }}>Complaints</button>
           <button className={view === "analytics" ? "navActive" : ""} onClick={() => setView("analytics")}>Analytics</button>
-          <button className={view === "campus" ? "navActive" : ""} onClick={() => setView("campus")}>Campus map</button>
         </nav>
         <div className="sideBottom">
           <div className="adminMini"><span className="avatar">A</span><span><b>Administrator</b><small>{userEmail}</small></span></div>
@@ -309,6 +306,7 @@ export default function AdminPage() {
             <span className="secure">● Admin access</span>
             <a className="refresh" href="/staff">Staff directory</a>
             <a className="refresh" href="/department">Department workspace</a>
+            <a className="refresh" href="/department-activity">Department overview</a>
             <button className="refresh" onClick={loadComplaints}>Refresh</button>
           </div>
         </header>
@@ -317,8 +315,6 @@ export default function AdminPage() {
 
         {view === "analytics" ? (
           <AnalyticsView complaints={complaints} departments={departments} onExport={() => exportComplaints(complaints, departments)} />
-        ) : view === "campus" ? (
-          <CampusView complaints={complaints} />
         ) : (
         <>
 
@@ -388,6 +384,14 @@ export default function AdminPage() {
                   <p>{selected.description}</p>
                 </div>
                 <div className="detailSection">
+                  <label>Automatic ML classification and routing</label>
+                  <strong>{selected.category ?? "Category pending"}</strong>
+                  <span>Category confidence: {selected.category_confidence == null ? "Unavailable" : (selected.category_confidence * 100).toFixed(1) + "%"}</span>
+                  <span>Routed department: {departments.find((item) => item.id === selected.department_id)?.name ?? "General / unassigned"}</span>
+                  <span>Routing confidence: {selected.department_confidence == null ? "Fallback" : (selected.department_confidence * 100).toFixed(1) + "%"}</span>
+                  <span>Routing source: {selected.department_source ?? "automatic fallback"}</span>
+                </div>
+                <div className="detailSection">
                   <label>Submitted</label>
                   <span>{formatDate(selected.created_at)}</span>
                 </div>
@@ -437,12 +441,10 @@ export default function AdminPage() {
                   </div>
                 </div>
 
-                <div className="detailSection">
-                  <label>Department</label>
+                <div className="detailSection">                  <label>Department</label>
                   <select className="departmentSelect" value={selected.department_id ?? ""} onChange={(e) => updateRouting({ department_id: e.target.value || null })}>
                     <option value="">Unassigned</option>
-                    {departments.map((department) => <option key={department.id} value={department.id}>{department.name}</option>)}
-                  </select>
+                    {departments.map((department) => <option key={department.id} value={department.id}>{department.name}</option>)}                  </select>
                 </div>
 
                 <div className="detailSection">
@@ -657,12 +659,10 @@ function exportComplaints(complaints: Complaint[], departments: Department[]) {
     x.department_id ? departmentNames.get(x.department_id) ?? "" : "",
     String(x.upvote_count ?? 0), x.created_at, x.updated_at,
   ]);
-  const csv = [headers, ...rows].map((row) => row.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const csv = [headers, ...rows].map((row) => row.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `grievx-complaints-${new Date().toISOString().slice(0, 10)}.csv`;
-  a.click();
+  a.download = `grievx-complaints-${new Date().toISOString().slice(0, 10)}.csv`;  a.click();
   URL.revokeObjectURL(url);
 }

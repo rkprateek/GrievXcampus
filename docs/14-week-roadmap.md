@@ -16,7 +16,7 @@ Complaint creation, description, image upload, campus location, complaint ID, co
 Dashboard overview, complaint queue, search/filter/sort, details, student information permissions, location, department/staff assignment, manual priority/status controls, responsive admin UI, and authorization tests.
 
 ## Week 6 — Complaint lifecycle and notifications
-Status history, lifecycle transitions, notification database, notification APIs, student timeline/notifications, admin state updates, WebSocket-based realtime updates, and tests.
+Status history, lifecycle transitions, notification database, notification APIs, student timeline/notifications, admin state updates, realtime updates, and tests.
 
 ## Week 7 — Text classification
 Dataset preparation, preprocessing, baseline model, category classification, evaluation, model versioning, inference service, API integration, and tests.
@@ -25,29 +25,18 @@ Dataset preparation, preprocessing, baseline model, category classification, eva
 Priority labels/rules for dataset creation, baseline model, evaluation, explainable prediction output, inference integration, and tests.
 
 ## Week 9 — Department routing
-Department mapping, routing model/logic based on text classification and project data, confidence handling, inference integration, and tests.
+Department mapping, routing logic based on text classification and project department data, confidence handling, inference integration, and tests.
 
 ## Week 10 — ML integration, duplicate detection, and operational workflow
-Connect classification, priority, and routing to the complaint workflow; persist predictions; expose results to authorized staff; handle low-confidence cases safely.
+Connect classification, priority and routing to complaint submission; persist predictions; automatically route confident predictions to their mapped departments; route uncertain or unavailable predictions to General; expose results to authorized users.
 
-Add **duplicate complaint detection** to the submission workflow:
-- compare a new complaint with recent relevant complaints;
-- compare title and description similarity;
-- require matching/near-matching campus location as an important signal;
-- use a configurable threshold rather than a hard-coded decision;
-- return possible duplicate complaint IDs and similarity information;
-- let the student review the existing complaint before creating another record;
-- allow an explicit “submit anyway” path when the student confirms it is a different issue;
-- prevent duplicate detection from blocking legitimate unrelated complaints;
-- add backend and mobile tests for the example hostel leakage scenario.
-
-Duplicate detection is an application feature, not an additional ML capability. It must not be presented as a fourth ML model.
+Add duplicate complaint detection with title/description similarity, campus location and recency checks. Show a possible-duplicate warning and allow an explicit submit-anyway path. Duplicate detection is an application feature, not an additional ML capability.
 
 ## Week 11 — Analytics and reporting
 Operational dashboard metrics, complaint trends, category/priority/department summaries, filters, export/report support, and tests.
 
-## Week 12 — Campus map and operational views
-Complaint locations, map/heatmap views, privacy-aware location display, filtering, and responsive UI.
+## Week 12 — Department portal and operational views
+Department-head login, department-scoped complaint inbox, complaint status updates, staff-to-department membership, and department activity in the main administrator dashboard. No campus heatmap is in scope.
 
 ## Week 13 — Security, performance, deployment, and reliability
 Security review, validation hardening, rate limits where appropriate, logging/auditing, performance checks, production configuration, deployment, backups, and monitoring.
@@ -55,26 +44,12 @@ Security review, validation hardening, rate limits where appropriate, logging/au
 ## Week 14 — Integration, testing, documentation, and final presentation
 End-to-end testing, bug fixing, final UI polish, documentation, architecture diagrams, demo data, final report, presentation, and project handover.
 
+## Implementation checkpoint
+- Weeks 1–9: foundational application, lifecycle, ML models and department routing implemented.
+- Weeks 10–12: workflow integration, duplicate detection, upvotes, analytics, department portal and department activity view implemented in code.
+- Automatic routing and prediction persistence migration must be applied and verified in the target Supabase project.
+- Runtime verification remains required before features are marked fully tested.
+- Campus heatmap is explicitly out of scope.
+
 ## Rule
-
-A later week must not be started until the current week's implementation has been tested and reviewed.
-
-
-## Implementation checkpoint — Weeks 9–12
-- Week 9: implemented category-based department routing with confidence-aware General fallback.
-- Week 10: implemented workflow persistence for category/priority/routing, configurable duplicate detection, duplicate review/submit-anyway flow, and community upvotes.
-- Week 11: implemented admin analytics breakdowns, KPI cards and CSV export.
-- Week 12: implemented privacy-aware campus location intensity/heatmap view using manually entered campus areas; GPS is not used.
-- Runtime verification is intentionally left for the user's local environment before Weeks 9–12 are considered fully tested.
-
-
-## Week 13 implementation checkpoint
-- Production settings validation, API host/CORS restrictions, production API-docs disablement and response security headers.
-- Bounded and signature-checked image uploads with server-generated storage keys.
-- Non-root FastAPI container with health check.
-- Security review and deployment guide.
-- Production provider controls and all verification remain pending.
-
-## Week 14 implementation checkpoint
-- Final report outline, demonstration script and final handover checklist.
-- Complete integration review, real screenshots, final testing, bug fixing and measured results remain pending.
+A later week must not be considered complete until implementation has been tested and reviewed.

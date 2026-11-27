@@ -5,6 +5,7 @@ import {
   FlatList,
   Image,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -17,6 +18,8 @@ import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import * as ImagePicker from "expo-image-picker";
 import {
   createComplaint,
+  updateComplaint,
+  withdrawComplaint,
   findPossibleDuplicates,
   getComplaint,
   getComplaints,
@@ -129,7 +132,7 @@ function AppContent() {
         <Detail id={id} back={() => setScreen("complaints")} />
       )}
       {screen === "notifications" && <Notifications back={() => setScreen("home")} openComplaint={open} />}
-      {screen === "profile" && <Profile back={() => setScreen("home")} logout={signOut} />}
+      {screen === "profile" && <Profile back={() => setScreen("home")} go={setScreen} logout={signOut} />}
       {screen !== "detail" && <Nav active={screen} go={setScreen} />}
     </SafeAreaView>
   );
@@ -147,6 +150,8 @@ function Auth({
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [keepSignedIn, setKeepSignedIn] = useState(true);
 
   const submit = async () => {
     try {
@@ -159,8 +164,10 @@ function Auth({
           return;
         }
         await register(name.trim(), email.trim(), password);
-        setMode("login");
+        setName("");
+        setPassword("");
         setError("Account created successfully. Please sign in.");
+        setMode("login");
         return;
       }
 
@@ -172,79 +179,174 @@ function Auth({
     }
   };
 
+  const forgot = async () => {
+    const value = email.trim();
+    if (!value) {
+      Alert.alert("Enter your email", "Enter your university email first.");
+      return;
+    }
+    try {
+      setBusy(true);
+      await resetPassword(value);
+      Alert.alert("Reset email sent", "Check your inbox for the password reset link.");
+    } catch (e) {
+      Alert.alert("Unable to reset password", e instanceof Error ? e.message : "Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
-    <SafeAreaView style={s.app}>
+    <SafeAreaView style={s.authScreen}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
-        <ScrollView contentContainerStyle={s.auth}>
-          <Brand />
-          <Text style={s.eyebrow}>CAMPUS CLARITY</Text>
-          <Text style={s.display}>
-            {mode === "login" ? "Welcome back." : "Join GrievX Campus."}
-          </Text>
-          <Text style={s.body}>
-            Report campus issues and keep track of your complaints.
+        <ScrollView
+          contentContainerStyle={s.authScroll}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={s.portalPill}>
+            <View style={s.portalMark}><Text style={s.portalMarkText}>✓</Text></View>
+            <Text style={s.portalPillText}>STUDENT GRIEVANCE PORTAL</Text>
+          </View>
+
+          <Text style={s.authTitle}>{mode === "login" ? "Welcome back!" : "Create your account"}</Text>
+          <Text style={s.authSubtitle}>
+            {mode === "login"
+              ? "Sign in with your University Roll No / SRN to report\nor track issues."
+              : "Create your student account to report\nand track campus issues."}
           </Text>
 
-          <Card>
+          <View style={s.authCard}>
             {mode === "register" && (
               <Field
                 label="Full name"
-                placeholder="Your full name"
+                placeholder="Enter your full name"
                 value={name}
                 onChangeText={setName}
               />
             )}
 
-            <Field
-              label="Email"
-              placeholder="you@pesu.pes.edu"
-              keyboardType="email-address"
-              autoCapitalize="none"
-              value={email}
-              onChangeText={setEmail}
-            />
+            <View style={s.fieldBlock}>
+              <View style={s.labelRow}>
+                <Text style={s.authLabel}>University Email</Text>
+                {mode === "login" && <Text style={s.verified}>STUDENT ACCESS</Text>}
+              </View>
+              <View style={s.authInputWrap}>
+                <Text style={s.inputIcon}>▣</Text>
+                <TextInput
+                  style={s.authInput}
+                  placeholder="student@pesu.pes.edu"
+                  placeholderTextColor="#858896"
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  value={email}
+                  onChangeText={setEmail}
+                />
+              </View>
+            </View>
 
-            <Field
-              label="Password"
-              placeholder="Enter your password"
-              secureTextEntry
-              value={password}
-              onChangeText={setPassword}
-            />
+            <View style={s.fieldBlock}>
+              <View style={s.labelRow}>
+                <Text style={s.authLabel}>Password</Text>
+                {mode === "login" && (
+                  <Pressable onPress={forgot} disabled={busy}>
+                    <Text style={s.verified}>Forgot Password?</Text>
+                  </Pressable>
+                )}
+              </View>
+              <View style={s.authInputWrap}>
+                <Text style={s.inputIcon}>▣</Text>
+                <TextInput
+                  style={s.authInput}
+                  placeholder="Enter university password"
+                  placeholderTextColor="#858896"
+                  secureTextEntry={!showPassword}
+                  value={password}
+                  onChangeText={setPassword}
+                />
+                <Pressable onPress={() => setShowPassword((v) => !v)} style={s.eyeButton}>
+                  <Text style={s.eye}>{showPassword ? "◉" : "◌"}</Text>
+                </Pressable>
+              </View>
+            </View>
 
-            {!!error && <Text style={s.error}>{error}</Text>}
+            {mode === "login" && (
+              <Pressable style={s.keepRow} onPress={() => setKeepSignedIn((v) => !v)}>
+                <View style={[s.checkbox, keepSignedIn && s.checkboxOn]}>
+                  {keepSignedIn && <Text style={s.checkmark}>✓</Text>}
+                </View>
+                <Text style={s.keepText}>Keep me signed in on this device</Text>
+              </Pressable>
+            )}
 
-            <Primary
-              label={
-                busy
-                  ? "Please wait..."
-                  : mode === "login"
-                    ? "Sign in"
-                    : "Create account"
-              }
-              onPress={submit}
-              disabled={busy}
-            />
+            {!!error && <Text style={s.authError}>{error}</Text>}
 
             <Pressable
-              onPress={() => {
-                setError("");
-                setMode(mode === "login" ? "register" : "login");
-              }}
+              style={[s.portalButton, busy && { opacity: 0.55 }]}
+              onPress={submit}
+              disabled={busy}
             >
-              <Text style={s.link}>
-                {mode === "login"
-                  ? "New here? Create an account"
-                  : "Already have an account? Sign in"}
+              <Text style={s.portalButtonText}>
+                {busy
+                  ? "Please wait..."
+                  : mode === "login"
+                    ? "Sign In to Campus Portal"
+                    : "Create Campus Account"}
               </Text>
+              <Text style={s.portalArrow}>→</Text>
             </Pressable>
-          </Card>
 
-          <Text style={s.helper}>
-            PESU credential verification can be integrated behind the GrievX API.
+            {mode === "login" && (
+              <>
+                <View style={s.ssoDivider}>
+                  <View style={s.dividerLine} />
+                  <Text style={s.ssoText}>CAMPUS SSO</Text>
+                  <View style={s.dividerLine} />
+                </View>
+
+                <Pressable
+                  style={s.googleButton}
+                  onPress={() =>
+                    Alert.alert(
+                      "Campus SSO",
+                      "Google Workspace sign-in is shown in the portal design but is not configured in the current Supabase project yet.",
+                    )
+                  }
+                >
+                  <Text style={s.googleG}>G</Text>
+                  <Text style={s.googleText}>Sign in with Campus Google Workspace\n(@pesu.pes.edu)</Text>
+                </Pressable>
+              </>
+            )}
+          </View>
+
+          <Pressable
+            onPress={() => {
+              setError("");
+              setMode(mode === "login" ? "register" : "login");
+            }}
+          >
+            <Text style={s.registerPrompt}>
+              {mode === "login" ? "New student? " : "Already registered? "}
+              <Text style={s.registerLink}>
+                {mode === "login" ? "Register your campus account" : "Sign in to your account"}
+              </Text>
+            </Text>
+          </Pressable>
+
+          {mode === "login" && (
+            <View style={s.emergency}>
+              <Text style={s.emergencyIcon}>♢</Text>
+              <Text style={s.emergencyText}>Emergency / Security helpline: </Text>
+              <Text style={s.emergencyNumber}>1800-CAMPUS-911</Text>
+            </View>
+          )}
+
+          <Text style={s.authFootnote}>
+            "Secure campus access · Session managed by Supabase."
           </Text>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -264,8 +366,17 @@ function Brand() {
 }
 
 function Home({ go }: { go: (x: Screen) => void }) {
-  const [me, setMe] = useState<{ name: string } | null>(null);  useEffect(() => {
+  const [me, setMe] = useState<{ name: string } | null>(null);
+  const [counts, setCounts] = useState({ submitted: 0, progress: 0, resolved: 0 });
+  useEffect(() => {
     getMe().then(setMe).catch(() => {});
+    getComplaints().then((items) => {
+      setCounts({
+        submitted: items.filter((x) => x.status?.toLowerCase() === "submitted").length,
+        progress: items.filter((x) => ["assigned", "in_progress"].includes(x.status?.toLowerCase())).length,
+        resolved: items.filter((x) => ["resolved", "closed"].includes(x.status?.toLowerCase())).length,
+      });
+    }).catch(() => {});
   }, []);
   const first = me?.name?.split(" ")[0] || "Student";
 
@@ -284,9 +395,7 @@ function Home({ go }: { go: (x: Screen) => void }) {
       <View style={s.hero}>
         <View style={{ flex: 1 }}>
           <Text style={s.heroTitle}>Make your campus better.</Text>
-          <Text style={s.heroBody}>
-            Report an issue in a few simple steps and follow its progress.
-          </Text>
+          <Text style={s.heroBody}>Report an issue in a few simple steps and follow its progress.</Text>
           <Primary label="Report an issue" onPress={() => go("report")} />
         </View>
         <View style={s.heroIcon}><Text style={s.heroCheck}>✓</Text></View>
@@ -294,9 +403,9 @@ function Home({ go }: { go: (x: Screen) => void }) {
 
       <Text style={s.section}>Your activity</Text>
       <View style={s.stats}>
-        <Stat label="Submitted" />
-        <Stat label="In progress" />
-        <Stat label="Resolved" />
+        <Stat label="Submitted" value={counts.submitted} />
+        <Stat label="In progress" value={counts.progress} />
+        <Stat label="Resolved" value={counts.resolved} />
       </View>
 
       <Text style={s.section}>Quick actions</Text>
@@ -308,41 +417,224 @@ function Home({ go }: { go: (x: Screen) => void }) {
   );
 }
 
-function Report({back,done}:{back:()=>void;done:()=>void}){const [title,setTitle]=useState(""),[description,setDescription]=useState(""),[location,setLocation]=useState(""),[image,setImage]=useState<ImagePicker.ImagePickerAsset|null>(null),[busy,setBusy]=useState(false);
- const pick=async()=>{const p=await ImagePicker.requestMediaLibraryPermissionsAsync();if(!p.granted){Alert.alert("Photo access needed","Allow photo access to attach evidence.");return}const r=await ImagePicker.launchImageLibraryAsync({mediaTypes:["images"],allowsEditing:true,quality:.8});if(!r.canceled)setImage(r.assets[0])};
- const submit=async()=>{if(!title.trim()||!description.trim()||!location.trim()){Alert.alert("Missing information","Please complete title, description and campus location.");return}try{setBusy(true);
-   const input={title:title.trim(),description:description.trim(),location:location.trim()};
-   let duplicates: Awaited<ReturnType<typeof findPossibleDuplicates>> = [];
-   try { duplicates = await findPossibleDuplicates(input); } catch {}
-   const proceed=async()=>{const c=await createComplaint(input);if(image)await uploadComplaintImage(c.id,image.uri,image.fileName??"evidence.jpg",image.mimeType??"image/jpeg");Alert.alert("Complaint submitted","Your complaint was submitted successfully.",[{text:"View complaints",onPress:done}])};
-   if(duplicates.length){
-     const top=duplicates.slice(0,3).map((d,i)=>`${i+1}. ${d.title} · ${d.location} · ${Math.round(d.similarity_score*100)}% similar`).join("\n");
-     Alert.alert("Possible duplicate found","A recent complaint may describe the same issue:\n\n"+top+"\n\nReview it before submitting another report.",[
-       {text:"Cancel",style:"cancel"},
-       {text:"Submit anyway",onPress:proceed},
-     ]);
-   } else await proceed();
- }catch(e){Alert.alert("Submission failed",e instanceof Error?e.message:"Please try again.")}finally{setBusy(false)}};
- return <KeyboardAvoidingView style={s.app} behavior={Platform.OS==="ios"?"padding":undefined}><ScrollView contentContainerStyle={s.page}><Header title="Report an issue" back={back}/>
- <View style={s.progress}><Text style={s.step}>1 OF 2 · FAST ROUTE DESK</Text><Text style={s.cardTitle}>Tell us what happened.</Text><Text style={s.muted}>Clear details help the complaint reach the right campus team.</Text></View>
- <Card><Field label="Complaint summary" placeholder="e.g. Wi-Fi disconnected in Lab 304" maxLength={150} value={title} onChangeText={setTitle}/><Field label="Detailed description" placeholder="Describe the problem clearly..." multiline value={description} onChangeText={setDescription} inputStyle={s.area}/><Text style={s.label}>Campus location</Text><Text style={s.helper}>Enter the building, room or campus area manually. No GPS is used.</Text><Field label="" placeholder="e.g. EC Block, Lab 304" value={location} onChangeText={setLocation}/></Card>
- <Card><Text style={s.label}>Upload evidence</Text><Text style={s.helper}>Add one photo showing the issue. JPG, PNG or WEBP · max 5 MB</Text>{image?<View style={s.imageBox}><Image source={{uri:image.uri}} style={s.image}/><Pressable onPress={pick}><Text style={s.link}>Change photo</Text></Pressable></View>:<Pressable onPress={pick} style={s.upload}><Text style={s.plus}>+</Text><Text style={s.label}>Add photo evidence</Text></Pressable>}</Card>
- <Primary label={busy?"Submitting...":"Submit complaint"} onPress={submit} disabled={busy}/><Pressable onPress={back}><Text style={[s.muted,{textAlign:"center"}]}>Cancel</Text></Pressable>
- </ScrollView></KeyboardAvoidingView>}
+function Report({ back, done }: { back: () => void; done: () => void }) {
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [location, setLocation] = useState("");
+  const [image, setImage] = useState<ImagePicker.ImagePickerAsset | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const pick = async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert("Photo access needed", "Allow photo access to attach evidence.");
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      allowsEditing: true,
+      quality: 0.8,
+    });
+    if (!result.canceled) setImage(result.assets[0]);
+  };
+
+  const submit = async () => {
+    if (!title.trim() || !description.trim() || !location.trim()) {
+      Alert.alert("Missing information", "Please complete the complaint title, description and campus location.");
+      return;
+    }
+
+    try {
+      setBusy(true);
+      const input = { title: title.trim(), description: description.trim(), location: location.trim() };
+      let duplicates: Awaited<ReturnType<typeof findPossibleDuplicates>> = [];
+      try {
+        duplicates = await findPossibleDuplicates(input);
+      } catch {
+        // Duplicate checking is advisory; allow the student to continue if it is unavailable.
+      }
+
+      const proceed = async () => {
+        const complaint = await createComplaint(input);
+        if (image) {
+          await uploadComplaintImage(
+            complaint.id,
+            image.uri,
+            image.fileName ?? "evidence.jpg",
+            image.mimeType ?? "image/jpeg",
+          );
+        }
+        const routingNotice = complaint.ml_warning ??
+          (complaint.routing_fallback
+            ? "ML service is unavailable, so your complaint was automatically routed to General."
+            : "Your complaint was automatically classified and routed to the appropriate department.");
+        Alert.alert(
+          complaint.ml_warning ? "Complaint saved — routing needs attention" : "Complaint submitted",
+          complaint.ml_warning ?? ("Your complaint was submitted successfully. " + routingNotice),
+          [{ text: "View complaints", onPress: done }],
+        );
+      };
+
+      if (duplicates.length) {
+        const top = duplicates.slice(0, 3).map((duplicate, index) =>
+          `${index + 1}. ${duplicate.title} · ${duplicate.location} · ${Math.round(duplicate.similarity_score * 100)}% similar`,
+        ).join("\n");
+        Alert.alert(
+          "Possible duplicate found",
+          "A recent complaint may describe the same issue:\n\n" + top + "\n\nReview it before submitting another report.",
+          [
+            { text: "Cancel", style: "cancel" },
+            { text: "Submit anyway", onPress: proceed },
+          ],
+        );
+      } else {
+        await proceed();
+      }
+    } catch (error) {
+      Alert.alert("Submission failed", error instanceof Error ? error.message : "Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <KeyboardAvoidingView style={s.reportRoot} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+      <ScrollView contentContainerStyle={s.originalReportPage} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+        <View style={s.originalReportIntro}>
+          <Text style={s.originalReportIntroTitle}>Tell us what happened.</Text>
+          <Text style={s.originalReportIntroText}>Clear details help the complaint reach the right campus team.</Text>
+        </View>
+
+        <View style={s.originalReportCard}>
+          <Text style={s.originalFieldLabel}>Complaint title</Text>
+          <TextInput
+            value={title}
+            onChangeText={setTitle}
+            maxLength={150}
+            placeholder="e.g. Wi-Fi disconnected in Lab 304"
+            placeholderTextColor="#858A99"
+            style={s.originalFieldInput}
+          />
+          <Text style={s.originalFieldLabel}>Detailed description</Text>
+          <TextInput
+            value={description}
+            onChangeText={setDescription}
+            placeholder="Describe the problem clearly..."
+            placeholderTextColor="#858A99"
+            multiline
+            textAlignVertical="top"
+            style={s.originalDescriptionInput}
+          />
+          <Text style={s.originalFieldLabel}>Campus location</Text>
+          <Text style={s.originalFieldHint}>Enter the building, room or campus area.</Text>
+          <TextInput
+            value={location}
+            onChangeText={setLocation}
+            placeholder="e.g. EC Block, Lab 304"
+            placeholderTextColor="#858A99"
+            style={s.originalFieldInput}
+          />
+        </View>
+
+        <View style={s.originalReportCard}>
+          <Text style={s.originalFieldLabel}>Upload evidence</Text>
+          <Text style={s.originalFieldHint}>Add one photo showing the issue. JPG, PNG or WEBP · max 5 MB</Text>
+          {image ? (
+            <View style={s.originalImagePreviewWrap}>
+              <Image source={{ uri: image.uri }} style={s.originalImagePreview} />
+              <Pressable onPress={() => setImage(null)} style={s.originalRemoveImage}>
+                <Text style={{ color: C.white, fontWeight: "700" }}>Remove photo</Text>
+              </Pressable>
+            </View>
+          ) : (
+            <Pressable style={s.originalUpload} onPress={pick}>
+              <Text style={s.originalUploadPlus}>＋</Text>
+              <Text style={s.originalUploadText}>Add photo</Text>
+            </Pressable>
+          )}
+        </View>
+
+        <Pressable style={[s.originalSubmit, busy && s.disabled]} onPress={submit} disabled={busy}>
+          {busy ? <ActivityIndicator color={C.white} /> : <Text style={s.originalSubmitText}>Submit complaint</Text>}
+        </Pressable>
+      </ScrollView>
+    </KeyboardAvoidingView>
+  );
+}
 
 function Complaints({ back, open }: { back: () => void; open: (id: string) => void }) {
   const [items, setItems] = useState<Complaint[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [editing, setEditing] = useState<Complaint | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editLocation, setEditLocation] = useState("");
+  const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    getComplaints()
-      .then(setItems)
-      .catch((e) => setError(e instanceof Error ? e.message : "Unable to load complaints."))
-      .finally(() => setLoading(false));
-  }, []);
+  const refresh = async () => {
+    try {
+      setError("");
+      setItems(await getComplaints() as Complaint[]);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Unable to load complaints.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  return (    <View style={s.app}>
+  useEffect(() => { refresh(); }, []);
+
+  const beginEdit = (item: Complaint) => {
+    setEditing(item);
+    setEditTitle(item.title);
+    setEditDescription(item.description);
+    setEditLocation(item.location);
+  };
+
+  const saveEdit = async () => {
+    if (!editing || !editTitle.trim() || !editDescription.trim() || !editLocation.trim()) {
+      Alert.alert("Missing information", "Please complete the title, description and location.");
+      return;
+    }
+    try {
+      setSaving(true);
+      await updateComplaint(editing.id, {
+        title: editTitle.trim(),
+        description: editDescription.trim(),
+        location: editLocation.trim(),
+      });
+      setEditing(null);
+      await refresh();
+      Alert.alert("Complaint updated", "Your changes have been saved.");
+    } catch (e) {
+      Alert.alert("Unable to update", e instanceof Error ? e.message : "Please try again.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const confirmWithdraw = (item: Complaint) => {
+    Alert.alert(
+      "Withdraw complaint?",
+      "This will mark your submitted complaint as withdrawn. You cannot undo this action.",
+      [
+        { text: "Keep complaint", style: "cancel" },
+        { text: "Withdraw", style: "destructive", onPress: async () => {
+          try {
+            await withdrawComplaint(item.id);
+            await refresh();
+            Alert.alert("Complaint withdrawn", "Your complaint has been withdrawn.");
+          } catch (e) {
+            Alert.alert("Unable to withdraw", e instanceof Error ? e.message : "Please try again.");
+          }
+        }},
+      ],
+    );
+  };
+
+  return (
+    <View style={s.app}>
       <FlatList
         contentContainerStyle={s.page}
         data={items}
@@ -357,19 +649,55 @@ function Complaints({ back, open }: { back: () => void; open: (id: string) => vo
         ListEmptyComponent={
           loading ? <ActivityIndicator color={C.blue} /> : <Text style={s.error}>{error || "No complaints yet."}</Text>
         }
-        renderItem={({ item }) => (
-          <Pressable style={s.complaint} onPress={() => open(item.id)}>
-            <View style={s.row}>
-              <Status status={item.status} />
-              <Text style={s.date}>{date(item.created_at)}</Text>
+        renderItem={({ item }) => {
+          const canManage = item.status.toLowerCase() === "submitted";
+          return (
+            <View style={s.complaint}>
+              <Pressable onPress={() => open(item.id)}>
+                <View style={s.row}>
+                  <Status status={item.status} />
+                  <Text style={s.date}>{date(item.created_at)}</Text>
+                </View>
+                <Text style={s.complaintTitle}>{item.title}</Text>
+                <Text style={s.muted} numberOfLines={2}>{item.description}</Text>
+                <Text style={s.helper}>• {item.location}</Text>
+                <Text style={s.helper}>• {item.upvote_count ?? 0} campus support{item.upvote_count === 1 ? "" : "s"}</Text>
+              </Pressable>
+              {canManage && (
+                <View style={s.complaintActions}>
+                  <Pressable style={s.editComplaintButton} onPress={() => beginEdit(item)}>
+                    <Text style={s.editComplaintText}>✎  Edit</Text>
+                  </Pressable>
+                  <Pressable style={s.withdrawComplaintButton} onPress={() => confirmWithdraw(item)}>
+                    <Text style={s.withdrawComplaintText}>▤  Withdraw</Text>
+                  </Pressable>
+                </View>
+              )}
             </View>
-            <Text style={s.complaintTitle}>{item.title}</Text>
-            <Text style={s.muted} numberOfLines={2}>{item.description}</Text>
-            <Text style={s.helper}>• {item.location}</Text>
-            <Text style={s.helper}>• {item.upvote_count ?? 0} campus support{item.upvote_count === 1 ? "" : "s"}</Text>
-          </Pressable>
-        )}
+          );
+        }}
       />
+      <Modal visible={!!editing} transparent animationType="slide" onRequestClose={() => { if (!saving) setEditing(null); }}>
+        <View style={s.editModalBackdrop}>
+          <View style={s.editModalCard}>
+            <Text style={s.cardTitle}>Edit complaint</Text>
+            <Text style={s.label}>Title</Text>
+            <TextInput style={s.editInput} value={editTitle} onChangeText={setEditTitle} maxLength={150} />
+            <Text style={s.label}>Description</Text>
+            <TextInput style={[s.editInput, s.editMultiline]} value={editDescription} onChangeText={setEditDescription} multiline textAlignVertical="top" />
+            <Text style={s.label}>Campus location</Text>
+            <TextInput style={s.editInput} value={editLocation} onChangeText={setEditLocation} />
+            <View style={s.editModalActions}>
+              <Pressable style={s.cancelEditButton} disabled={saving} onPress={() => setEditing(null)}>
+                <Text style={s.cancelEditText}>Cancel</Text>
+              </Pressable>
+              <Pressable style={s.saveEditButton} disabled={saving} onPress={saveEdit}>
+                <Text style={s.saveEditText}>{saving ? "Saving..." : "Save changes"}</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -462,29 +790,110 @@ function Detail({ id, back }: { id: string; back: () => void }) {
   );
 }
 
-function Profile({ back, logout }: { back: () => void; logout: () => void }) {
+function Profile({ back, go, logout }: { back: () => void; go: (x: Screen) => void; logout: () => void }) {
   const [me, setMe] = useState<{ name: string; email?: string } | null>(null);
+  const [stats, setStats] = useState({ total: 0, submitted: 0, resolved: 0, rejected: 0 });
+  const [unread, setUnread] = useState(0);
+
   useEffect(() => {
     getMe().then(setMe).catch(() => {});
+    getComplaints().then((items) => setStats({
+      total: items.length,
+      submitted: items.filter((x) => x.status?.toLowerCase() === "submitted").length,
+      resolved: items.filter((x) => ["resolved", "closed"].includes(x.status?.toLowerCase())).length,
+      rejected: items.filter((x) => x.status?.toLowerCase() === "rejected").length,
+    })).catch(() => {});
+    getNotifications().then((items) => setUnread(items.filter((x) => !x.read_at).length)).catch(() => {});
   }, []);
 
+  const security = async () => {
+    if (!me?.email) {
+      Alert.alert("Security", "Your account email could not be loaded.");
+      return;
+    }
+    try {
+      await resetPassword(me.email);
+      Alert.alert("Password reset email sent", "Check your inbox for the secure password reset link.");
+    } catch (error) {
+      Alert.alert("Unable to send reset email", error instanceof Error ? error.message : "Please try again.");
+    }
+  };
+
   return (
-    <ScrollView contentContainerStyle={s.page}>
+    <ScrollView contentContainerStyle={s.profilePage} showsVerticalScrollIndicator={false}>
       <Header title="Profile" back={back} />
-      <View style={s.profile}>
-        <View style={s.profileAvatar}><Text style={s.profileLetter}>{(me?.name || "S")[0]}</Text></View>
-        <Text style={s.detailTitle}>{me?.name || "Student"}</Text>
-        <Text style={s.muted}>{me?.email || "Student account"}</Text>
+      <View style={s.profileSummary}>
+        <View style={s.profileAvatar}><Text style={s.profileLetter}>{(me?.name || "S")[0]?.toUpperCase()}</Text></View>
+        <View style={{ flex: 1 }}>
+          <Text style={s.profileSummaryName}>{me?.name || "Student"}</Text>
+          <Text style={s.profileSummaryEmail}>{me?.email || "Student account"}</Text>
+          <Text style={s.profileRole}>Student</Text>
+        </View>
+        <Pressable style={s.profileEdit} onPress={() => Alert.alert("Personal information", "Your name and email are managed by your university account.")}>
+          <Text style={s.profileEditText}>Edit</Text>
+        </Pressable>
       </View>
-      <Card>
-        <Text style={s.label}>Account</Text>
-        <Text style={s.body}>Student account</Text>
-        <Text style={s.helper}>Authentication and student data are handled by Supabase in the current demo implementation.</Text>
-      </Card>
+
+      <View style={s.profileStats}>
+        <ProfileStat value={stats.total} label="Total" tone="blue" />
+        <ProfileStat value={stats.submitted} label="Submitted" tone="orange" />
+        <ProfileStat value={stats.resolved} label="Resolved" tone="green" />
+        <ProfileStat value={stats.rejected} label="Rejected" tone="red" />
+      </View>
+
+      <View style={s.profileSection}>
+        <Text style={s.profileSectionTitle}>My Activity</Text>
+        <ProfileRow icon="☷" title="My Complaints" subtitle="View and manage your raised complaints" onPress={() => back()} />
+        <ProfileRow icon="♢" title="Notifications" subtitle="Complaint updates and alerts" count={unread} onPress={() => Alert.alert("Notifications", "Open Alerts from the bottom navigation to view your updates.")} />
+      </View>
+
+      <View style={s.profileSection}>
+        <Text style={s.profileSectionTitle}>Account</Text>
+        <ProfileRow icon="○" title="Personal Information" subtitle="Update your name and view account email" onPress={() => Alert.alert("Personal information", `${me?.name || "Student"}\n${me?.email || ""}\n\nYour account details are managed securely through Supabase.`)} />
+        <ProfileRow icon="⬡" title="Security" subtitle="Send a secure password reset email" onPress={security} />
+      </View>
+
+      <View style={s.profileSection}>
+        <Text style={s.profileSectionTitle}>App</Text>
+        <ProfileRow icon="⚙" title="Settings" subtitle="Notification updates and app information" onPress={() => Alert.alert("Settings", "Notification preferences are managed by the current app configuration.")} />
+        <ProfileRow icon="ⓘ" title="About GrievX" subtitle="About this campus complaint platform" onPress={() => Alert.alert("About GrievX", "GrievX helps students report campus issues, track progress and route complaints to the responsible department.")} />
+      </View>
+
+      <View style={s.profileSection}>
+        <Text style={s.profileSectionTitle}>Support</Text>
+        <ProfileRow icon="ⓘ" title="Help & Support" subtitle="Quick answers about using GrievX" onPress={() => Alert.alert("Help & Support", "Submit a complaint with a clear title, description, campus location and optional photo. You can track updates under My Complaints.")} />
+        <ProfileRow icon="▱" title="Send Feedback" subtitle="Share suggestions or report a problem" onPress={() => Alert.alert("Send Feedback", "Please share feedback with your project administrator or campus support team.")} />
+      </View>
+
       <Pressable style={s.logout} onPress={logout}>
-        <Text style={{ color: "#B91C1C", fontWeight: "700" }}>Sign out</Text>
+        <Text style={{ color: "#B91C1C", fontWeight: "700" }}>←  Sign out</Text>
       </Pressable>
     </ScrollView>
+  );
+}
+
+function ProfileStat({ value, label, tone }: { value: number; label: string; tone: "blue" | "orange" | "green" | "red" }) {
+  return (
+    <View style={s.profileStat}>
+      <View style={[s.profileStatIcon, tone === "blue" ? s.profileToneBlue : tone === "orange" ? s.profileToneOrange : tone === "green" ? s.profileToneGreen : s.profileToneRed]}>
+        <Text style={s.profileStatValue}>{value}</Text>
+      </View>
+      <Text style={s.profileStatLabel}>{label}</Text>
+    </View>
+  );
+}
+
+function ProfileRow({ icon, title, subtitle, count, onPress }: { icon: string; title: string; subtitle: string; count?: number; onPress: () => void }) {
+  return (
+    <Pressable style={s.profileRow} onPress={onPress}>
+      <View style={s.profileRowIcon}><Text style={s.profileRowIconText}>{icon}</Text></View>
+      <View style={{ flex: 1 }}>
+        <Text style={s.profileRowTitle}>{title}</Text>
+        <Text style={s.profileRowSubtitle}>{subtitle}</Text>
+      </View>
+      {!!count && <View style={s.profileUnread}><Text style={s.profileUnreadText}>{count}</Text></View>}
+      <Text style={s.profileChevron}>›</Text>
+    </Pressable>
   );
 }
 
@@ -712,10 +1121,10 @@ function Status({ status }: { status: string }) {
   );
 }
 
-function Stat({ label }: { label: string }) {
+function Stat({ label, value }: { label: string; value: number }) {
   return (
     <View style={s.stat}>
-      <Text style={s.statValue}>—</Text>
+      <Text style={s.statValue}>{value}</Text>
       <Text style={s.helper}>{label}</Text>
     </View>
   );
@@ -758,23 +1167,6 @@ function date(v: string) {
 }
 
 const s = StyleSheet.create({
-  auth: { flexGrow: 1, padding: 20, justifyContent: "center", gap: 18 },
-  brand: { flexDirection: "row", alignItems: "center", gap: 10 },
-  logo: { width: 40, height: 40, borderRadius: 12, backgroundColor: C.navy, alignItems: "center", justifyContent: "center" },
-  logoText: { color: C.white, fontSize: 22, fontWeight: "800" },
-  brandText: { fontSize: 17, fontWeight: "700", color: C.text },
-  eyebrow: { fontSize: 11, fontWeight: "700", letterSpacing: 1.1, color: C.blue },
-  display: { fontSize: 30, lineHeight: 36, fontWeight: "700", color: C.text },
-  body: { fontSize: 16, lineHeight: 24, color: C.text },
-  field: { gap: 6 },
-  label: { fontSize: 14, fontWeight: "600", color: C.text },
-  input: { backgroundColor: "#F2F3FF", borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, color: C.text, fontSize: 14 },
-  card: { backgroundColor: C.white, borderWidth: 1, borderColor: C.border, borderRadius: 16, padding: 16, gap: 10 },
-  primary: { minHeight: 48, borderRadius: 12, backgroundColor: C.blue, alignItems: "center", justifyContent: "center", paddingHorizontal: 18, marginTop: 8 },
-  primaryText: { color: C.white, fontSize: 14, fontWeight: "700" },
-  disabled: { opacity: 0.55 },
-  link: { color: C.blue, fontSize: 13, fontWeight: "600", textAlign: "center", paddingVertical: 8 },
-
   app: { flex: 1, backgroundColor: C.bg },
   centered: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: C.bg },
 
@@ -1002,6 +1394,49 @@ const s = StyleSheet.create({
   ticketIcon: { color: C.green, fontSize: 12 },
   ticketText: { color: "#666B77", fontSize: 8.5 },
 
+  originalReportPage: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 118, gap: 16 },
+  originalReportIntro: { backgroundColor: "#EEF1FF", borderRadius: 22, padding: 20, gap: 8 },
+  originalReportIntroTitle: { color: C.text, fontSize: 21, lineHeight: 28, fontWeight: "700" },
+  originalReportIntroText: { color: C.muted, fontSize: 15, lineHeight: 23 },
+  originalReportCard: { backgroundColor: C.white, borderRadius: 20, borderWidth: 1, borderColor: C.border, padding: 16, gap: 10 },
+  originalFieldLabel: { color: C.text, fontSize: 15, fontWeight: "600", marginTop: 2 },
+  originalFieldHint: { color: C.muted, fontSize: 13, lineHeight: 19 },
+  originalFieldInput: { minHeight: 48, backgroundColor: "#F0F1FC", borderRadius: 13, paddingHorizontal: 14, paddingVertical: 12, color: C.text, fontSize: 15, marginBottom: 4 },
+  originalDescriptionInput: { minHeight: 126, backgroundColor: "#F0F1FC", borderRadius: 14, paddingHorizontal: 14, paddingVertical: 13, color: C.text, fontSize: 15, lineHeight: 22, marginBottom: 5 },
+  originalUpload: { minHeight: 116, borderWidth: 1, borderStyle: "dashed", borderColor: C.border, borderRadius: 15, alignItems: "center", justifyContent: "center", backgroundColor: C.white, gap: 6, marginTop: 4 },
+  originalUploadPlus: { color: C.blue, fontSize: 32, lineHeight: 36 },
+  originalUploadText: { color: C.text, fontSize: 15, fontWeight: "600" },
+  originalImagePreviewWrap: { gap: 8, marginTop: 4 },
+  originalImagePreview: { width: "100%", height: 170, borderRadius: 12 },
+  originalRemoveImage: { backgroundColor: C.red, alignSelf: "flex-start", paddingHorizontal: 12, paddingVertical: 8, borderRadius: 9 },
+  originalSubmit: { minHeight: 58, borderRadius: 14, backgroundColor: C.blue, alignItems: "center", justifyContent: "center", marginTop: 1 },
+  originalSubmitText: { color: C.white, fontSize: 16, fontWeight: "800" },
+  profilePage: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 112, gap: 14 },
+  profileSummary: { backgroundColor: "#EAF0FF", borderRadius: 18, padding: 14, flexDirection: "row", alignItems: "center", gap: 12 },
+  profileSummaryName: { color: C.text, fontSize: 17, fontWeight: "700" },
+  profileSummaryEmail: { color: C.muted, fontSize: 12, marginTop: 2 },
+  profileRole: { color: C.blue, fontSize: 11, fontWeight: "700", marginTop: 5 },
+  profileEdit: { borderWidth: 1, borderColor: C.blue, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6 },
+  profileEditText: { color: C.blue, fontSize: 11, fontWeight: "700" },
+  profileStats: { flexDirection: "row", gap: 7 },
+  profileStat: { flex: 1, backgroundColor: C.white, borderRadius: 13, borderWidth: 1, borderColor: C.border, paddingVertical: 10, alignItems: "center", gap: 5 },
+  profileStatIcon: { width: 29, height: 29, borderRadius: 15, alignItems: "center", justifyContent: "center" },
+  profileToneBlue: { backgroundColor: "#E5EDFF" },
+  profileToneOrange: { backgroundColor: "#FFF1DF" },
+  profileToneGreen: { backgroundColor: "#E4F7EE" },
+  profileToneRed: { backgroundColor: "#FDE9E9" },
+  profileStatValue: { color: C.text, fontSize: 12, fontWeight: "800" },
+  profileStatLabel: { color: C.muted, fontSize: 9.5, textAlign: "center" },
+  profileSection: { backgroundColor: C.white, borderWidth: 1, borderColor: C.border, borderRadius: 15, padding: 13, gap: 3 },
+  profileSectionTitle: { color: C.text, fontSize: 13, fontWeight: "700", marginBottom: 5 },
+  profileRow: { minHeight: 55, flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 5 },
+  profileRowIcon: { width: 31, height: 31, borderRadius: 16, backgroundColor: "#EEF1FF", alignItems: "center", justifyContent: "center" },
+  profileRowIconText: { color: C.blue, fontSize: 16, fontWeight: "700" },
+  profileRowTitle: { color: C.text, fontSize: 12, fontWeight: "700" },
+  profileRowSubtitle: { color: C.muted, fontSize: 10, marginTop: 3 },
+  profileUnread: { minWidth: 19, height: 19, borderRadius: 10, backgroundColor: C.blue, alignItems: "center", justifyContent: "center", paddingHorizontal: 5 },
+  profileUnreadText: { color: C.white, fontSize: 10, fontWeight: "700" },
+  profileChevron: { color: C.muted, fontSize: 22, paddingLeft: 3 },
   nav: { position: "absolute", left: 0, right: 0, bottom: 0, height: 67, borderTopWidth: 1, borderTopColor: "#E7E8F0", backgroundColor: C.white, flexDirection: "row", alignItems: "center", paddingHorizontal: 3 },
   navItem: { flex: 1, alignItems: "center", gap: 2 },
   navIcon: { fontSize: 19, color: "#252C3E" },
@@ -1019,23 +1454,52 @@ const s = StyleSheet.create({
   date: { fontSize: 11, color: C.muted },
   complaint: { backgroundColor: C.white, borderWidth: 1, borderColor: C.border, borderRadius: 16, padding: 16, marginBottom: 10, gap: 8 },
   complaintTitle: { fontSize: 17, fontWeight: "700", color: C.text },
+  complaintActions: { flexDirection: "row", justifyContent: "flex-end", gap: 9, borderTopWidth: 1, borderTopColor: C.border, paddingTop: 10, marginTop: 4 },
+  editComplaintButton: { borderWidth: 1.5, borderColor: C.blue, borderRadius: 10, paddingVertical: 8, paddingHorizontal: 15 },
+  editComplaintText: { color: C.blue, fontSize: 13, fontWeight: "700" },
+  withdrawComplaintButton: { borderWidth: 1.5, borderColor: C.red, borderRadius: 10, paddingVertical: 8, paddingHorizontal: 13 },
+  withdrawComplaintText: { color: C.red, fontSize: 13, fontWeight: "700" },
+  editModalBackdrop: { flex: 1, backgroundColor: "rgba(6,22,74,0.42)", justifyContent: "center", padding: 20 },
+  editModalCard: { backgroundColor: C.white, borderRadius: 18, padding: 18, gap: 9 },
+  editInput: { minHeight: 43, borderWidth: 1, borderColor: C.border, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 9, color: C.text, fontSize: 14 },
+  editMultiline: { minHeight: 105 },
+  editModalActions: { flexDirection: "row", justifyContent: "flex-end", gap: 10, marginTop: 8 },
+  cancelEditButton: { paddingVertical: 11, paddingHorizontal: 15, borderRadius: 10, backgroundColor: C.softBlue },
+  cancelEditText: { color: C.navy, fontWeight: "700" },
+  saveEditButton: { paddingVertical: 11, paddingHorizontal: 16, borderRadius: 10, backgroundColor: C.blue },
+  saveEditText: { color: C.white, fontWeight: "700" },
   detailTitle: { fontSize: 24, lineHeight: 30, fontWeight: "700", color: C.text },
   file: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 7 },
-  evidenceDetail: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 8 },
-  evidenceDetailImage: { width: 88, height: 88, borderRadius: 10, backgroundColor: C.softBlue },
-  evidenceDetailPlaceholder: { width: 88, height: 88, borderRadius: 10, backgroundColor: C.softBlue, alignItems: "center", justifyContent: "center" },
-  evidenceDetailPlaceholderText: { color: C.blue, fontSize: 28 },
   timeline: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 9 },
   activeDot: { backgroundColor: C.blue },
   profile: { alignItems: "center", backgroundColor: C.white, borderWidth: 1, borderColor: C.border, borderRadius: 18, padding: 24, gap: 5 },
   profileAvatar: { width: 82, height: 82, borderRadius: 41, backgroundColor: "#DAE2FD", alignItems: "center", justifyContent: "center" },
   profileLetter: { fontSize: 34, fontWeight: "800", color: C.navy },
   empty: { backgroundColor: C.white, borderWidth: 1, borderColor: C.border, borderRadius: 18, padding: 28, alignItems: "center", gap: 8 },
+  logout: { height: 48, borderRadius: 12, borderWidth: 1, borderColor: "#F1B4B4", backgroundColor: "#FEF2F2", alignItems: "center", justifyContent: "center" },
+  body: { fontSize: 16, lineHeight: 24, color: C.text },
+  auth: { flexGrow: 1, padding: 20, justifyContent: "center", gap: 18 },
+  brand: { flexDirection: "row", alignItems: "center", gap: 10 },
+  logo: { width: 40, height: 40, borderRadius: 12, backgroundColor: C.navy, alignItems: "center", justifyContent: "center" },
+  logoText: { color: C.white, fontSize: 22, fontWeight: "800" },
+  brandText: { fontSize: 17, fontWeight: "700", color: C.text },
+  display: { fontSize: 30, lineHeight: 36, fontWeight: "700", color: C.text },
+  link: { color: C.blue, fontSize: 13, fontWeight: "600", textAlign: "center", paddingVertical: 8 },
+
+  evidenceDetail: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 8 },
+  evidenceDetailImage: { width: 88, height: 88, borderRadius: 10, backgroundColor: C.softBlue },
+  evidenceDetailPlaceholder: { width: 88, height: 88, borderRadius: 10, backgroundColor: C.softBlue, alignItems: "center", justifyContent: "center" },
+  evidenceDetailPlaceholderText: { color: C.blue, fontSize: 28 },
   notificationHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", gap: 12 },
   notificationCard: { backgroundColor: C.white, borderWidth: 1, borderColor: C.border, borderRadius: 16, padding: 16, gap: 8 },
   notificationUnread: { borderColor: "#B9C9F7", backgroundColor: "#F6F8FF" },
   notificationDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: C.blue },
-  logout: { height: 48, borderRadius: 12, borderWidth: 1, borderColor: "#F1B4B4", backgroundColor: "#FEF2F2", alignItems: "center", justifyContent: "center" },
-  error: { fontSize: 13, color: C.red },
-  body: { fontSize: 16, lineHeight: 24, color: C.text },
+  heroIcon: { width: 48, height: 48, borderRadius: 24, backgroundColor: "#E9EDFF", alignItems: "center", justifyContent: "center", alignSelf: "center" },
+  heroCheck: { color: C.blue, fontSize: 24, fontWeight: "800" },
+  step: { color: C.blue, fontSize: 9, letterSpacing: 0.5, fontWeight: "700" },
+  area: { minHeight: 90, textAlignVertical: "top" },
+  imageBox: { width: "100%", gap: 8, alignItems: "flex-start" },
+  image: { width: "100%", height: 160, borderRadius: 10 },
+  upload: { minHeight: 90, borderWidth: 1, borderStyle: "dashed", borderColor: C.border, borderRadius: 12, alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: C.softBlue },
+  plus: { color: C.blue, fontSize: 28, fontWeight: "300" },
 });
