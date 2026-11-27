@@ -147,6 +147,8 @@ function Auth({
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [keepSignedIn, setKeepSignedIn] = useState(true);
 
   const submit = async () => {
     try {
@@ -159,8 +161,10 @@ function Auth({
           return;
         }
         await register(name.trim(), email.trim(), password);
-        setMode("login");
+        setName("");
+        setPassword("");
         setError("Account created successfully. Please sign in.");
+        setMode("login");
         return;
       }
 
@@ -172,79 +176,174 @@ function Auth({
     }
   };
 
+  const forgot = async () => {
+    const value = email.trim();
+    if (!value) {
+      Alert.alert("Enter your email", "Enter your university email first.");
+      return;
+    }
+    try {
+      setBusy(true);
+      await resetPassword(value);
+      Alert.alert("Reset email sent", "Check your inbox for the password reset link.");
+    } catch (e) {
+      Alert.alert("Unable to reset password", e instanceof Error ? e.message : "Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
-    <SafeAreaView style={s.app}>
+    <SafeAreaView style={s.authScreen}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
-        <ScrollView contentContainerStyle={s.auth}>
-          <Brand />
-          <Text style={s.eyebrow}>CAMPUS CLARITY</Text>
-          <Text style={s.display}>
-            {mode === "login" ? "Welcome back." : "Join GrievX Campus."}
-          </Text>
-          <Text style={s.body}>
-            Report campus issues and keep track of your complaints.
+        <ScrollView
+          contentContainerStyle={s.authScroll}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={s.portalPill}>
+            <View style={s.portalMark}><Text style={s.portalMarkText}>✓</Text></View>
+            <Text style={s.portalPillText}>STUDENT GRIEVANCE PORTAL</Text>
+          </View>
+
+          <Text style={s.authTitle}>{mode === "login" ? "Welcome back!" : "Create your account"}</Text>
+          <Text style={s.authSubtitle}>
+            {mode === "login"
+              ? "Sign in with your University Roll No / SRN to report\nor track issues."
+              : "Create your student account to report\nand track campus issues."}
           </Text>
 
-          <Card>
+          <View style={s.authCard}>
             {mode === "register" && (
               <Field
                 label="Full name"
-                placeholder="Your full name"
+                placeholder="Enter your full name"
                 value={name}
                 onChangeText={setName}
               />
             )}
 
-            <Field
-              label="Email"
-              placeholder="you@pesu.pes.edu"
-              keyboardType="email-address"
-              autoCapitalize="none"
-              value={email}
-              onChangeText={setEmail}
-            />
+            <View style={s.fieldBlock}>
+              <View style={s.labelRow}>
+                <Text style={s.authLabel}>University Email</Text>
+                {mode === "login" && <Text style={s.verified}>STUDENT ACCESS</Text>}
+              </View>
+              <View style={s.authInputWrap}>
+                <Text style={s.inputIcon}>▣</Text>
+                <TextInput
+                  style={s.authInput}
+                  placeholder="student@pesu.pes.edu"
+                  placeholderTextColor="#858896"
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  value={email}
+                  onChangeText={setEmail}
+                />
+              </View>
+            </View>
 
-            <Field
-              label="Password"
-              placeholder="Enter your password"
-              secureTextEntry
-              value={password}
-              onChangeText={setPassword}
-            />
+            <View style={s.fieldBlock}>
+              <View style={s.labelRow}>
+                <Text style={s.authLabel}>Password</Text>
+                {mode === "login" && (
+                  <Pressable onPress={forgot} disabled={busy}>
+                    <Text style={s.verified}>Forgot Password?</Text>
+                  </Pressable>
+                )}
+              </View>
+              <View style={s.authInputWrap}>
+                <Text style={s.inputIcon}>▣</Text>
+                <TextInput
+                  style={s.authInput}
+                  placeholder="Enter university password"
+                  placeholderTextColor="#858896"
+                  secureTextEntry={!showPassword}
+                  value={password}
+                  onChangeText={setPassword}
+                />
+                <Pressable onPress={() => setShowPassword((v) => !v)} style={s.eyeButton}>
+                  <Text style={s.eye}>{showPassword ? "◉" : "◌"}</Text>
+                </Pressable>
+              </View>
+            </View>
 
-            {!!error && <Text style={s.error}>{error}</Text>}
+            {mode === "login" && (
+              <Pressable style={s.keepRow} onPress={() => setKeepSignedIn((v) => !v)}>
+                <View style={[s.checkbox, keepSignedIn && s.checkboxOn]}>
+                  {keepSignedIn && <Text style={s.checkmark}>✓</Text>}
+                </View>
+                <Text style={s.keepText}>Keep me signed in on this device</Text>
+              </Pressable>
+            )}
 
-            <Primary
-              label={
-                busy
-                  ? "Please wait..."
-                  : mode === "login"
-                    ? "Sign in"
-                    : "Create account"
-              }
-              onPress={submit}
-              disabled={busy}
-            />
+            {!!error && <Text style={s.authError}>{error}</Text>}
 
             <Pressable
-              onPress={() => {
-                setError("");
-                setMode(mode === "login" ? "register" : "login");
-              }}
+              style={[s.portalButton, busy && { opacity: 0.55 }]}
+              onPress={submit}
+              disabled={busy}
             >
-              <Text style={s.link}>
-                {mode === "login"
-                  ? "New here? Create an account"
-                  : "Already have an account? Sign in"}
+              <Text style={s.portalButtonText}>
+                {busy
+                  ? "Please wait..."
+                  : mode === "login"
+                    ? "Sign In to Campus Portal"
+                    : "Create Campus Account"}
               </Text>
+              <Text style={s.portalArrow}>→</Text>
             </Pressable>
-          </Card>
 
-          <Text style={s.helper}>
-            PESU credential verification can be integrated behind the GrievX API.
+            {mode === "login" && (
+              <>
+                <View style={s.ssoDivider}>
+                  <View style={s.dividerLine} />
+                  <Text style={s.ssoText}>CAMPUS SSO</Text>
+                  <View style={s.dividerLine} />
+                </View>
+
+                <Pressable
+                  style={s.googleButton}
+                  onPress={() =>
+                    Alert.alert(
+                      "Campus SSO",
+                      "Google Workspace sign-in is shown in the portal design but is not configured in the current Supabase project yet.",
+                    )
+                  }
+                >
+                  <Text style={s.googleG}>G</Text>
+                  <Text style={s.googleText}>Sign in with Campus Google Workspace\n(@pesu.pes.edu)</Text>
+                </Pressable>
+              </>
+            )}
+          </View>
+
+          <Pressable
+            onPress={() => {
+              setError("");
+              setMode(mode === "login" ? "register" : "login");
+            }}
+          >
+            <Text style={s.registerPrompt}>
+              {mode === "login" ? "New student? " : "Already registered? "}
+              <Text style={s.registerLink}>
+                {mode === "login" ? "Register your campus account" : "Sign in to your account"}
+              </Text>
+            </Text>
+          </Pressable>
+
+          {mode === "login" && (
+            <View style={s.emergency}>
+              <Text style={s.emergencyIcon}>♢</Text>
+              <Text style={s.emergencyText}>Emergency / Security helpline: </Text>
+              <Text style={s.emergencyNumber}>1800-CAMPUS-911</Text>
+            </View>
+          )}
+
+          <Text style={s.authFootnote}>
+            "Secure campus access · Session managed by Supabase."
           </Text>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -308,27 +407,255 @@ function Home({ go }: { go: (x: Screen) => void }) {
   );
 }
 
-function Report({back,done}:{back:()=>void;done:()=>void}){const [title,setTitle]=useState(""),[description,setDescription]=useState(""),[location,setLocation]=useState(""),[image,setImage]=useState<ImagePicker.ImagePickerAsset|null>(null),[busy,setBusy]=useState(false);
- const pick=async()=>{const p=await ImagePicker.requestMediaLibraryPermissionsAsync();if(!p.granted){Alert.alert("Photo access needed","Allow photo access to attach evidence.");return}const r=await ImagePicker.launchImageLibraryAsync({mediaTypes:["images"],allowsEditing:true,quality:.8});if(!r.canceled)setImage(r.assets[0])};
- const submit=async()=>{if(!title.trim()||!description.trim()||!location.trim()){Alert.alert("Missing information","Please complete title, description and campus location.");return}try{setBusy(true);
-   const input={title:title.trim(),description:description.trim(),location:location.trim()};
-   let duplicates: Awaited<ReturnType<typeof findPossibleDuplicates>> = [];
-   try { duplicates = await findPossibleDuplicates(input); } catch {}
-   const proceed=async()=>{const c=await createComplaint(input);if(image)await uploadComplaintImage(c.id,image.uri,image.fileName??"evidence.jpg",image.mimeType??"image/jpeg");const routingNotice=c.ml_warning??(c.routing_fallback?"ML service is unavailable, so your complaint was automatically routed to General.":"Your complaint was automatically routed to the appropriate department.");Alert.alert(c.ml_warning?"Complaint saved — routing needs attention":"Complaint submitted",c.ml_warning??("Your complaint was submitted successfully. "+routingNotice),[{text:"View complaints",onPress:done}])};
-   if(duplicates.length){
-     const top=duplicates.slice(0,3).map((d,i)=>`${i+1}. ${d.title} · ${d.location} · ${Math.round(d.similarity_score*100)}% similar`).join("\n");
-     Alert.alert("Possible duplicate found","A recent complaint may describe the same issue:\n\n"+top+"\n\nReview it before submitting another report.",[
-       {text:"Cancel",style:"cancel"},
-       {text:"Submit anyway",onPress:proceed},
-     ]);
-   } else await proceed();
- }catch(e){Alert.alert("Submission failed",e instanceof Error?e.message:"Please try again.")}finally{setBusy(false)}};
- return <KeyboardAvoidingView style={s.app} behavior={Platform.OS==="ios"?"padding":undefined}><ScrollView contentContainerStyle={s.page}><Header title="Report an issue" back={back}/>
- <View style={s.progress}><Text style={s.step}>1 OF 2 · FAST ROUTE DESK</Text><Text style={s.cardTitle}>Tell us what happened.</Text><Text style={s.muted}>Clear details help the complaint reach the right campus team.</Text></View>
- <Card><Field label="Complaint summary" placeholder="e.g. Wi-Fi disconnected in Lab 304" maxLength={150} value={title} onChangeText={setTitle}/><Field label="Detailed description" placeholder="Describe the problem clearly..." multiline value={description} onChangeText={setDescription} inputStyle={s.area}/><Text style={s.label}>Campus location</Text><Text style={s.helper}>Enter the building, room or campus area manually. No GPS is used.</Text><Field label="" placeholder="e.g. EC Block, Lab 304" value={location} onChangeText={setLocation}/></Card>
- <Card><Text style={s.label}>Upload evidence</Text><Text style={s.helper}>Add one photo showing the issue. JPG, PNG or WEBP · max 5 MB</Text>{image?<View style={s.imageBox}><Image source={{uri:image.uri}} style={s.image}/><Pressable onPress={pick}><Text style={s.link}>Change photo</Text></Pressable></View>:<Pressable onPress={pick} style={s.upload}><Text style={s.plus}>+</Text><Text style={s.label}>Add photo evidence</Text></Pressable>}</Card>
- <Primary label={busy?"Submitting...":"Submit complaint"} onPress={submit} disabled={busy}/><Pressable onPress={back}><Text style={[s.muted,{textAlign:"center"}]}>Cancel</Text></Pressable>
- </ScrollView></KeyboardAvoidingView>}
+function Report({ back, done }: { back: () => void; done: () => void }) {
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [location, setLocation] = useState("");
+  const [image, setImage] = useState<ImagePicker.ImagePickerAsset | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const pick = async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert("Photo access needed", "Allow photo access to attach evidence.");
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      allowsEditing: true,
+      quality: 0.8,
+    });
+    if (!result.canceled) setImage(result.assets[0]);
+  };
+
+  const submit = async () => {
+    if (!title.trim() || !description.trim() || !location.trim()) {
+      Alert.alert("Missing information", "Please complete the complaint summary, description and campus location.");
+      return;
+    }
+
+    try {
+      setBusy(true);
+      const input = {
+        title: title.trim(),
+        description: description.trim(),
+        location: location.trim(),
+      };
+
+      let duplicates: Awaited<ReturnType<typeof findPossibleDuplicates>> = [];
+      try {
+        duplicates = await findPossibleDuplicates(input);
+      } catch {
+        // Duplicate checking is advisory; submission can continue if it is unavailable.
+      }
+
+      const proceed = async () => {
+        const complaint = await createComplaint(input);
+        if (image) {
+          await uploadComplaintImage(
+            complaint.id,
+            image.uri,
+            image.fileName ?? "evidence.jpg",
+            image.mimeType ?? "image/jpeg",
+          );
+        }
+
+        const routingNotice =
+          complaint.ml_warning ??
+          (complaint.routing_fallback
+            ? "ML service is unavailable, so your complaint was automatically routed to General."
+            : "Your complaint was automatically routed to the appropriate department.");
+
+        Alert.alert(
+          complaint.ml_warning ? "Complaint saved — routing needs attention" : "Complaint submitted",
+          complaint.ml_warning ?? ("Your complaint was submitted successfully. " + routingNotice),
+          [{ text: "View complaints", onPress: done }],
+        );
+      };
+
+      if (duplicates.length) {
+        const top = duplicates
+          .slice(0, 3)
+          .map((duplicate, index) =>
+            `${index + 1}. ${duplicate.title} · ${duplicate.location} · ${Math.round(duplicate.similarity_score * 100)}% similar`,
+          )
+          .join("\n");
+
+        Alert.alert(
+          "Possible duplicate found",
+          "A recent complaint may describe the same issue:\n\n" +
+            top +
+            "\n\nReview it before submitting another report.",
+          [
+            { text: "Cancel", style: "cancel" },
+            { text: "Submit anyway", onPress: proceed },
+          ],
+        );
+      } else {
+        await proceed();
+      }
+    } catch (error) {
+      Alert.alert(
+        "Submission failed",
+        error instanceof Error ? error.message : "Please try again.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <KeyboardAvoidingView
+      style={s.reportRoot}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+    >
+      <ScrollView
+        contentContainerStyle={s.reportPage}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
+        <View style={s.reportTop}>
+          <Pressable style={s.back} onPress={back} accessibilityLabel="Go back">
+            <Text style={s.backText}>‹</Text>
+          </Pressable>
+          <View style={s.reportBrand}>
+            <View style={s.miniLogo}><Text style={s.miniLogoText}>G</Text></View>
+            <View>
+              <Text style={s.reportBrandTitle}><Text style={{ color: C.blue }}>GrievX</Text> | Report</Text>
+              <Text style={s.reportBrandSub}>University Campus Portal</Text>
+            </View>
+          </View>
+          <View style={s.photoAvatar}><Text style={s.photoAvatarText}>S</Text></View>
+        </View>
+
+        <View style={s.routeCard}>
+          <View style={{ flex: 1 }}>
+            <Text style={s.routeStep}><Text style={s.routeBadge}>1/4</Text> AUTOMATIC ROUTING</Text>
+            <Text style={s.routeTitle}>Report an Issue</Text>
+            <Text style={s.routeBody}>Describe the problem and GrievX will identify the category and route it to the responsible campus department.</Text>
+          </View>
+          <View style={s.routeIcon}><Text style={s.routeIconText}>↗</Text></View>
+        </View>
+
+        <View style={s.formCard}>
+          <View style={s.sectionHeader}>
+            <Text style={s.formTitle}>1. Complaint Summary <Text style={s.required}>*</Text></Text>
+            <Text style={s.counter}>{title.length}/150</Text>
+          </View>
+          <View style={s.compactInput}>
+            <Text style={s.compactIcon}>≡</Text>
+            <TextInput
+              value={title}
+              onChangeText={setTitle}
+              maxLength={150}
+              placeholder="e.g. Classroom fan is not working"
+              placeholderTextColor="#6E7381"
+              style={s.compactTextInput}
+              accessibilityLabel="Complaint summary"
+            />
+          </View>
+        </View>
+
+        <View style={s.formCard}>
+          <View style={s.sectionHeader}>
+            <Text style={s.formTitle}>2. Detailed Description <Text style={s.required}>*</Text></Text>
+            <Text style={s.tipText}>Clear details help the right team respond.</Text>
+          </View>
+          <TextInput
+            value={description}
+            onChangeText={setDescription}
+            placeholder="Explain what happened, where it happened and who is affected..."
+            placeholderTextColor="#6E7381"
+            multiline
+            style={s.descriptionInput}
+            textAlignVertical="top"
+            accessibilityLabel="Detailed description"
+          />
+        </View>
+
+        <View style={s.formCard}>
+          <View style={s.sectionHeader}>
+            <Text style={s.formTitle}>3. Campus Location <Text style={s.required}>*</Text></Text>
+            <Text style={s.preciseNode}>Manual entry</Text>
+          </View>
+          <Text style={s.formHint}>Building, block, floor, room or campus area</Text>
+          <View style={s.locationInput}>
+            <Text style={s.locationIcon}>⌂</Text>
+            <TextInput
+              value={location}
+              onChangeText={setLocation}
+              placeholder="e.g. EC Block, Classroom 201"
+              placeholderTextColor="#6E7381"
+              style={s.locationTextInput}
+              accessibilityLabel="Campus location"
+            />
+          </View>
+          <View style={s.noGpsNote}>
+            <Text style={s.noGpsIcon}>⌖</Text>
+            <Text style={s.noGpsText}>Manual campus location only · No GPS is used</Text>
+          </View>
+        </View>
+
+        <View style={s.formCard}>
+          <View style={s.sectionHeader}>
+            <Text style={s.formTitle}>4. Upload Evidence</Text>
+            <Text style={s.counter}>{image ? "1 attached" : "Optional"}</Text>
+          </View>
+          <Text style={s.formHint}>Attach a photo to help the campus team understand the issue.</Text>
+          <View style={s.evidenceRow}>
+            {image ? (
+              <View style={s.evidencePreview}>
+                <Image source={{ uri: image.uri }} style={s.evidenceImage} />
+                <Pressable
+                  style={s.removeImage}
+                  onPress={() => setImage(null)}
+                  accessibilityLabel="Remove attached photo"
+                >
+                  <Text style={s.removeImageText}>×</Text>
+                </Pressable>
+                <View style={s.fileCaption}>
+                  <Text style={s.fileName} numberOfLines={1}>{image.fileName ?? "evidence.jpg"}</Text>
+                  <Text style={s.fileSize}>photo</Text>
+                </View>
+              </View>
+            ) : null}
+            <Pressable style={s.evidenceEmpty} onPress={pick}>
+              <Text style={s.evidenceEmptyIcon}>▧</Text>
+              <Text style={s.addMedia}>{image ? "Change photo" : "+ Add photo evidence"}</Text>
+              <Text style={s.mediaHint}>JPG, PNG or WEBP</Text>
+            </Pressable>
+          </View>
+        </View>
+
+        <View style={s.formCard}>
+          <View style={s.sectionHeader}>
+            <Text style={s.formTitle}>5. Automatic Classification & Routing</Text>
+            <Text style={s.selectedLabel}>AI-assisted</Text>
+          </View>
+          <Text style={s.formHint}>You do not need to select a category or priority. GrievX analyses the complaint description and assigns the category, priority and responsible department automatically after submission.</Text>
+          <View style={s.priorityInfo}>
+            <Text style={s.infoIcon}>i</Text>
+            <Text style={s.priorityInfoText}>The submission confirmation will show whether automatic routing succeeded or needs attention.</Text>
+          </View>
+        </View>
+
+        <Pressable
+          style={[s.submitComplaint, busy && { opacity: 0.55 }]}
+          onPress={submit}
+          disabled={busy}
+        >
+          <Text style={s.submitComplaintText}>{busy ? "Submitting..." : "Submit Complaint"}</Text>
+          <Text style={s.submitArrow}>→</Text>
+        </Pressable>
+
+        <View style={s.ticketNote}>
+          <Text style={s.ticketIcon}>✓</Text>
+          <Text style={s.ticketText}>Automatic ticket creation · Status tracking enabled</Text>
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
+  );
+}
 
 function Complaints({ back, open }: { back: () => void; open: (id: string) => void }) {
   const [items, setItems] = useState<Complaint[]>([]);
@@ -758,23 +1085,6 @@ function date(v: string) {
 }
 
 const s = StyleSheet.create({
-  auth: { flexGrow: 1, padding: 20, justifyContent: "center", gap: 18 },
-  brand: { flexDirection: "row", alignItems: "center", gap: 10 },
-  logo: { width: 40, height: 40, borderRadius: 12, backgroundColor: C.navy, alignItems: "center", justifyContent: "center" },
-  logoText: { color: C.white, fontSize: 22, fontWeight: "800" },
-  brandText: { fontSize: 17, fontWeight: "700", color: C.text },
-  eyebrow: { fontSize: 11, fontWeight: "700", letterSpacing: 1.1, color: C.blue },
-  display: { fontSize: 30, lineHeight: 36, fontWeight: "700", color: C.text },
-  body: { fontSize: 16, lineHeight: 24, color: C.text },
-  field: { gap: 6 },
-  label: { fontSize: 14, fontWeight: "600", color: C.text },
-  input: { backgroundColor: "#F2F3FF", borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, color: C.text, fontSize: 14 },
-  card: { backgroundColor: C.white, borderWidth: 1, borderColor: C.border, borderRadius: 16, padding: 16, gap: 10 },
-  primary: { minHeight: 48, borderRadius: 12, backgroundColor: C.blue, alignItems: "center", justifyContent: "center", paddingHorizontal: 18, marginTop: 8 },
-  primaryText: { color: C.white, fontSize: 14, fontWeight: "700" },
-  disabled: { opacity: 0.55 },
-  link: { color: C.blue, fontSize: 13, fontWeight: "600", textAlign: "center", paddingVertical: 8 },
-
   app: { flex: 1, backgroundColor: C.bg },
   centered: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: C.bg },
 
@@ -1021,21 +1331,36 @@ const s = StyleSheet.create({
   complaintTitle: { fontSize: 17, fontWeight: "700", color: C.text },
   detailTitle: { fontSize: 24, lineHeight: 30, fontWeight: "700", color: C.text },
   file: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 7 },
-  evidenceDetail: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 8 },
-  evidenceDetailImage: { width: 88, height: 88, borderRadius: 10, backgroundColor: C.softBlue },
-  evidenceDetailPlaceholder: { width: 88, height: 88, borderRadius: 10, backgroundColor: C.softBlue, alignItems: "center", justifyContent: "center" },
-  evidenceDetailPlaceholderText: { color: C.blue, fontSize: 28 },
   timeline: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 9 },
   activeDot: { backgroundColor: C.blue },
   profile: { alignItems: "center", backgroundColor: C.white, borderWidth: 1, borderColor: C.border, borderRadius: 18, padding: 24, gap: 5 },
   profileAvatar: { width: 82, height: 82, borderRadius: 41, backgroundColor: "#DAE2FD", alignItems: "center", justifyContent: "center" },
   profileLetter: { fontSize: 34, fontWeight: "800", color: C.navy },
   empty: { backgroundColor: C.white, borderWidth: 1, borderColor: C.border, borderRadius: 18, padding: 28, alignItems: "center", gap: 8 },
+  logout: { height: 48, borderRadius: 12, borderWidth: 1, borderColor: "#F1B4B4", backgroundColor: "#FEF2F2", alignItems: "center", justifyContent: "center" },
+  body: { fontSize: 16, lineHeight: 24, color: C.text },
+  auth: { flexGrow: 1, padding: 20, justifyContent: "center", gap: 18 },
+  brand: { flexDirection: "row", alignItems: "center", gap: 10 },
+  logo: { width: 40, height: 40, borderRadius: 12, backgroundColor: C.navy, alignItems: "center", justifyContent: "center" },
+  logoText: { color: C.white, fontSize: 22, fontWeight: "800" },
+  brandText: { fontSize: 17, fontWeight: "700", color: C.text },
+  display: { fontSize: 30, lineHeight: 36, fontWeight: "700", color: C.text },
+  link: { color: C.blue, fontSize: 13, fontWeight: "600", textAlign: "center", paddingVertical: 8 },
+
+  evidenceDetail: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 8 },
+  evidenceDetailImage: { width: 88, height: 88, borderRadius: 10, backgroundColor: C.softBlue },
+  evidenceDetailPlaceholder: { width: 88, height: 88, borderRadius: 10, backgroundColor: C.softBlue, alignItems: "center", justifyContent: "center" },
+  evidenceDetailPlaceholderText: { color: C.blue, fontSize: 28 },
   notificationHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", gap: 12 },
   notificationCard: { backgroundColor: C.white, borderWidth: 1, borderColor: C.border, borderRadius: 16, padding: 16, gap: 8 },
   notificationUnread: { borderColor: "#B9C9F7", backgroundColor: "#F6F8FF" },
   notificationDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: C.blue },
-  logout: { height: 48, borderRadius: 12, borderWidth: 1, borderColor: "#F1B4B4", backgroundColor: "#FEF2F2", alignItems: "center", justifyContent: "center" },
-  error: { fontSize: 13, color: C.red },
-  body: { fontSize: 16, lineHeight: 24, color: C.text },
+  heroIcon: { width: 48, height: 48, borderRadius: 24, backgroundColor: "#E9EDFF", alignItems: "center", justifyContent: "center", alignSelf: "center" },
+  heroCheck: { color: C.blue, fontSize: 24, fontWeight: "800" },
+  step: { color: C.blue, fontSize: 9, letterSpacing: 0.5, fontWeight: "700" },
+  area: { minHeight: 90, textAlignVertical: "top" },
+  imageBox: { width: "100%", gap: 8, alignItems: "flex-start" },
+  image: { width: "100%", height: 160, borderRadius: 10 },
+  upload: { minHeight: 90, borderWidth: 1, borderStyle: "dashed", borderColor: C.border, borderRadius: 12, alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: C.softBlue },
+  plus: { color: C.blue, fontSize: 28, fontWeight: "300" },
 });
