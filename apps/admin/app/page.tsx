@@ -296,7 +296,7 @@ export default function AdminPage() {
       </aside>
 
       <section className="content">
-        <header className="topbar">
+        {view !== "complaints" && <header className="topbar">
           <div>
             <span className="eyebrow">GRIEVX CAMPUS</span>
             <h1>Complaint Management</h1>
@@ -309,7 +309,7 @@ export default function AdminPage() {
             <a className="refresh" href="/department-activity">Department overview</a>
             <button className="refresh" onClick={loadComplaints}>Refresh</button>
           </div>
-        </header>
+        </header>}
 
         {message && <div className="notice">{message}</div>}
 
@@ -318,14 +318,16 @@ export default function AdminPage() {
         ) : (
         <>
 
-        <div className="stats">
+        {view === "overview" && <div className="stats">
           <Stat label="Total complaints" value={counts.total} />
           <Stat label="New submissions" value={counts.submitted} />
           <Stat label="Active" value={counts.active} />
           <Stat label="Resolved / closed" value={counts.resolved} />
-        </div>
+        </div>}
 
-        <div className="workspace">
+        {view === "complaints" && <div className="complaintsPageHeading"><h1>All complaints</h1><p>View and manage every complaint submitted on campus.</p></div>}
+
+        <div className={view === "complaints" ? "workspace complaintsOnly" : "workspace"}>
           <section className="listPanel">
             {view === "overview" ? (
               <div className="listToolbar">
@@ -368,7 +370,7 @@ export default function AdminPage() {
             )}
           </section>
 
-          <aside className="detailPanel">
+          {view !== "complaints" && <aside className="detailPanel">
             {selected ? (
               <>
                 <div className="detailHeader">
@@ -487,7 +489,7 @@ export default function AdminPage() {
                 <p>Choose a complaint from the list to inspect it and manage its lifecycle status.</p>
               </div>
             )}
-          </aside>
+          </aside>}
         </div>
         </>
         )}

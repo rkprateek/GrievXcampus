@@ -259,3 +259,10 @@ h1, .detailHeader h2 { font-family: 'Manrope', Arial, sans-serif; letter-spacing
   cursor: pointer;
 }
 .viewAllLink:hover { color: #173f9f; text-decoration: underline; }
+
+
+.complaintsPageHeading { margin: 4px 0 20px; }
+.complaintsPageHeading h1 { margin: 0 0 6px; font-size: 28px; }
+.complaintsPageHeading p { margin: 0; color: #6c7890; font-size: 14px; }
+.workspace.complaintsOnly { grid-template-columns: minmax(0, 1fr); }
+.workspace.complaintsOnly .listPanel { width: 100%; }
