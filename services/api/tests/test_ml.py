@@ -132,3 +132,17 @@ def test_unknown_category_routes_to_general_without_approval() -> None:
     assert result.department_code == "GEN"
     assert result.method == "fallback"
     assert "automatically routed" in result.explanation
+
+
+def test_water_leaking_from_classroom_ceiling_routes_to_plumbing() -> None:
+    client = TestClient(app)
+    response = client.post("/ml/predict", json={
+        "title": "Water leak in class",
+        "description": "The ceiling is leaking",
+    })
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["category"]["category"] == "Plumbing"
+    assert payload["category"]["confidence"] == 0.9
+    assert payload["category"]["low_confidence"] is False
+    assert payload["routing"]["department_code"] == "PLMB"
