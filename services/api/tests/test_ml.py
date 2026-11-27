@@ -60,7 +60,7 @@ def test_combined_prediction_endpoint() -> None:
     payload = response.json()
     assert "category" in payload
     assert "priority" in payload
-    assert payload["category"]["model_version"] == "text-classifier-v1.0.0"
+    assert payload["category"]["model_version"] == "text-classifier-v1.1.0"
     assert payload["priority"]["model_version"] == "priority-predictor-v1.1.0"
     assert "routing" in payload
     assert payload["routing"]["department_code"] in {"ELEC", "PLMB", "IT", "CLEAN", "FAC", "HOSTEL", "SEC", "TRANS", "GEN"}
