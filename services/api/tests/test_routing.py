@@ -1,4 +1,4 @@
-from services.api.app.ml.department_router import route_category
+from app.ml.department_router import route_category
 
 
 def test_known_category_routes_to_expected_department():
