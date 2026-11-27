@@ -14,6 +14,7 @@ export default function StaffDirectoryPage() {
   const [loading, setLoading] = useState(false);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [role, setRole] = useState<"department_head" | "staff">("department_head");
   const [departmentId, setDepartmentId] = useState("");
 
@@ -55,7 +56,7 @@ export default function StaffDirectoryPage() {
     setLoading(true);
     setMessage("");
     const { data, error } = await supabase.functions.invoke("admin-create-department-user", {
-      body: { name: name.trim(), email: email.trim().toLowerCase(), role, department_id: departmentId },
+      body: { name: name.trim(), email: email.trim().toLowerCase(), password, role, department_id: departmentId },
     });
     if (error) {
       setMessage(error.message || "Unable to create department account.");
@@ -67,9 +68,10 @@ export default function StaffDirectoryPage() {
       setLoading(false);
       return;
     }
-    setMessage(`Invitation sent to ${email.trim()}. The user must accept it and set a password before signing in.`);
+    setMessage(`Department account created successfully for ${email.trim()}. They can sign in using the password entered here.`);
     setName("");
     setEmail("");
+    setPassword("");
     await load();
     setLoading(false);
   };
@@ -95,13 +97,16 @@ export default function StaffDirectoryPage() {
       {allowed && <>
         <form onSubmit={createAccount} style={styles.panel}>
           <h2 style={styles.sectionHeading}>Create a department account</h2>
-          <p style={styles.subheading}>An invitation email will be sent. The user creates their own password through the invitation.</p>
+          <p style={styles.subheading}>Create the account directly. Set an initial password here and share the login details securely with the account holder.</p>
           <div style={styles.formGrid}>
             <label style={styles.field}>Full name
               <input required value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Electrical Department Head" style={styles.input} />
             </label>
             <label style={styles.field}>Email address
               <input required type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="name@university.edu" style={styles.input} />
+            </label>
+            <label style={styles.field}>Initial password
+              <input required type="password" minLength={8} autoComplete="new-password" value={password} onChange={e => setPassword(e.target.value)} placeholder="At least 8 characters" style={styles.input} />
             </label>
             <label style={styles.field}>Account role
               <select value={role} onChange={e => setRole(e.target.value as "department_head" | "staff")} style={styles.input}>
@@ -117,7 +122,7 @@ export default function StaffDirectoryPage() {
             </label>
           </div>
           <button disabled={loading || !departments.length} style={styles.primary}>
-            {loading ? "Sending invitation..." : "Create account and send invitation"}
+            {loading ? "Creating account..." : "Create department account"}
           </button>
           {!departments.length && <p style={styles.warning}>No departments found. Add departments before inviting users.</p>}
         </form>
