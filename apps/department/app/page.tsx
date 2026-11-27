@@ -163,24 +163,16 @@ export default function DepartmentHome() {
 
   if (!authenticated) return (
     <main className="loginWrap">
-      <section className="loginVisual">
-        <div className="brand"><span className="brandMark">G</span> GrievX</div>
-        <div className="visualCopy">
-          <div className="eyebrow">CAMPUS ISSUE MANAGEMENT</div>
-          <h1>Make every campus issue one step closer to solved.</h1>
-          <p>A focused workspace for department teams to review incoming complaints, coordinate work and keep students informed.</p>
-        </div>
-        <div className="visualFoot">GrievX · Department workspace</div>
-      </section>
       <section className="loginSide">
         <form className="loginCard" onSubmit={signIn}>
+          <div className="loginBrand"><span className="brandMark">G</span><span>GrievX</span></div>
           <div className="eyebrow">DEPARTMENT ACCESS</div>
           <h2>Welcome back</h2>
           <p>Sign in with the account created for your department by the GrievX administrator.</p>
           {message && <div className="message error" role="alert">{message}</div>}
           <div className="field"><label htmlFor="email">Email address</label><input id="email" type="email" autoComplete="username" required value={email} onChange={event => setEmail(event.target.value)} placeholder="name@campus.edu" /></div>
           <div className="field"><label htmlFor="password">Password</label><input id="password" type="password" autoComplete="current-password" required value={password} onChange={event => setPassword(event.target.value)} placeholder="Enter your password" /></div>
-          <button className="primary" disabled={submitting}>{submitting ? "Signing in…" : "Sign in to department portal"}</button>
+          <button className="primary" disabled={submitting}>{submitting ? "Signing in…" : "Sign in"}</button>
         </form>
       </section>
     </main>
