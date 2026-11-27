@@ -44,6 +44,9 @@ export default function AdminPage() {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [view, setView] = useState<"overview" | "complaints" | "analytics">("overview");
+  const [pageSize, setPageSize] = useState(10);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
 
   useEffect(() => {
     const boot = async () => {
@@ -140,10 +143,20 @@ export default function AdminPage() {
     const q = query.trim().toLowerCase();
     return complaints.filter((item) => {
       const statusMatch = filter === "all" || item.status === filter;
-      const text = [item.title, item.description, item.location, item.student?.name, item.student?.email].join(" ").toLowerCase();
+      const text = [item.id, item.title, item.description, item.location, item.student?.name, item.student?.email].join(" ").toLowerCase();
       return statusMatch && (!q || text.includes(q));
     });
   }, [complaints, filter, query]);
+
+  const sortedComplaints = useMemo(() => {
+    const rows = [...filtered];
+    rows.sort((a, b) => sortOrder === "newest"
+      ? new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      : new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+    return rows;
+  }, [filtered, sortOrder]);
+  const totalPages = Math.max(1, Math.ceil(sortedComplaints.length / pageSize));
+  const visibleComplaints = sortedComplaints.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   const updateStatus = async (status: Complaint["status"]) => {
     if (!selected) return;
@@ -337,33 +350,76 @@ export default function AdminPage() {
                 </div>
               </div>
             ) : (
-            <div className="listToolbar">
+            <div className="listToolbar ticketToolbar">
               <div className="filters">
                 {statuses.map((status) => (
-                  <button key={status} className={filter === status ? "filter active" : "filter"} onClick={() => setFilter(status)}>
+                  <button key={status} className={filter === status ? "filter active" : "filter"} onClick={() => { setFilter(status); setCurrentPage(1); }}>
                     {status === "all" ? "All" : status.replace("_", " ")}
                   </button>
                 ))}
               </div>
-              <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search complaints..." />
+              <div className="ticketControls">
+                <input value={query} onChange={(e) => { setQuery(e.target.value); setCurrentPage(1); }} placeholder="Search ID, student, title or location..." />
+                <label>Sort
+                  <select value={sortOrder} onChange={(e) => setSortOrder(e.target.value as "newest" | "oldest")}>
+                    <option value="newest">Newest first</option>
+                    <option value="oldest">Oldest first</option>
+                  </select>
+                </label>
+              </div>
             </div>
             )}
 
-            {loading ? <div className="empty">Loading complaints...</div> : (view === "overview" ? complaints.slice(0, 5) : filtered).length === 0 ? (
+            {loading ? <div className="empty">Loading complaints...</div> : view === "complaints" ? (
+              sortedComplaints.length === 0 ? <div className="empty">No complaints match the current filter.</div> : (
+                <>
+                  <div className="ticketTableWrap">
+                    <table className="ticketTable">
+                      <thead><tr>
+                        <th>Ticket No.</th><th>Requester</th><th>Location</th><th>Department</th><th>Problem type</th><th>Problem description</th><th>Assigned to</th><th>Priority</th><th>Created date</th><th>Status</th><th>Attachments</th>
+                      </tr></thead>
+                      <tbody>
+                        {visibleComplaints.map((item) => (
+                          <tr key={item.id}>
+                            <td className="ticketId" title={item.id}>GRV-{item.id.slice(0, 8).toUpperCase()}</td>
+                            <td>{item.student?.name ?? "Student"}<small>{item.student?.email ?? ""}</small></td>
+                            <td>{item.location || "—"}</td>
+                            <td>{departments.find((d) => d.id === item.department_id)?.name ?? "Unassigned"}</td>
+                            <td>{item.category ?? "Pending"}</td>
+                            <td className="ticketDescription" title={item.description}>{item.description}</td>
+                            <td>{staff.find((member) => member.id === item.assigned_staff_id)?.name ?? (item.assigned_staff_id ? "Assigned" : "Unassigned")}</td>
+                            <td><span className={`priorityTag priority-${item.priority ?? "normal"}`}>{item.priority ?? "Normal"}</span></td>
+                            <td>{formatDate(item.created_at)}</td>
+                            <td><Status status={item.status} /></td>
+                            <td>{item.images?.length ?? 0}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div className="ticketPagination">
+                    <span>Showing {sortedComplaints.length === 0 ? 0 : (currentPage - 1) * pageSize + 1}–{Math.min(currentPage * pageSize, sortedComplaints.length)} of {sortedComplaints.length} complaints</span>
+                    <div>
+                      <label>Rows
+                        <select value={pageSize} onChange={(e) => { setPageSize(Number(e.target.value)); setCurrentPage(1); }}>
+                          <option value={10}>10</option><option value={25}>25</option><option value={50}>50</option><option value={100}>100</option>
+                        </select>
+                      </label>
+                      <button disabled={currentPage <= 1} onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}>Previous</button>
+                      <span>Page {currentPage} of {totalPages}</span>
+                      <button disabled={currentPage >= totalPages} onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}>Next</button>
+                    </div>
+                  </div>
+                </>
+              )
+            ) : (view === "overview" ? complaints.slice(0, 5) : filtered).length === 0 ? (
               <div className="empty">No complaints match the current filter.</div>
             ) : (
               <div className="table">
-                {(view === "overview" ? complaints.slice(0, 5) : filtered).map((item) => (
+                {complaints.slice(0, 5).map((item) => (
                   <button key={item.id} className={selected?.id === item.id ? "complaintRow selected" : "complaintRow"} onClick={() => setSelected(item)}>
-                    <div className="rowMain">
-                      <Status status={item.status} />
-                      <strong>{item.title}</strong>
-                      <span>{item.location}</span>
-                    </div>
-                    <div className="rowMeta">
-                      <span>{item.student?.name ?? "Student"}</span>
-                      <span>{formatDate(item.created_at)}</span>
-                    </div>
+                    <div className="rowMain"><Status status={item.status} /><strong>{item.title}</strong><span>{item.location}</span></div>
+                    <div className="rowMeta"><span>{item.student?.name ?? "Student"}</span><span>{formatDate(item.created_at)}</span></div>
                   </button>
                 ))}
               </div>

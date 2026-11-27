@@ -266,3 +266,40 @@ h1, .detailHeader h2 { font-family: 'Manrope', Arial, sans-serif; letter-spacing
 .complaintsPageHeading p { margin: 0; color: #6c7890; font-size: 14px; }
 .workspace.complaintsOnly { grid-template-columns: minmax(0, 1fr); }
 .workspace.complaintsOnly .listPanel { width: 100%; }
+
+
+/* Admin ticket register */
+.ticketToolbar { gap: 14px; }
+.ticketControls { display:flex; align-items:center; gap:14px; }
+.ticketControls input { flex:1; min-width:220px; }
+.ticketControls label, .ticketPagination label { display:flex; align-items:center; gap:8px; color:#647189; font-size:12px; white-space:nowrap; }
+.ticketControls select, .ticketPagination select {
+  border:1px solid #dce3ee; border-radius:8px; padding:8px 10px; background:#fff; color:#34415a;
+}
+.ticketTableWrap { width:100%; overflow:auto; }
+.ticketTable { width:100%; min-width:1450px; border-collapse:separate; border-spacing:0; font-size:12px; color:#354159; }
+.ticketTable th {
+  position:sticky; top:0; z-index:1; padding:13px 12px; background:#18366b; color:#fff;
+  text-align:left; font-size:11px; font-weight:700; white-space:nowrap; border-right:1px solid rgba(255,255,255,.12);
+}
+.ticketTable td {
+  max-width:190px; padding:13px 12px; vertical-align:top; border-bottom:1px solid #e8edf4;
+  background:#fff; line-height:1.45;
+}
+.ticketTable tbody tr:nth-child(even) td { background:#f8faff; }
+.ticketTable tbody tr:hover td { background:#edf3ff; }
+.ticketTable td small { display:block; margin-top:4px; color:#8390a5; font-size:10px; }
+.ticketTable .ticketId { color:#2457d6; font-weight:800; white-space:nowrap; }
+.ticketTable .ticketDescription { min-width:220px; max-width:280px; white-space:normal; }
+.priorityTag { display:inline-block; border-radius:999px; padding:4px 8px; background:#eef2f7; color:#53617a; font-size:10px; font-weight:700; text-transform:capitalize; }
+.priority-high { background:#fff3df; color:#a86400; }
+.priority-critical { background:#ffebeb; color:#b42323; }
+.ticketPagination { display:flex; justify-content:space-between; align-items:center; gap:14px; padding:13px 15px; color:#718097; font-size:11px; }
+.ticketPagination > div { display:flex; align-items:center; gap:10px; }
+.ticketPagination button { border:1px solid #dce3ee; border-radius:8px; background:white; color:#43516a; padding:7px 10px; font-size:11px; }
+.ticketPagination button:disabled { opacity:.45; cursor:not-allowed; }
+@media (max-width:700px) {
+  .ticketControls { align-items:stretch; flex-direction:column; }
+  .ticketPagination { align-items:flex-start; flex-direction:column; }
+  .ticketPagination > div { flex-wrap:wrap; }
+}
