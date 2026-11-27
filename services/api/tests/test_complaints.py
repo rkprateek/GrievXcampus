@@ -134,9 +134,11 @@ def test_student_complaint_detail_includes_images(client: TestClient, monkeypatc
     )
     complaint_id = create.json()["id"]
 
+    fake_png = b"\x89PNG\r\n\x1a\nfake-image"
+
     class FakeStorage:
         def upload_image(self, content: bytes, content_type: str, filename: str) -> str:
-            assert content == b"fake-image"
+            assert content == fake_png
             return f"complaints/{uuid4()}.png"
 
     import app.api.routes.complaints as complaints_route
@@ -146,7 +148,7 @@ def test_student_complaint_detail_includes_images(client: TestClient, monkeypatc
     upload = client.post(
         f"/complaints/{complaint_id}/images",
         headers=headers,
-        files={"file": ("photo.png", b"fake-image", "image/png")},
+        files={"file": ("photo.png", fake_png, "image/png")},
     )
     assert upload.status_code == 201
     assert upload.json()["content_type"] == "image/png"
