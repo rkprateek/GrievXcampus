@@ -111,3 +111,51 @@ using (
       and public.can_access_grievx_complaint(c.department_id, c.assigned_staff_id)
   )
 );
+
+
+-- Preserve administrator assignment management while constraining department heads.
+drop policy if exists "Admins and department heads can create scoped assignments" on public.staff_assignments;
+create policy "Admins and department heads can create scoped assignments"
+on public.staff_assignments for insert to authenticated
+with check (
+  assigned_by = (select auth.uid())
+  and (
+    public.is_grievx_admin()
+    or exists (
+      select 1 from public.complaints c
+      join public.profiles actor on actor.id = (select auth.uid())
+      join public.profiles target_staff on target_staff.id = staff_id
+      where c.id = complaint_id
+        and actor.role = 'department_head'
+        and actor.department_id = c.department_id
+        and target_staff.role = 'staff'
+        and target_staff.department_id = c.department_id
+    )
+  )
+);
+drop policy if exists "Admins and department heads can update scoped assignments" on public.staff_assignments;
+create policy "Admins and department heads can update scoped assignments"
+on public.staff_assignments for update to authenticated
+using (
+  public.is_grievx_admin()
+  or exists (
+    select 1 from public.complaints c
+    join public.profiles actor on actor.id = (select auth.uid())
+    where c.id = complaint_id
+      and actor.role = 'department_head'
+      and actor.department_id = c.department_id
+  )
+)
+with check (
+  public.is_grievx_admin()
+  or exists (
+    select 1 from public.complaints c
+    join public.profiles actor on actor.id = (select auth.uid())
+    join public.profiles target_staff on target_staff.id = staff_id
+    where c.id = complaint_id
+      and actor.role = 'department_head'
+      and actor.department_id = c.department_id
+      and target_staff.role = 'staff'
+      and target_staff.department_id = c.department_id
+  )
+);
