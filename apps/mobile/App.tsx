@@ -129,7 +129,7 @@ function AppContent() {
         <Detail id={id} back={() => setScreen("complaints")} />
       )}
       {screen === "notifications" && <Notifications back={() => setScreen("home")} openComplaint={open} />}
-      {screen === "profile" && <Profile back={() => setScreen("home")} logout={signOut} />}
+      {screen === "profile" && <Profile back={() => setScreen("home")} go={setScreen} logout={signOut} />}
       {screen !== "detail" && <Nav active={screen} go={setScreen} />}
     </SafeAreaView>
   );
@@ -691,7 +691,7 @@ function Detail({ id, back }: { id: string; back: () => void }) {
   );
 }
 
-function Profile({ back, logout }: { back: () => void; logout: () => void }) {
+function Profile({ back, go, logout }: { back: () => void; go: (x: Screen) => void; logout: () => void }) {
   const [me, setMe] = useState<{ name: string; email?: string } | null>(null);
   const [stats, setStats] = useState({ total: 0, submitted: 0, resolved: 0, rejected: 0 });
   const [unread, setUnread] = useState(0);
