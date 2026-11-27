@@ -677,7 +677,7 @@ function Complaints({ back, open }: { back: () => void; open: (id: string) => vo
           );
         }}
       />
-      <Modal visible={!!editing} transparent animationType="slide" onRequestClose={() => !saving && setEditing(null)}>
+      <Modal visible={!!editing} transparent animationType="slide" onRequestClose={() => { if (!saving) setEditing(null); }}>
         <View style={s.editModalBackdrop}>
           <View style={s.editModalCard}>
             <Text style={s.cardTitle}>Edit complaint</Text>
