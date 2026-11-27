@@ -90,7 +90,7 @@ def test_department_route_endpoint() -> None:
 
 
 
-def test_classroom_fan_routes_to_facilities() -> None:
+def test_classroom_fan_routes_to_electrical() -> None:
     client = TestClient(app)
     response = client.post("/ml/predict", json={
         "title": "Fan not working",
@@ -98,9 +98,21 @@ def test_classroom_fan_routes_to_facilities() -> None:
     })
     assert response.status_code == 200
     payload = response.json()
-    assert payload["category"]["category"] == "Classroom & Facilities"
-    assert payload["routing"]["department_code"] == "FAC"
+    assert payload["category"]["category"] == "Electrical"
+    assert payload["routing"]["department_code"] == "ELEC"
 
+
+
+def test_electrical_switch_fault_routes_to_electrical() -> None:
+    client = TestClient(app)
+    response = client.post("/ml/predict", json={
+        "title": "Classroom switch not working",
+        "description": "The electrical switch is faulty in room 201.",
+    })
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["category"]["category"] == "Electrical"
+    assert payload["routing"]["department_code"] == "ELEC"
 
 def test_hostel_fan_routes_to_hostel() -> None:
     client = TestClient(app)
